@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDrawerStatus } from "@react-navigation/drawer";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
@@ -272,9 +273,11 @@ const ManagerDrawerContent = (props) => {
     return true;
   };
 
+  const isDrawerOpen = useDrawerStatus() === "open";
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
+      {isDrawerOpen && <StatusBar barStyle="light-content" backgroundColor="#071A2F" />}
 
       {/* ── COMPACT PROFILE HEADER ──────────────────────────────────── */}
       <LinearGradient

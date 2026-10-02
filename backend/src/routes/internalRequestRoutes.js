@@ -4,6 +4,7 @@ const upload = require("../middleware/uploadMiddleware");
 const {
   getRequests,
   getRequestById,
+  getTargetOptions,
   createRequest,
   replyToRequest,
   updateRequestStatus,
@@ -15,6 +16,7 @@ const {
 
 router.get("/unread-count", getUnreadCount);
 router.post("/mark-seen", markRequestsSeen);
+router.get("/target-options", getTargetOptions);
 router.get("/", getRequests);
 router.post("/upload", upload.single("file"), uploadRequestAttachment);
 router.post("/", createRequest);

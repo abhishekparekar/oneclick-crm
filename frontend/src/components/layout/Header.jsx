@@ -614,29 +614,28 @@ const Header = ({ onMenuClick }) => {
                 localStorage.setItem("lastSeenSuperAdminRequests_" + user?._id, now);
               } else {
                 localStorage.setItem("lastSeenCompanyRequests_" + user?._id, now);
-                api.post("/internal-requests/mark-seen").catch(() => {});
+                api.post("/internal-requests/mark-seen").catch(() => { });
               }
 
               const reqPath = isSuperAdmin
                 ? "/superadmin/company-requests"
                 : user?.role === "HR"
-                ? "/hr/requests"
-                : user?.role === "Manager"
-                ? "/manager/requests"
-                : user?.role === "Employee"
-                ? "/employee/requests"
-                : "/company/requests";
+                  ? "/hr/requests"
+                  : user?.role === "Manager"
+                    ? "/manager/requests"
+                    : user?.role === "Employee"
+                      ? "/employee/requests"
+                      : "/company/requests";
               navigate(reqPath);
             }}
-            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${
-              location.pathname.includes("/requests") || location.pathname.includes("/company-requests")
+            className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${location.pathname.includes("/requests") || location.pathname.includes("/company-requests")
                 ? isSuperAdmin
                   ? "bg-sa-primary/10 text-sa-primary"
                   : "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold"
                 : isSuperAdmin
-                ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
-                : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
+                  ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
+                  : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
             title={isSuperAdmin ? "Web Company Registrations" : "Company Requests"}
           >
             <MessageSquare size={18} />
@@ -659,12 +658,12 @@ const Header = ({ onMenuClick }) => {
               setProfileOpen(false);
             }}
             className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${notifOpen
-                ? isSuperAdmin
-                  ? "bg-sa-primary/10 text-sa-primary"
-                  : "bg-orange-500/10 text-orange-500"
-                : isSuperAdmin
-                  ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
-                  : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              ? isSuperAdmin
+                ? "bg-sa-primary/10 text-sa-primary"
+                : "bg-orange-500/10 text-orange-500"
+              : isSuperAdmin
+                ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
+                : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             title="Notifications"
           >
@@ -680,13 +679,13 @@ const Header = ({ onMenuClick }) => {
             <div
               onClick={(e) => e.stopPropagation()}
               className={`absolute right-0 top-full mt-2 w-84 sm:w-96 rounded-2xl shadow-2xl overflow-hidden border z-50 transition-all ${isSuperAdmin
-                  ? "bg-sa-surface border-sa-border text-sa-text"
-                  : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100"
+                ? "bg-sa-surface border-sa-border text-sa-text"
+                : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100"
                 }`}
             >
               <div className={`flex items-center justify-between px-4 py-3 border-b ${isSuperAdmin
-                  ? "border-sa-border bg-sa-bg/60"
-                  : "border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-[#162632]"
+                ? "border-sa-border bg-sa-bg/60"
+                : "border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-[#162632]"
                 }`}>
                 <div className="flex items-center space-x-2">
                   <Bell size={16} className="text-orange-500" />
@@ -734,14 +733,14 @@ const Header = ({ onMenuClick }) => {
                       >
                         <div className="flex items-start gap-3">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${isLead
-                              ? "bg-orange-100 dark:bg-orange-950/50 text-orange-600"
-                              : isReq
-                                ? "bg-amber-100 dark:bg-amber-950/50 text-amber-600"
-                                : isAnn
-                                  ? "bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600"
-                                  : isTsk
-                                    ? "bg-blue-100 dark:bg-blue-950/50 text-blue-600"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                            ? "bg-orange-100 dark:bg-orange-950/50 text-orange-600"
+                            : isReq
+                              ? "bg-amber-100 dark:bg-amber-950/50 text-amber-600"
+                              : isAnn
+                                ? "bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600"
+                                : isTsk
+                                  ? "bg-blue-100 dark:bg-blue-950/50 text-blue-600"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
                             }`}>
                             {isLead ? (
                               <Magnet size={15} />
@@ -759,14 +758,14 @@ const Header = ({ onMenuClick }) => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1.5 mb-1">
                               <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider ${isLead
-                                  ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
-                                  : isReq
-                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                    : isAnn
-                                      ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                                      : isTsk
-                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                                        : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
+                                : isReq
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                  : isAnn
+                                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                                    : isTsk
+                                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                                      : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                                 }`}>
                                 {isLead ? "Lead CRM" : isReq ? "Company Request" : isAnn ? "Announcement" : isTsk ? "Task" : "Alert"}
                               </span>
@@ -801,8 +800,8 @@ const Header = ({ onMenuClick }) => {
           to={announcementsRoute}
           title="Announcements"
           className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${isSuperAdmin
-              ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
-              : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text"
+            : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             }`}
         >
           <Megaphone size={18} />

@@ -153,7 +153,7 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false, onToggleC
       superAdminOnly: false,
       items: [
         { label: "All Companies", path: "/superadmin/companies", icon: Building2, module: "companies" },
-        { label: "Web Company Registrations", path: "/superadmin/company-requests", icon: UserPlus, module: "companyRequests" },
+        { label: "Company Queries", path: "/superadmin/company-requests", icon: MessageSquare, module: "companyRequests" },
         { label: "All Admins Details", path: "/superadmin/company-admins", icon: ShieldCheck, module: "companyAdmins" },
       ],
     },

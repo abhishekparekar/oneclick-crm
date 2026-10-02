@@ -16,7 +16,8 @@ const getDateKey = (d = new Date()) => {
 const initCronJobs = () => {
   console.log("Initializing cron jobs for reminders (Asia/Kolkata timezone)...");
 
-  // 1. Daily Punch-in reminder at 9:00 AM
+  // 1. Daily Punch-in reminder at 9:00 AM (Disabled: Keeping only Pre-shift 1-hour reminder)
+  /*
   cron.schedule("0 9 * * 1-5", async () => {
     try {
       const today = getDateKey();
@@ -42,8 +43,10 @@ const initCronJobs = () => {
       console.error("Cron Error (Punch-in reminder):", err);
     }
   }, { timezone: "Asia/Kolkata" });
+  */
 
-  // 2. Daily Punch-out reminder at 6:00 PM
+  // 2. Daily Punch-out reminder at 6:00 PM (Disabled: Keeping only Pre-shift 1-hour reminder)
+  /*
   cron.schedule("0 18 * * 1-5", async () => {
     try {
       const today = getDateKey();
@@ -64,6 +67,7 @@ const initCronJobs = () => {
       console.error("Cron Error (Punch-out reminder):", err);
     }
   }, { timezone: "Asia/Kolkata" });
+  */
 
   // 3. Overdue tasks reminder at 8:00 AM
   cron.schedule("0 8 * * *", async () => {

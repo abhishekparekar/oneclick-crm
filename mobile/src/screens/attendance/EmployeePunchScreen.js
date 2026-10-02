@@ -6,6 +6,9 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Pressable,
+  Animated,
+  Vibration,
   Platform,
   StatusBar,
   Image,
@@ -50,9 +53,30 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   const [selfieUri, setSelfieUri] = useState(null);
   const [capturingSelfie, setCapturingSelfie] = useState(false);
   const [submittingPunch, setSubmittingPunch] = useState(false);
+  const [pressedIn, setPressedIn] = useState(false);
+  const punchScaleAnim = useRef(new Animated.Value(1)).current;
+  const lastPressRef = useRef(0); // debounce double-tap
   const cameraRef = useRef(null);
   const isMountedRef = useRef(true);
   const isFocused = useIsFocused();
+
+  // Animate punch button scale on press
+  const animatePressIn = () => {
+    Animated.spring(punchScaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start();
+  };
+  const animatePressOut = () => {
+    Animated.spring(punchScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 4,
+    }).start();
+  };
 
   const checkCameraPermission = async () => {
     try {
@@ -416,12 +440,21 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   };
 
   const handleCameraPunchConfirm = async () => {
+    // Debounce: block if called within 800ms of last press
+    const now = Date.now();
+    if (now - lastPressRef.current < 800) return;
+    lastPressRef.current = now;
+
     if (submittingPunch || capturingSelfie) return;
 
     if (isPunchDisabled) {
+      Vibration.vibrate(120);
       Alert.alert("Locked", "You are outside the authorized office boundary.");
       return;
     }
+
+    // Haptic feedback on valid press
+    Vibration.vibrate(30);
 
     let activeSelfie = selfieUri;
     if (!activeSelfie) {
@@ -440,7 +473,7 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         "Punch Out Confirmation",
         "Are you sure you want to punch out for the day?",
         [
-          { text: "Cancel", style: "cancel" },
+          { text: "Cancel", style: "cancel", onPress: () => animatePressOut() },
           { text: "Yes, Punch Out", style: "destructive", onPress: () => executePunch(activeSelfie) },
         ]
       );
@@ -620,29 +653,49 @@ const EmployeePunchScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[
-              styles.punchBtn,
-              {
-                backgroundColor: action === "in" ? "#16A34A" : "#EF4444",
-              },
-            ]}
+          <Pressable
+            style={styles.punchPressable}
+            onPressIn={() => {
+              if (isWorking) return;
+              setPressedIn(true);
+              animatePressIn();
+            }}
+            onPressOut={() => {
+              setPressedIn(false);
+              animatePressOut();
+            }}
             onPress={handleCameraPunchConfirm}
             disabled={isWorking}
-            activeOpacity={0.85}
           >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons
-                name={action === "in" ? "log-in" : "log-out"}
-                size={22}
-                color="#FFFFFF"
-                style={{ marginRight: 10 }}
-              />
-              <Text style={styles.punchBtnText}>
-                {action === "in" ? "Clock In Now" : "Clock Out Now"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.punchBtn,
+                {
+                  backgroundColor: pressedIn
+                    ? action === "in" ? "#15803D" : "#DC2626"
+                    : action === "in" ? "#16A34A" : "#EF4444",
+                  transform: [{ scale: punchScaleAnim }],
+                  shadowColor: action === "in" ? "#16A34A" : "#EF4444",
+                  shadowOffset: { width: 0, height: pressedIn ? 2 : 6 },
+                  shadowOpacity: pressedIn ? 0.2 : 0.45,
+                  shadowRadius: pressedIn ? 4 : 12,
+                  elevation: pressedIn ? 3 : 10,
+                },
+              ]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons
+                  name={action === "in" ? "log-in" : "log-out"}
+                  size={22}
+                  color="#FFFFFF"
+                  style={{ marginRight: 10 }}
+                />
+                <Text style={styles.punchBtnText}>
+                  {action === "in" ? "Clock In Now" : "Clock Out Now"}
+                </Text>
+              </View>
+            </Animated.View>
+          </Pressable>
         )}
 
         <TouchableOpacity
@@ -829,6 +882,9 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "android" ? 32 : 44,
     alignItems: "center",
   },
+  punchPressable: {
+    width: "100%",
+  },
   punchBtn: {
     width: "100%",
     paddingVertical: 18,
@@ -837,7 +893,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
   punchBtnText: {
     color: "#FFFFFF",

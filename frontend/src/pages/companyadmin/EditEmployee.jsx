@@ -665,6 +665,52 @@ export default function EditEmployee() {
   const handleSave = () => {
     if (!formData) return;
 
+    // ── Email validation ────────────────────────────────────────────────────
+    const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!formData.email?.trim()) {
+      toast.error("Official email address is required.");
+      setActiveStep(1);
+      return;
+    }
+    if (!EMAIL_RE.test(formData.email.trim())) {
+      toast.error("Please enter a valid email address (e.g. name@company.com).");
+      setActiveStep(1);
+      return;
+    }
+
+    // ── Primary phone validation ────────────────────────────────────────────
+    if (!formData.phone?.trim()) {
+      toast.error("Primary phone number is required.");
+      setActiveStep(1);
+      return;
+    }
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+    if (!/^[6-9]/.test(phoneDigits)) {
+      toast.error("Phone number must start with 6, 7, 8, or 9.");
+      setActiveStep(1);
+      return;
+    }
+    if (phoneDigits.length !== 10) {
+      toast.error(`Phone number must be exactly 10 digits (currently ${phoneDigits.length}).`);
+      setActiveStep(1);
+      return;
+    }
+
+    // ── Emergency contact phone (optional but validated if provided) ─────────
+    if (formData.emergencyContact?.phone) {
+      const epDigits = formData.emergencyContact.phone.replace(/\D/g, "");
+      if (epDigits && epDigits.length !== 10) {
+        toast.error(`Emergency contact phone must be 10 digits (currently ${epDigits.length}).`);
+        setActiveStep(3);
+        return;
+      }
+      if (epDigits && !/^[6-9]/.test(epDigits)) {
+        toast.error("Emergency contact phone must start with 6, 7, 8, or 9.");
+        setActiveStep(3);
+        return;
+      }
+    }
+
     const hasDept = (formData.accessibleDepartments && formData.accessibleDepartments.length > 0) || formData.departmentId;
     if (!hasDept) {
       toast.error("Department is required");

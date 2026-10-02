@@ -347,8 +347,6 @@ const EmployeeEditProfileScreen = ({ navigation }) => {
   return (
     <Layout navigation={navigation} title="Edit My Profile" showBackButton>
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
         {/* Step Indicator Header */}
         <View style={styles.stepperContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepperScroll}>

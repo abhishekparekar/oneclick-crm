@@ -2,14 +2,17 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getCompanyRequestsApi, updateCompanyRequestStatusApi,
-  convertCompanyRequestApi, deleteCompanyRequestApi, getPlansApi
+  convertCompanyRequestApi, deleteCompanyRequestApi, getPlansApi,
+  getSuperAdminSubscriptionRequestsApi, updateSubscriptionRequestStatusApi,
 } from "../../api/superAdminApi";
 import DataTable from "../../components/common/DataTable";
+import toast from "react-hot-toast";
 import {
   Search, Plus, MoreVertical, Eye, CheckCircle, CheckCircle2, XCircle, Trash2,
   ArrowRightCircle, Clock, Building2, Inbox, User, Briefcase,
   Mail, Phone, Calendar, Sparkles, Shield, Check, Filter,
-  ArrowUpRight, ChevronDown, FileText, AlertCircle
+  ArrowUpRight, ChevronDown, FileText, AlertCircle, MessageSquare,
+  RefreshCw, Send, HelpCircle,
 } from "lucide-react";
 
 /* ─── Palette-Enforced Status Badge ────────────────────────────────────── */
@@ -33,11 +36,10 @@ const RequestStatusBadge = ({ status }) => {
 
 /* ─── Top Summary KPI Card ─────────────────────────────────────────────── */
 const RequestKpiCard = ({ title, count, subtitle, icon: Icon, grad = ["#d97706", "#f59e0b"], active, onClick }) => (
-  <div 
+  <div
     onClick={onClick}
-    className={`bg-sa-surface rounded-2xl p-4 border transition-all cursor-pointer flex items-center justify-between shadow-xs ${
-      active ? "border-[#f59e0b] ring-2 ring-[#f59e0b]/20 shadow-md" : "border-sa-border hover:border-sa-border/80 hover:bg-sa-bg/30"
-    }`}
+    className={`bg-sa-surface rounded-2xl p-4 border transition-all cursor-pointer flex items-center justify-between shadow-xs ${active ? "border-[#f59e0b] ring-2 ring-[#f59e0b]/20 shadow-md" : "border-sa-border hover:border-sa-border/80 hover:bg-sa-bg/30"
+      }`}
   >
     <div>
       <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1">{title}</p>
@@ -55,6 +57,9 @@ const RequestKpiCard = ({ title, count, subtitle, icon: Icon, grad = ["#d97706",
 
 const SuperAdminCompanyRequests = () => {
   const queryClient = useQueryClient();
+
+
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -71,6 +76,13 @@ const SuperAdminCompanyRequests = () => {
     adminPhone: "",
   });
 
+  // ── Company Queries (SubscriptionRequest) state
+  const [querySearch, setQuerySearch] = useState("");
+  const [queryStatusFilter, setQueryStatusFilter] = useState("all");
+  const [selectedQuery, setSelectedQuery] = useState(null);
+  const [queryActionMode, setQueryActionMode] = useState(null); // 'resolve' | 'reject' | 'review'
+  const [queryActionNotes, setQueryActionNotes] = useState("");
+
   const { data: requestsData, isLoading } = useQuery({
     queryKey: ["superAdminCompanyRequests", statusFilter],
     queryFn: () => getCompanyRequestsApi({ status: statusFilter }),
@@ -78,13 +90,49 @@ const SuperAdminCompanyRequests = () => {
 
   const { data: plansData } = useQuery({ queryKey: ["superAdminPlans"], queryFn: () => getPlansApi() });
 
+  // Subscription / Company Queries
+  const { data: queriesData, isLoading: queriesLoading, refetch: refetchQueries } = useQuery({
+    queryKey: ["superAdminSubscriptionRequests", queryStatusFilter, querySearch],
+    queryFn: () => getSuperAdminSubscriptionRequestsApi({ status: queryStatusFilter, search: querySearch }).then(r => r.data),
+  });
+
+  const queries = queriesData?.data || [];
+  const queryStats = queriesData?.stats || { total: 0, pending: 0, inReview: 0, approved: 0, resolved: 0, rejected: 0 };
+
+  const queryUpdateMut = useMutation({
+    mutationFn: ({ id, data }) => updateSubscriptionRequestStatusApi(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["superAdminSubscriptionRequests"] });
+      toast.success("Query status updated & company admin notified!");
+      setSelectedQuery(null);
+      setQueryActionMode(null);
+      setQueryActionNotes("");
+    },
+    onError: (err) => toast.error(err.response?.data?.message || "Failed to update query"),
+  });
+
+  const handleQueryAction = () => {
+    if (!selectedQuery || !queryActionMode) return;
+    const statusMap = { resolve: "resolved", reject: "rejected", review: "in_review" };
+    queryUpdateMut.mutate({
+      id: selectedQuery._id,
+      data: { status: statusMap[queryActionMode], adminResponseNotes: queryActionNotes },
+    });
+  };
+
   const requests = requestsData?.data?.requests || [];
   const plans = plansData?.data?.plans || [];
 
-  const filteredRequests = requests.filter(req => 
+  const filteredRequests = requests.filter(req =>
     (req.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (req.ownerEmail || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (req.requestCode || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredQueries = queries.filter(q =>
+    (q.companyName || "").toLowerCase().includes(querySearch.toLowerCase()) ||
+    (q.requestCode || "").toLowerCase().includes(querySearch.toLowerCase()) ||
+    (q.message || "").toLowerCase().includes(querySearch.toLowerCase())
   );
 
   const statusMutation = useMutation({
@@ -252,11 +300,10 @@ const SuperAdminCompanyRequests = () => {
                   });
                 }
               }}
-              className={`p-1.5 rounded-lg border transition-all ${
-                activeMenu?.id === row._id
+              className={`p-1.5 rounded-lg border transition-all ${activeMenu?.id === row._id
                   ? "bg-sa-primary text-white border-sa-primary shadow-sm"
                   : "hover:bg-sa-bg text-sa-text-secondary border-transparent hover:border-sa-border/30"
-              }`}
+                }`}
             >
               <MoreVertical size={14} />
             </button>
@@ -267,380 +314,283 @@ const SuperAdminCompanyRequests = () => {
   ];
 
   /* ─── Render Page ────────────────────────────────────────────────────── */
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+  const QUERY_STATUS_BADGE = {
+    pending: { label: "Pending", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700" },
+    in_review: { label: "In Review", cls: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700" },
+    approved: { label: "Approved", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700" },
+    provisioned: { label: "Provisioned", cls: "bg-emerald-600 text-white border-emerald-600" },
+    resolved: { label: "Resolved ✓", cls: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-700" },
+    rejected: { label: "Declined", cls: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-700" },
+  };
+
   return (
     <div className="space-y-3 sm:space-y-3.5 w-full pb-12">
-      {/* Header & Title */}
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Web Company Registrations</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Review website registration requests, leads, and activate approved registrations into companies.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight flex items-center gap-2">
+            <MessageSquare size={22} className="text-[#f59e0b]" />
+            Company Queries &amp; Inquiries
+            {queryStats.pending > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-black animate-pulse">
+                {queryStats.pending} Pending
+              </span>
+            )}
+          </h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">
+            Review and respond to subscription requests, plan upgrades, and custom inquiries sent by company admins.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => refetchQueries()}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-sa-border/30 bg-sa-surface text-xs font-bold text-sa-text-secondary hover:text-sa-text transition-all cursor-pointer self-start"
+        >
+          <RefreshCw size={13} className={queriesLoading ? "animate-spin text-amber-500" : ""} />
+          Refresh
+        </button>
       </div>
 
-      {/* Analytics KPI Row (4 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        <RequestKpiCard 
-          title="All Inquiries" 
-          count={requests.length} 
-          subtitle="Total recorded" 
-          icon={Inbox} 
-          grad={["#d97706", "#f59e0b"]} 
-          active={statusFilter === "all"} 
-          onClick={() => setStatusFilter("all")} 
-        />
-        <RequestKpiCard 
-          title="New / Pending" 
-          count={requests.filter(r => r.status === 'new' || r.status === 'contacted').length} 
-          subtitle="Awaiting action" 
-          icon={Clock} 
-          grad={["#d97706", "#f59e0b"]} 
-          active={statusFilter === "new"} 
-          onClick={() => setStatusFilter("new")} 
-        />
-        <RequestKpiCard 
-          title="Approved Leads" 
-          count={requests.filter(r => r.status === 'approved').length} 
-          subtitle="Ready to activate" 
-          icon={CheckCircle2} 
-          grad={["#059669", "#10b981"]} 
-          active={statusFilter === "approved"} 
-          onClick={() => setStatusFilter("approved")} 
-        />
-        <RequestKpiCard 
-          title="Activated Companies" 
-          count={requests.filter(r => r.status === 'converted').length} 
-          subtitle="Converted companies" 
-          icon={Building2} 
-          grad={["#2563eb", "#3b82f6"]} 
-          active={statusFilter === "converted"} 
-          onClick={() => setStatusFilter("converted")} 
-        />
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        {[
+          { id: "all",       label: "Total",     val: queryStats.total,    cls: "border-sa-border" },
+          { id: "pending",   label: "Pending",   val: queryStats.pending,  cls: "border-amber-400 bg-amber-500/10" },
+          { id: "in_review", label: "In Review", val: queryStats.inReview, cls: "border-cyan-400 bg-cyan-500/10" },
+          { id: "resolved",  label: "Resolved",  val: queryStats.resolved, cls: "border-teal-400 bg-teal-500/10" },
+          { id: "rejected",  label: "Declined",  val: queryStats.rejected, cls: "border-rose-400 bg-rose-500/10" },
+        ].map(s => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setQueryStatusFilter(s.id)}
+            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${queryStatusFilter === s.id ? "ring-2 ring-[#f59e0b] shadow-md " + s.cls : "bg-sa-surface " + s.cls}`}
+          >
+            <p className="text-[9px] font-bold uppercase tracking-wider text-sa-text-secondary">{s.label}</p>
+            <p className="text-xl font-black text-sa-text leading-none mt-0.5">{s.val}</p>
+          </button>
+        ))}
       </div>
 
-      {/* Filter Toolbar Card */}
-      <div className="bg-sa-surface p-4 rounded-2xl border border-sa-border/30 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      {/* Search bar */}
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
           <input
             type="text"
-            placeholder="Search company name, email address, or request code..."
-            className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by company, request code, or message..."
+            value={querySearch}
+            onChange={e => setQuerySearch(e.target.value)}
+            className="w-full bg-sa-surface border border-sa-border/30 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all"
           />
-        </div>
-
-        {/* Quick Filter Pills */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { id: "all", label: "All" },
-            { id: "new", label: "New" },
-            { id: "contacted", label: "Contacted" },
-            { id: "approved", label: "Approved" },
-            { id: "converted", label: "Converted" },
-          ].map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setStatusFilter(item.id)}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold whitespace-nowrap transition-all border ${
-                statusFilter === item.id 
-                  ? "bg-[#f59e0b]/15 text-[#f59e0b] border-[#f59e0b]/40 shadow-2xs" 
-                  : "bg-sa-bg/60 text-sa-text-secondary border-sa-border/30 hover:text-sa-text"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
         </div>
       </div>
 
-      {/* Data Table Section */}
-      {isLoading ? (
-        <div className="py-20 text-center bg-sa-surface rounded-2xl border border-sa-border/30 p-8">
-          <div className="animate-spin w-8 h-8 border-4 border-[#f59e0b] border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-xs font-extrabold text-sa-text-secondary">Loading company requests...</p>
+      {/* Query Cards */}
+      {queriesLoading ? (
+        <div className="py-20 text-center bg-sa-surface rounded-2xl border border-sa-border/30">
+          <div className="animate-spin w-8 h-8 border-4 border-[#f59e0b] border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-xs font-extrabold text-sa-text-secondary">Loading company queries...</p>
+        </div>
+      ) : filteredQueries.length === 0 ? (
+        <div className="py-20 text-center bg-sa-surface rounded-2xl border border-sa-border/30 space-y-2">
+          <HelpCircle size={32} className="mx-auto text-sa-text-secondary/40" />
+          <p className="text-xs font-extrabold text-sa-text-secondary">No queries found for selected filter.</p>
+          <p className="text-[11px] text-sa-text-secondary/60">Company admins send queries from their Subscription panel.</p>
         </div>
       ) : (
-        <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm overflow-hidden">
-          <DataTable columns={columns} data={filteredRequests} pagination={{ total: filteredRequests.length }} />
+        <div className="space-y-2.5">
+          {filteredQueries.map(q => {
+            const badge = QUERY_STATUS_BADGE[q.status] || QUERY_STATUS_BADGE.pending;
+            const isResolved = q.status === "resolved" || q.status === "provisioned";
+            return (
+              <div key={q._id} className="bg-sa-surface border border-sa-border/30 rounded-2xl p-4 space-y-3 hover:border-[#f59e0b]/40 transition-all shadow-xs">
+                {/* Top row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#d97706] to-[#f59e0b] text-white font-extrabold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
+                      {(q.companyName || "C").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-extrabold text-sa-text">{q.companyName}</span>
+                        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-bold">{q.requestCode}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${badge.cls}`}>{badge.label}</span>
+                      </div>
+                      <p className="text-[10px] text-sa-text-secondary mt-0.5">
+                        By {q.requestedBy?.name || q.requestedBy?.email || "Company Admin"} &middot; {formatDate(q.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="px-2 py-0.5 rounded-md bg-sa-bg border border-sa-border/30 text-[10px] font-bold text-sa-text-secondary capitalize">
+                      {q.requestType?.replace(/_/g, " ")}
+                    </span>
+                    {q.priority === "urgent" && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-white text-[10px] font-black uppercase">URGENT</span>}
+                    {q.priority === "high" && <span className="px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-400/40 text-[10px] font-bold uppercase">HIGH</span>}
+                  </div>
+                </div>
+
+                {/* Message */}
+                {q.message && (
+                  <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-3 text-xs">
+                    <p className="text-[10px] font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-0.5">Company Admin Message</p>
+                    <p className="text-sa-text leading-relaxed italic">"{q.message}"</p>
+                  </div>
+                )}
+
+                {/* Plans */}
+                {(q.currentPlanName || q.requestedPlanName) && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-sa-bg p-2 rounded-xl border border-sa-border/30">
+                      <p className="text-[10px] font-bold uppercase text-sa-text-secondary">Current Plan</p>
+                      <p className="font-extrabold text-sa-text">{q.currentPlanName || "—"}</p>
+                    </div>
+                    <div className="bg-sa-bg p-2 rounded-xl border border-sa-border/30">
+                      <p className="text-[10px] font-bold uppercase text-sa-text-secondary">Requested Plan</p>
+                      <p className="font-extrabold text-amber-600 dark:text-amber-400">{q.requestedPlanName || "Custom / Not specified"}</p>
+                      {q.requestedSeats > 0 && <p className="text-[10px] text-sa-text-secondary">{q.requestedSeats} seats</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin response */}
+                {q.adminResponseNotes && (
+                  <div className="bg-teal-500/5 border border-teal-500/20 rounded-xl p-2.5 text-xs">
+                    <p className="text-[10px] font-extrabold text-teal-700 dark:text-teal-400 uppercase tracking-wider mb-0.5">Super Admin Response</p>
+                    <p className="text-sa-text">{q.adminResponseNotes}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {!isResolved ? (
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-sa-border/20">
+                    {q.status === "pending" && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedQuery(q); setQueryActionMode("review"); setQueryActionNotes(""); }}
+                        className="px-3 py-1.5 bg-sa-bg hover:bg-sa-border/30 text-sa-text-secondary hover:text-sa-text border border-sa-border/30 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <Clock size={12} /> Mark In Review
+                      </button>
+                    )}
+                    {q.status !== "rejected" && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedQuery(q); setQueryActionMode("reject"); setQueryActionNotes(""); }}
+                        className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <XCircle size={12} /> Decline
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedQuery(q); setQueryActionMode("resolve"); setQueryActionNotes("Your query has been resolved by Super Admin."); }}
+                      className="px-4 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-lg text-[11px] font-extrabold shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <CheckCircle2 size={12} /> Resolve &amp; Respond
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 text-[11px] font-bold pt-1 border-t border-sa-border/20">
+                    <CheckCircle2 size={13} /> Query resolved — Company admin notified.
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Fixed z-[9999] Action Dropdown Portal escaping all table clipping */}
-      {activeMenu && (
-        <div 
-          className="fixed inset-0 z-[9998]" 
-          onClick={() => setActiveMenu(null)}
-          onContextMenu={(e) => { e.preventDefault(); setActiveMenu(null); }}
-        />
-      )}
-      {activeMenu && (
-        <div 
-          style={{ 
-            right: `${activeMenu.x}px`,
-            ...(activeMenu.openUpward ? { bottom: `${activeMenu.y}px` } : { top: `${activeMenu.y}px` })
-          }}
-          className="fixed z-[9999] w-48 bg-sa-surface rounded-xl shadow-2xl border border-sa-border overflow-hidden animate-fade-in"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="py-1">
-            <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); openDrawer(row); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-sa-text hover:bg-sa-bg transition-colors">
-              <Eye size={13} className="text-[#f59e0b]" /> <span>View Full Details</span>
-            </button>
-          </div>
-          <div className="py-1 border-t border-sa-border/30">
-            {activeMenu.row.status === 'new' && (
-              <button onClick={() => { const id = activeMenu.row._id; setActiveMenu(null); handleStatusChange(id, 'contacted'); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#06B6D4] hover:bg-[#06B6D4]/10 transition-colors">
-                <Clock size={13} /> <span>Mark Contacted</span>
+      {/* Query Action Modal */}
+      {selectedQuery && queryActionMode && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-sa-surface rounded-2xl shadow-2xl border border-sa-border/30 w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-sa-border/30 flex items-center justify-between bg-sa-bg/60">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-2 h-2 rounded-full ${queryActionMode === "resolve" ? "bg-teal-500" : queryActionMode === "reject" ? "bg-rose-500" : "bg-cyan-500"}`} />
+                <h2 className="text-sm font-extrabold text-sa-text">
+                  {queryActionMode === "resolve" ? "Resolve & Respond to Query" : queryActionMode === "reject" ? "Decline Query" : "Mark In Review"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedQuery(null); setQueryActionMode(null); }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-sa-text-secondary hover:text-sa-text hover:bg-sa-border/30 transition-all font-bold text-base"
+              >
+                &times;
               </button>
-            )}
-            {activeMenu.row.status !== 'converted' && activeMenu.row.status !== 'rejected' && (
-              <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); openConvertModal(row); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors">
-                <ArrowRightCircle size={13} /> <span>Create Company</span>
-              </button>
-            )}
-            <button onClick={() => {
-              const id = activeMenu.row._id;
-              setActiveMenu(null);
-              const reason = window.prompt("Enter reason for rejecting request:");
-              if (reason !== null) handleStatusChange(id, 'rejected', reason);
-            }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-sa-text-secondary hover:bg-sa-bg transition-colors">
-              <XCircle size={13} className="text-rose-500" /> <span>Reject Request</span>
-            </button>
-          </div>
-          <div className="py-1 border-t border-sa-border/30">
-            <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); if(window.confirm(`Permanently delete request from ${row.companyName}?`)) deleteMutation.mutate(row._id); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors">
-              <Trash2 size={13} /> <span>Delete Permanently</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Request Details Glassmorphic Drawer ─────────────────────────── */}
-      {isDrawerOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-sa-surface w-full max-w-xl h-full shadow-2xl flex flex-col border-l border-sa-border/30 overflow-y-auto">
-            
-            {/* Drawer Header */}
-            <div className="px-6 py-4 border-b border-sa-border/30 flex justify-between items-center bg-sa-bg/80 sticky top-0 z-10 backdrop-blur-md">
-              <div className="flex items-center space-x-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
-                <h2 className="text-lg font-black text-sa-text tracking-tight">Request Review Details</h2>
-              </div>
-              <button onClick={() => setIsDrawerOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
             </div>
-
-            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-3.5 sm:space-y-4 hide-scrollbar">
-              {/* Top Title Banner */}
-              <div className="bg-sa-bg/50 p-5 rounded-2xl border border-sa-border/30 flex items-start justify-between gap-4">
-                <div>
-                  <RequestStatusBadge status={selectedRequest.status} />
-                  <h3 className="text-2xl font-black text-sa-text tracking-tight mt-2">{selectedRequest.companyName}</h3>
-                  <p className="text-xs font-mono font-bold text-[#f59e0b] mt-0.5">Tracking Code: {selectedRequest.requestCode}</p>
-                </div>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-base font-black flex-shrink-0 shadow-sm"
-                  style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}>
-                  {(selectedRequest.companyName || "C").substring(0, 2).toUpperCase()}
-                </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-xl bg-sa-bg border border-sa-border/30 text-xs space-y-1">
+                <p className="text-sa-text-secondary font-semibold">Company</p>
+                <p className="font-extrabold text-sa-text">
+                  {selectedQuery.companyName}
+                  <span className="text-amber-600 dark:text-amber-400 font-mono ml-2">{selectedQuery.requestCode}</span>
+                </p>
+                {selectedQuery.message && (
+                  <p className="text-sa-text-secondary italic mt-1">"{selectedQuery.message}"</p>
+                )}
               </div>
-
-              {/* Contact Profile */}
-              <div className="bg-sa-surface p-5 rounded-2xl border border-sa-border/30 shadow-2xs space-y-3">
-                <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border/30 pb-2.5 flex items-center gap-1.5">
-                  <User size={14} className="text-[#f59e0b]" />
-                  <span>Primary Contact Person</span>
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Full Name</span>
-                    <span className="font-extrabold text-sa-text">{selectedRequest.ownerName}</span>
-                  </div>
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Email Address</span>
-                    <span className="font-extrabold text-sa-text truncate block">{selectedRequest.ownerEmail}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Phone Number</span>
-                    <span className="font-extrabold text-sa-text">{selectedRequest.ownerPhone || 'Not provided'}</span>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-sa-text-secondary mb-1.5">
+                  Response / Note to Company Admin <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder={
+                    queryActionMode === "resolve"
+                      ? "Write your response, resolution details, or instructions..."
+                      : queryActionMode === "reject"
+                      ? "Explain why this query is declined..."
+                      : "Note that this query is being reviewed..."
+                  }
+                  value={queryActionNotes}
+                  onChange={e => setQueryActionNotes(e.target.value)}
+                  className="w-full px-3 py-2 bg-sa-bg border border-sa-border/30 rounded-xl text-xs font-medium text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] resize-none transition-all"
+                />
               </div>
-
-              {/* Organization Requirements */}
-              <div className="bg-sa-surface p-5 rounded-2xl border border-sa-border/30 shadow-2xs space-y-3">
-                <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border/30 pb-2.5 flex items-center gap-1.5">
-                  <Briefcase size={14} className="text-[#06B6D4]" />
-                  <span>Organization Profile & Requirements</span>
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Industry Sector</span>
-                    <span className="font-extrabold text-sa-text">{selectedRequest.industryType || 'General Business'}</span>
-                  </div>
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Estimated Seats</span>
-                    <span className="font-extrabold text-[#f59e0b]">{selectedRequest.employeeCount || '10'} Employees</span>
-                  </div>
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Headquarters</span>
-                    <span className="font-extrabold text-sa-text">{selectedRequest.city ? `${selectedRequest.city}, ${selectedRequest.state}` : 'Remote / Unspecified'}</span>
-                  </div>
-                  <div>
-                    <span className="text-sa-text-secondary font-semibold block text-[10px] uppercase">Inbound Source</span>
-                    <span className="font-extrabold text-sa-text capitalize">{selectedRequest.source}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Message / Notes */}
-              {selectedRequest.message && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
-                    <FileText size={14} className="text-[#f59e0b]" />
-                    <span>Inquiry Notes & Requirements</span>
-                  </h4>
-                  <div className="bg-sa-bg/60 p-4 rounded-xl text-xs font-medium text-sa-text leading-relaxed whitespace-pre-wrap border border-sa-border/30">
-                    {selectedRequest.message}
-                  </div>
-                </div>
-              )}
-
-              {/* Rejection Reason Box */}
-              {selectedRequest.rejectionReason && (
-                <div className="bg-sa-bg p-4 rounded-xl border border-[#d97706]/30 text-xs">
-                  <span className="font-extrabold text-sa-text-secondary uppercase tracking-wider block mb-1">Rejection Reason</span>
-                  <p className="text-sa-text font-bold leading-relaxed">{selectedRequest.rejectionReason}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Drawer Actions Footer */}
-            <div className="p-5 border-t border-sa-border/30 bg-sa-bg/60 flex gap-3 sticky bottom-0">
-              {selectedRequest.status === 'approved' ? (
+              <p className="text-[10px] text-sa-text-secondary">
+                The company admin will receive an in-app notification with your response.
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-sa-border/30">
                 <button
                   type="button"
-                  onClick={() => openConvertModal(selectedRequest)}
-                  className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90"
-                  style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
+                  onClick={() => { setSelectedQuery(null); setQueryActionMode(null); }}
+                  className="px-4 py-2 border border-sa-border/30 bg-sa-bg text-xs font-extrabold text-sa-text rounded-xl hover:bg-sa-border/30 transition-all cursor-pointer"
                 >
-                  <Sparkles size={15} />
-                  <span>Create Company from Request</span>
-                </button>
-              ) : selectedRequest.status !== 'converted' && selectedRequest.status !== 'rejected' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedRequest._id, 'approved')}
-                    className="flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
-                  >
-                    <CheckCircle size={15} />
-                    <span>Approve Inquiry</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const reason = window.prompt("Enter rejection reason:");
-                      if (reason !== null) handleStatusChange(selectedRequest._id, 'rejected', reason);
-                    }}
-                    className="px-4 py-3 rounded-xl border border-sa-border/30 bg-sa-surface text-xs font-extrabold text-sa-text-secondary hover:text-sa-text hover:bg-sa-border/30 transition-all"
-                  >
-                    Reject
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsDrawerOpen(false)}
-                  className="w-full py-2.5 rounded-xl border border-sa-border/30 bg-sa-surface text-xs font-extrabold text-sa-text transition-all"
-                >
-                  Close Drawer
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Convert to Company Modal ────────────────────────────────────── */}
-      {isConvertModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-sa-surface rounded-2xl shadow-2xl border border-sa-border/30 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <div className="px-6 py-4 border-b border-sa-border/30 flex justify-between items-center bg-sa-bg/60">
-              <div className="flex items-center space-x-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#fbbf24]" />
-                <h2 className="text-base font-black text-sa-text tracking-tight">Create Company from Request</h2>
-              </div>
-              <button onClick={() => setIsConvertModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
-            </div>
-            
-            <form onSubmit={handleConvertSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 hide-scrollbar">
-              <div className="p-3.5 rounded-xl border border-[#f59e0b]/20 bg-[#f59e0b]/5 text-xs font-semibold text-sa-text flex items-start space-x-2.5">
-                <Sparkles size={16} className="text-[#f59e0b] flex-shrink-0 mt-0.5" />
-                <span>
-                  Converting <strong>{selectedRequest.companyName}</strong> into an active company. This will create the Company Admin login details.
-                </span>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Subscription Plan</label>
-                <select required value={convertForm.planId} onChange={e => setConvertForm({...convertForm, planId: e.target.value})}
-                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
-                  <option value="" disabled>Choose assigned plan...</option>
-                  {plans.map(p => <option key={p._id} value={p._id}>{p.planName} Plan ({p.employeeLimit} Employee Limit)</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Employee Limit (Optional Override)</label>
-                <input type="number" min="1" value={convertForm.employeeLimit} onChange={e => setConvertForm({...convertForm, employeeLimit: Number(e.target.value) || 1})}
-                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-              </div>
-
-              <div className="border-t border-sa-border/30 pt-4 mt-2">
-                <h4 className="text-xs font-black text-sa-text uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <User size={13} className="text-[#f59e0b]" />
-                  <span>Company Admin Login Details</span>
-                </h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">Admin Full Name</label>
-                    <input type="text" required value={convertForm.adminName} onChange={e => setConvertForm({...convertForm, adminName: e.target.value})}
-                      className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl px-3.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">Admin Login Email</label>
-                    <input type="email" required value={convertForm.adminEmail} onChange={e => setConvertForm({...convertForm, adminEmail: e.target.value})}
-                      className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl px-3.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">Admin Phone Number</label>
-                    <input type="text" value={convertForm.adminPhone} onChange={e => setConvertForm({...convertForm, adminPhone: e.target.value})}
-                      className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl px-3.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-sa-border/30 mt-3">
-                <button type="button" onClick={() => setIsConvertModalOpen(false)} className="px-4 py-2.5 rounded-xl border border-sa-border/30 bg-sa-bg text-xs font-extrabold text-sa-text hover:bg-sa-border/40 transition-all">
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={convertMutation.isPending}
-                  className="px-6 py-2.5 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-50 flex items-center space-x-1.5"
-                  style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
+                  type="button"
+                  onClick={handleQueryAction}
+                  disabled={queryUpdateMut.isPending || !queryActionNotes.trim()}
+                  className={`px-5 py-2 text-white font-extrabold text-xs rounded-xl shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 transition-all ${
+                    queryActionMode === "resolve"
+                      ? "bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+                      : queryActionMode === "reject"
+                      ? "bg-rose-600 hover:bg-rose-700"
+                      : "bg-cyan-600 hover:bg-cyan-700"
+                  }`}
                 >
-                  <Sparkles size={14} />
-                  <span>{convertMutation.isPending ? "Creating..." : "Confirm & Create Company"}</span>
+                  <Send size={12} />
+                  {queryUpdateMut.isPending
+                    ? "Sending..."
+                    : queryActionMode === "resolve"
+                    ? "Send Response & Resolve"
+                    : queryActionMode === "reject"
+                    ? "Decline & Notify"
+                    : "Mark In Review"}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

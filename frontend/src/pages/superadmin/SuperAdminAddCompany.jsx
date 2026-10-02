@@ -291,8 +291,34 @@ const SuperAdminAddCompany = () => {
     }
   });
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // ── Email validations ──────────────────────────────────────────────────
+    if (formData.email && !EMAIL_RE.test(formData.email.trim())) {
+      return alert("Company Email is invalid. Please enter a valid email address (e.g. info@company.com).");
+    }
+    if (formData.ownerEmail && !EMAIL_RE.test(formData.ownerEmail.trim())) {
+      return alert("Owner/Contact Email is invalid. Please enter a valid email address.");
+    }
+    if (formData.adminEmail && !EMAIL_RE.test(formData.adminEmail.trim())) {
+      return alert("Admin Login Email is invalid. Please enter a valid email address.");
+    }
+
+    // ── Phone validations ──────────────────────────────────────────────────
+    if (formData.phone && !PHONE_RE.test(formData.phone.trim())) {
+      return alert("Company Phone is invalid. Must be a valid 10-digit Indian number (e.g. +91 9876543210).");
+    }
+    if (formData.ownerPhone && !PHONE_RE.test(formData.ownerPhone.trim())) {
+      return alert("Owner/Contact Phone is invalid. Must be a valid 10-digit Indian number.");
+    }
+    if (formData.adminPhone && !PHONE_RE.test(formData.adminPhone.trim())) {
+      return alert("Admin Phone is invalid. Must be a valid 10-digit Indian number.");
+    }
+
     const sanitizedModuleLimits = {};
     if (formData.moduleLimits) {
       Object.entries(formData.moduleLimits).forEach(([k, v]) => {

@@ -59,7 +59,7 @@ const SectionHeader = ({ title, icon, onViewAll }) => (
       <Text style={styles.sectionTitle}>{title}</Text>
     </View>
     {onViewAll && (
-      <TouchableOpacity onPress={onViewAll} style={styles.viewAllBtn} activeOpacity={0.6}>
+      <TouchableOpacity onPress={onViewAll} style={styles.viewAllBtn} activeOpacity={0.5} delayPressIn={0} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={styles.viewAll}>View All</Text>
         <Ionicons name="chevron-forward" size={10} color={C.primary} style={{ marginLeft: 1 }} />
       </TouchableOpacity>
@@ -109,6 +109,12 @@ export default function EmployeeDashboard({ navigation }) {
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const [leadsList, setLeadsList] = useState([]);
   const [startingProfile, setStartingProfile] = useState(false);
+  const lastFocusFetchTimeRef = React.useRef(0);
+  const isFetchingLeadsRef = React.useRef(false);
+  const getEmployeeDashboardCachedRef = React.useRef(getEmployeeDashboardCached);
+  getEmployeeDashboardCachedRef.current = getEmployeeDashboardCached;
+  const canAccessLeadsRef = React.useRef(canAccessLeads);
+  canAccessLeadsRef.current = canAccessLeads;
 
   const handleStartProfileCompletion = () => {
     if (startingProfile) return;
@@ -125,17 +131,21 @@ export default function EmployeeDashboard({ navigation }) {
       const params = currentDeptId ? { departmentId: currentDeptId } : {};
       if (force) {
         setRefreshing(true);
-        if (refreshUserProfile) await refreshUserProfile().catch(() => { });
+        if (refreshUserProfile) await refreshUserProfile(true).catch(() => { });
         await refreshEmployeeDashboard(params);
       } else {
         await getEmployeeDashboardCached(false, params);
       }
 
-      if (canAccessLeads) {
-        leadsService.getLeads().then((res) => {
+      if (canAccessLeads && !isFetchingLeadsRef.current) {
+        isFetchingLeadsRef.current = true;
+        try {
+          const res = await leadsService.getLeads();
           const arr = Array.isArray(res) ? res : res?.data || [];
           setLeadsList(arr);
-        }).catch(() => { });
+        } catch (_) {} finally {
+          isFetchingLeadsRef.current = false;
+        }
       }
     } catch (err) {
       console.error("Error loading dashboard summary data:", err);
@@ -147,22 +157,31 @@ export default function EmployeeDashboard({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       setStartingProfile(false);
-      const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
-      if (refreshUserProfile) refreshUserProfile().catch(() => { });
-      if (refreshEmployeeDashboard) {
-        refreshEmployeeDashboard(params).catch(() => { });
-      } else {
-        getEmployeeDashboardCached(true, params).catch(() => { });
+      const now = Date.now();
+      // Throttle: avoid rapid re-fetching loops within 5 seconds
+      if (now - lastFocusFetchTimeRef.current < 5000) {
+        return;
       }
-      if (canAccessLeads) {
+      lastFocusFetchTimeRef.current = now;
+
+      const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
+      if (getEmployeeDashboardCachedRef.current) {
+        getEmployeeDashboardCachedRef.current(false, params).catch(() => { });
+      }
+
+      if (canAccessLeadsRef.current && !isFetchingLeadsRef.current) {
+        isFetchingLeadsRef.current = true;
         leadsService.getLeads().then((res) => {
           const arr = Array.isArray(res) ? res : res?.data || [];
           setLeadsList(arr);
-        }).catch(() => { });
+        }).catch(() => { }).finally(() => {
+          isFetchingLeadsRef.current = false;
+        });
       }
+
       // Auto-resume background location tracking if active and duty is on
       locationTrackingService.autoResumeTrackingIfActive().catch(() => { });
-    }, [selectedDeptId, canAccessLeads, refreshUserProfile, refreshEmployeeDashboard, getEmployeeDashboardCached])
+    }, [selectedDeptId])
   );
 
   const handleRefresh = () => loadData(true, selectedDeptId);
@@ -399,15 +418,19 @@ export default function EmployeeDashboard({ navigation }) {
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        delaysContentTouches={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} />}
       >
         {/* ── Compact Department Scoping Filter Bar ── */}
         {departmentsList.length > 1 && (
           <View style={styles.filterBar}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} delaysContentTouches={false} contentContainerStyle={styles.filterScroll}>
               <TouchableOpacity
                 onPress={() => setSelectedDeptId("")}
                 style={[styles.filterPill, selectedDeptId === "" && styles.filterPillActive]}
+                activeOpacity={0.6}
+                delayPressIn={0}
               >
                 <Text style={[styles.filterPillText, selectedDeptId === "" && styles.filterPillTextActive]}>
                   All Depts
@@ -420,6 +443,8 @@ export default function EmployeeDashboard({ navigation }) {
                     key={dept._id}
                     onPress={() => setSelectedDeptId(dept._id)}
                     style={[styles.filterPill, isActive && styles.filterPillActive]}
+                    activeOpacity={0.6}
+                    delayPressIn={0}
                   >
                     <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
                       {dept.name}
@@ -435,7 +460,8 @@ export default function EmployeeDashboard({ navigation }) {
         {!profileCompletion.isCompleted && (profileCompletion.percentage || 0) < 100 && (
           <TouchableOpacity
             style={styles.incompleteBannerWrapper}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
+            delayPressIn={0}
             onPress={handleStartProfileCompletion}
           >
             <LinearGradient
@@ -448,12 +474,9 @@ export default function EmployeeDashboard({ navigation }) {
                   <Text style={styles.bannerTitle}>Complete Your Profile</Text>
                   <Text style={styles.bannerDesc}>{profileCompletion.percentage || 0}% finished</Text>
                 </View>
-                <TouchableOpacity
+                <View
                   style={[styles.bannerBtn, startingProfile && { opacity: 0.75 }]}
-                  onPress={handleStartProfileCompletion}
-                  activeOpacity={0.6}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  disabled={startingProfile}
+                  pointerEvents="none"
                 >
                   {startingProfile ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
@@ -463,7 +486,7 @@ export default function EmployeeDashboard({ navigation }) {
                       <Ionicons name="arrow-forward" size={12} color="#FFFFFF" style={{ marginLeft: 3 }} />
                     </View>
                   )}
-                </TouchableOpacity>
+                </View>
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -495,7 +518,8 @@ export default function EmployeeDashboard({ navigation }) {
                 <TouchableOpacity
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(16, 185, 129, 0.22)", paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: 12, marginTop: 7, alignSelf: "flex-start", borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.45)" }}
                   onPress={() => navigation.navigate("EmployeeLocationTracking")}
-                  activeOpacity={0.8}
+                  activeOpacity={0.6}
+                  delayPressIn={0}
                 >
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#34D399", marginRight: 5 }} />
                   <Text style={{ color: "#ECFDF5", fontSize: 10.5, fontWeight: "700" }}>Live Route Tracking Active</Text>
@@ -512,7 +536,8 @@ export default function EmployeeDashboard({ navigation }) {
                     todayRecord: todayAttendance,
                   })
                 }
-                activeOpacity={0.85}
+                activeOpacity={0.6}
+                delayPressIn={0}
               >
                 <View
                   style={[
@@ -569,7 +594,8 @@ export default function EmployeeDashboard({ navigation }) {
                 <TouchableOpacity
                   style={styles.overviewTile}
                   onPress={() => navigation.navigate("Tasks")}
-                  activeOpacity={0.75}
+                  activeOpacity={0.55}
+                  delayPressIn={0}
                 >
                   <Text style={styles.overviewLabel}>Tasks</Text>
                   <Text style={styles.overviewNumber}>{totalEmployeeTasks}</Text>
@@ -583,7 +609,8 @@ export default function EmployeeDashboard({ navigation }) {
                 <TouchableOpacity
                   style={styles.overviewTile}
                   onPress={() => navigation.navigate("Attendance")}
-                  activeOpacity={0.75}
+                  activeOpacity={0.55}
+                  delayPressIn={0}
                 >
                   <Text style={styles.overviewLabel}>Attendance</Text>
                   <Text style={styles.overviewNumber}>{attendanceSummary.present ?? 96}</Text>
@@ -597,7 +624,8 @@ export default function EmployeeDashboard({ navigation }) {
                 <TouchableOpacity
                   style={styles.overviewTile}
                   onPress={() => navigation.navigate("Projects")}
-                  activeOpacity={0.75}
+                  activeOpacity={0.55}
+                  delayPressIn={0}
                 >
                   <Text style={styles.overviewLabel}>Projects</Text>
                   <Text style={styles.overviewNumber}>{projectSummary.activeProjects ?? 14}</Text>
@@ -610,8 +638,9 @@ export default function EmployeeDashboard({ navigation }) {
               {canAccessLeaves && (
                 <TouchableOpacity
                   style={styles.overviewTile}
-                  onPress={() => navigation.navigate("EmployeeStack", { screen: "Leave" })}
-                  activeOpacity={0.75}
+                  onPress={() => navigation.navigate("Leave")}
+                  activeOpacity={0.55}
+                  delayPressIn={0}
                 >
                   <Text style={styles.overviewLabel}>Leaves</Text>
                   <Text style={styles.overviewNumber}>{leaveSummary.leaveBalance?.casual ?? 12}</Text>
@@ -632,7 +661,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={styles.quickAccessItem}
                 onPress={() => navigation.navigate("LeadsEngine")}
-                activeOpacity={0.7}
+                activeOpacity={0.5}
+                delayPressIn={0}
               >
                 <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
                   <Ionicons name="magnet" size={22} color="#1D4ED8" />
@@ -642,7 +672,7 @@ export default function EmployeeDashboard({ navigation }) {
             )}
 
             {canAccessProjects && (
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.5} delayPressIn={0}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#EEF2FF" }]}>
                   <Ionicons name="folder-open" size={22} color="#4F46E5" />
                 </View>
@@ -651,7 +681,7 @@ export default function EmployeeDashboard({ navigation }) {
             )}
 
             {canAccessTasks && (
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Tasks")} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Tasks")} activeOpacity={0.5} delayPressIn={0}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#F5F3FF" }]}>
                   <Ionicons name="clipboard" size={22} color="#7C3AED" />
                 </View>
@@ -660,7 +690,7 @@ export default function EmployeeDashboard({ navigation }) {
             )}
 
             {canCreateTask && (
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.5} delayPressIn={0}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#F0FDF4" }]}>
                   <Ionicons name="add-circle" size={22} color="#16A34A" />
                 </View>
@@ -677,7 +707,8 @@ export default function EmployeeDashboard({ navigation }) {
                     todayRecord: todayAttendance,
                   })
                 }
-                activeOpacity={0.7}
+                activeOpacity={0.5}
+                delayPressIn={0}
               >
                 <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
                   <Ionicons name="time" size={22} color="#059669" />
@@ -690,7 +721,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={styles.quickAccessItem}
                 onPress={() => navigation.navigate("EmployeeLocationTracking")}
-                activeOpacity={0.7}
+                activeOpacity={0.5}
+                delayPressIn={0}
               >
                 <View style={[styles.quickIconBg, { backgroundColor: "#F0F9FF" }]}>
                   <Ionicons name="navigate-circle" size={22} color="#0284C7" />
@@ -700,7 +732,7 @@ export default function EmployeeDashboard({ navigation }) {
             )}
 
             {canAccessPayroll && (
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.5} delayPressIn={0}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#FFFBEB" }]}>
                   <Ionicons name="receipt" size={22} color="#D97706" />
                 </View>
@@ -709,7 +741,7 @@ export default function EmployeeDashboard({ navigation }) {
             )}
 
             {canAccessLeaves && (
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.5} delayPressIn={0}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#FDF2F8" }]}>
                   <Ionicons name="calendar" size={22} color="#DB2777" />
                 </View>
@@ -717,14 +749,14 @@ export default function EmployeeDashboard({ navigation }) {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CompanyRequests")} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CompanyRequests")} activeOpacity={0.5} delayPressIn={0}>
               <View style={[styles.quickIconBg, { backgroundColor: "#F1F5F9" }]}>
                 <Ionicons name="chatbubbles-outline" size={22} color="#475569" />
               </View>
               <Text style={styles.quickLabel} numberOfLines={1}>Requests</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeDocuments")} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeDocuments")} activeOpacity={0.5} delayPressIn={0}>
               <View style={[styles.quickIconBg, { backgroundColor: "#F0FDFA" }]}>
                 <Ionicons name="document-text-outline" size={22} color="#0D9488" />
               </View>
@@ -747,7 +779,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
                 onPress={() => navigation.navigate("Tasks")}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={styles.leadKpiNum}>{totalEmployeeTasks}</Text>
                 <Text style={styles.leadKpiLabel}>Total Tasks</Text>
@@ -756,7 +789,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
                 onPress={() => navigation.navigate("Tasks", { taskFilter: "pending", status: "pending" })}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={[styles.leadKpiNum, { color: "#D97706" }]}>{taskSummary.pending ?? 0}</Text>
                 <Text style={styles.leadKpiLabel}>Pending</Text>
@@ -765,7 +799,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#EF4444" }]}
                 onPress={() => navigation.navigate("Tasks", { taskFilter: "overdue", status: "overdue" })}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={[styles.leadKpiNum, { color: "#DC2626" }]}>{taskSummary.overdue ?? 0}</Text>
                 <Text style={styles.leadKpiLabel}>Overdue</Text>
@@ -774,7 +809,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
                 onPress={() => navigation.navigate("Tasks", { taskFilter: "complete", status: "complete" })}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{taskSummary.completed ?? 0}</Text>
                 <Text style={styles.leadKpiLabel}>Completed</Text>
@@ -785,7 +821,8 @@ export default function EmployeeDashboard({ navigation }) {
             <TouchableOpacity
               style={[styles.openLeadsPipelineBtn, { backgroundColor: "#1268D9" }]}
               onPress={() => navigation.navigate("Tasks")}
-              activeOpacity={0.8}
+              activeOpacity={0.6}
+              delayPressIn={0}
             >
               <Ionicons name="clipboard-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.openLeadsPipelineText}>Open My Tasks & Deadlines</Text>
@@ -808,7 +845,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
                 onPress={() => navigation.navigate("LeadsEngine")}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={styles.leadKpiNum}>{leadStats.total}</Text>
                 <Text style={styles.leadKpiLabel}>Total Leads</Text>
@@ -817,7 +855,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#8B5CF6" }]}
                 onPress={() => navigation.navigate("LeadsEngine")}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={styles.leadKpiNum}>{leadStats.contacted}</Text>
                 <Text style={styles.leadKpiLabel}>Contacted</Text>
@@ -826,7 +865,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
                 onPress={() => navigation.navigate("LeadsEngine")}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={styles.leadKpiNum}>{leadStats.inProgress}</Text>
                 <Text style={styles.leadKpiLabel}>In Progress</Text>
@@ -835,7 +875,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
                 onPress={() => navigation.navigate("LeadsEngine")}
-                activeOpacity={0.75}
+                activeOpacity={0.55}
+                delayPressIn={0}
               >
                 <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{leadStats.won}</Text>
                 <Text style={styles.leadKpiLabel}>Won</Text>
@@ -854,7 +895,8 @@ export default function EmployeeDashboard({ navigation }) {
                       key={lead.id || lead._id || Math.random().toString()}
                       style={styles.recentLeadItem}
                       onPress={() => navigation.navigate("LeadsEngine")}
-                      activeOpacity={0.75}
+                      activeOpacity={0.55}
+                      delayPressIn={0}
                     >
                       <View style={styles.recentLeadAvatar}>
                         <Text style={styles.recentLeadAvatarText}>
@@ -883,7 +925,8 @@ export default function EmployeeDashboard({ navigation }) {
             <TouchableOpacity
               style={styles.openLeadsPipelineBtn}
               onPress={() => navigation.navigate("LeadsEngine")}
-              activeOpacity={0.8}
+              activeOpacity={0.6}
+              delayPressIn={0}
             >
               <Ionicons name="magnet-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.openLeadsPipelineText}>Open Leads  & CRM</Text>
@@ -898,7 +941,7 @@ export default function EmployeeDashboard({ navigation }) {
             <SectionHeader
               title="Leave Balance"
               icon="document-text-outline"
-              onViewAll={() => navigation.navigate("EmployeeStack", { screen: "Leave" })}
+              onViewAll={() => navigation.navigate("Leave")}
             />
             <View style={styles.kpiGrid}>
               <View style={styles.kpiCard}>
@@ -950,7 +993,8 @@ export default function EmployeeDashboard({ navigation }) {
               <TouchableOpacity
                 key={`ann-${idx}`}
                 style={[styles.eventCard, idx < announcements.slice(0, 3).length - 1 && styles.eventCardBorder]}
-                activeOpacity={0.75}
+                activeOpacity={0.6}
+                delayPressIn={0}
                 onPress={() => navigation.navigate("EmployeeAnnouncementDetails", { announcement: ann })}
               >
                 <View style={[styles.eventDateBlock, { backgroundColor: "#fffbeb" }]}>
@@ -979,7 +1023,8 @@ export default function EmployeeDashboard({ navigation }) {
                 <TouchableOpacity
                   key={`hol-${idx}`}
                   style={[styles.eventCard, (idx < holidays.slice(0, 3).length - 1 || announcements.length > 0) && styles.eventCardBorder]}
-                  activeOpacity={0.75}
+                  activeOpacity={0.6}
+                  delayPressIn={0}
                   onPress={() => navigation.navigate("EmployeeHolidayDetails", { holiday })}
                 >
                   <View style={[styles.eventDateBlock, { backgroundColor: "#fef2f2" }]}>

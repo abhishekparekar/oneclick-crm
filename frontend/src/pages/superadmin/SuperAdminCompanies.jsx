@@ -1,19 +1,19 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  getCompaniesApi, 
-  updateCompanyStatusApi, 
-  restoreCompanyApi, 
-  permanentDeleteCompanyApi 
+import {
+  getCompaniesApi,
+  updateCompanyStatusApi,
+  restoreCompanyApi,
+  permanentDeleteCompanyApi
 } from "../../api/superAdminApi";
 import toast from "react-hot-toast";
 import SaSelect from "../../components/common/SaSelect";
 import DataTable from "../../components/common/DataTable";
 import SuperAdminEditCompanyModal from "../../components/company/SuperAdminEditCompanyModal";
 import SuperAdminDeleteCompanyModal from "../../components/company/SuperAdminDeleteCompanyModal";
-import { 
-  Search, Plus, MoreVertical, Building2, ExternalLink, Settings, Ban, Trash2, Key, 
+import {
+  Search, Plus, MoreVertical, Building2, ExternalLink, Settings, Ban, Trash2, Key,
   CheckCircle, Clock, AlertTriangle, User, Mail, Phone, Calendar, Users, ArrowUp, ArrowDown, Download, RotateCcw, ShieldAlert, Info, MessageSquare
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
@@ -76,7 +76,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1">{value}</h3>
         <div className="flex items-center gap-1 text-[9px] sm:text-[10px]">
           <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600" : "text-rose-500"}`}>
-            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5} /> : <ArrowDown size={9} strokeWidth={2.5} />}
             {trend}
           </span>
           <span className="text-slate-400 text-[8.5px] sm:text-[9px] truncate hidden sm:inline">vs {period}</span>
@@ -87,11 +87,11 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
           <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={`sk-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-${label.replace(/\s+/g, '')})`}/>
+            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-${label.replace(/\s+/g, '')})`} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -162,17 +162,17 @@ const SuperAdminCompanies = () => {
   // Filtering for Active Tab
   const filteredActiveCompanies = useMemo(() => {
     return activeCompaniesList.filter((company) => {
-      const matchesSearch = (company.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            (company.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (company.companyCode || "").toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "all" || 
-                            String(company.status || "").toLowerCase() === String(statusFilter).toLowerCase() || 
-                            (statusFilter === "active" && company.isActive === true) || 
-                            (statusFilter === "inactive" && company.isActive === false);
+      const matchesSearch = (company.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.companyCode || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" ||
+        String(company.status || "").toLowerCase() === String(statusFilter).toLowerCase() ||
+        (statusFilter === "active" && company.isActive === true) ||
+        (statusFilter === "inactive" && company.isActive === false);
       const planStr = String(company.planName || company.plan || "").toLowerCase();
-      const matchesPlan = planFilter === "all" || 
-                          planStr.includes(String(planFilter).toLowerCase()) || 
-                          (planFilter === "Trial" && ["trial", "free", "basic"].includes(planStr));
+      const matchesPlan = planFilter === "all" ||
+        planStr.includes(String(planFilter).toLowerCase()) ||
+        (planFilter === "Trial" && ["trial", "free", "basic"].includes(planStr));
       return matchesSearch && matchesStatus && matchesPlan;
     });
   }, [activeCompaniesList, searchTerm, statusFilter, planFilter]);
@@ -195,7 +195,7 @@ const SuperAdminCompanies = () => {
   const activeCount = activeCompaniesList.filter(c => c.status === "active").length;
   const suspendedCount = activeCompaniesList.filter(c => c.status === "suspended").length;
   const trialCount = activeCompaniesList.filter(c => String(c.planName).toLowerCase().includes("trial") || String(c.planName).toLowerCase().includes("free")).length;
-  
+
   const expiringThisMonth = activeCompaniesList.filter(c => {
     if (!c.planName || (!String(c.planName).toLowerCase().includes("trial") && !String(c.planName).toLowerCase().includes("free"))) return false;
     const expiry = new Date(c.createdAt || Date.now());
@@ -285,7 +285,7 @@ const SuperAdminCompanies = () => {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p 
+            <p
               onClick={() => navigate(`/superadmin/companies/${row._id}`)}
               className="text-[14px] font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight hover:text-amber-500 transition-colors cursor-pointer"
             >
@@ -335,13 +335,12 @@ const SuperAdminCompanies = () => {
         const isPro = plan.includes("PRO") || plan.includes("BASIC");
         return (
           <div className="flex flex-col items-start space-y-1 py-1">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider shadow-2xs border ${
-              isEnt
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider shadow-2xs border ${isEnt
                 ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
                 : isPro
                   ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20"
                   : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-            }`}>
+              }`}>
               {plan}
             </span>
             <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -376,13 +375,12 @@ const SuperAdminCompanies = () => {
         const isAct = status === "active";
         const isSusp = status === "suspended";
         return (
-          <span className={`inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide border shadow-2xs ${
-            isAct
+          <span className={`inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full text-[11px] font-extrabold tracking-wide border shadow-2xs ${isAct
               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
               : isSusp
                 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
                 : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-          }`}>
+            }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isAct ? 'bg-emerald-500 animate-pulse' : isSusp ? 'bg-rose-500' : 'bg-amber-500'}`} />
             <span className="capitalize">{status}</span>
           </span>
@@ -396,7 +394,7 @@ const SuperAdminCompanies = () => {
         const isOpen = activeMenu?.id === row._id;
         return (
           <div className="text-right select-none">
-            <button 
+            <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -414,11 +412,10 @@ const SuperAdminCompanies = () => {
                   });
                 }
               }}
-              className={`p-1.5 rounded-lg border transition-all ${
-                isOpen 
-                  ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs" 
+              className={`p-1.5 rounded-lg border transition-all ${isOpen
+                  ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs"
                   : "bg-slate-50 dark:bg-slate-800/80 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border-slate-200/80 dark:border-slate-700"
-              }`}
+                }`}
             >
               <MoreVertical size={15} />
             </button>
@@ -502,19 +499,18 @@ const SuperAdminCompanies = () => {
         const target = row.permanentDeleteAt ? new Date(row.permanentDeleteAt) : null;
         const now = new Date();
         const daysLeft = target ? Math.max(0, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
-        
+
         const isUrgent = daysLeft <= 2;
         const isWarning = daysLeft <= 5;
 
         return (
           <div className="flex flex-col items-start space-y-1 py-1">
-            <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold tracking-wide border shadow-2xs ${
-              isUrgent
+            <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold tracking-wide border shadow-2xs ${isUrgent
                 ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse"
                 : isWarning
                   ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
                   : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-            }`}>
+              }`}>
               <Clock size={12} />
               <span>
                 {daysLeft === 0 ? "Purging Today" : `${daysLeft} Day${daysLeft === 1 ? "" : "s"} Remaining`}
@@ -563,7 +559,7 @@ const SuperAdminCompanies = () => {
 
   return (
     <div className="space-y-4 w-full pb-10 font-sans text-slate-900 dark:text-slate-100">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
@@ -573,8 +569,8 @@ const SuperAdminCompanies = () => {
           </p>
         </div>
         <div className="flex items-center space-x-2.5">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleExportData}
             className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C24] text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer active:scale-95"
           >
@@ -593,17 +589,15 @@ const SuperAdminCompanies = () => {
         <button
           type="button"
           onClick={() => setActiveTab("active")}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            activeTab === "active"
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${activeTab === "active"
               ? "bg-amber-500 text-slate-950 shadow-xs"
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
-          }`}
+            }`}
         >
           <Building2 size={15} />
           <span>Active Companies</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
-            activeTab === "active" ? "bg-slate-950/15 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-          }`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${activeTab === "active" ? "bg-slate-950/15 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+            }`}>
             {rawActiveCompanies.length}
           </span>
         </button>
@@ -611,18 +605,16 @@ const SuperAdminCompanies = () => {
         <button
           type="button"
           onClick={() => setActiveTab("trash")}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            activeTab === "trash"
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${activeTab === "trash"
               ? "bg-rose-500 text-white shadow-xs"
               : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10"
-          }`}
+            }`}
         >
           <Trash2 size={15} />
           <span>Deleted Companies (Trash)</span>
           {rawTrashCompanies.length > 0 && (
-            <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
-              activeTab === "trash" ? "bg-white/20 text-white" : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-            }`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${activeTab === "trash" ? "bg-white/20 text-white" : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+              }`}>
               {rawTrashCompanies.length}
             </span>
           )}
@@ -634,11 +626,11 @@ const SuperAdminCompanies = () => {
         <div className="space-y-4">
           {/* KPI Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-            <KPICard label="Total Companies"  value={totalCompanies}    trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
-            <KPICard label="Active Companies" value={activeCount}       trend="18.2%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669"/>
-            <KPICard label="Suspended"        value={suspendedCount}    trend="5.0%"  isUp={false} period="last month" strokeColor="#F43F5E" Icon={Ban} iconBg="bg-rose-500/10"    iconColor="#E11D48"/>
-            <KPICard label="Trial Accounts"   value={trialCount}        trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Clock} iconBg="bg-purple-500/10"  iconColor="#7C3AED"/>
-            <KPICard label="Expiring Soon"    value={expiringThisMonth} trend="Action" isUp={false} period="required" strokeColor="#F97316" Icon={AlertTriangle} iconBg="bg-orange-500/10" iconColor="#EA580C"/>
+            <KPICard label="Total Companies" value={totalCompanies} trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
+            <KPICard label="Active Companies" value={activeCount} trend="18.2%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
+            <KPICard label="Suspended" value={suspendedCount} trend="5.0%" isUp={false} period="last month" strokeColor="#F43F5E" Icon={Ban} iconBg="bg-rose-500/10" iconColor="#E11D48" />
+            <KPICard label="Trial Accounts" value={trialCount} trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Clock} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
+            <KPICard label="Expiring Soon" value={expiringThisMonth} trend="Action" isUp={false} period="required" strokeColor="#F97316" Icon={AlertTriangle} iconBg="bg-orange-500/10" iconColor="#EA580C" />
           </div>
 
           {/* Filter Row */}
@@ -747,67 +739,66 @@ const SuperAdminCompanies = () => {
 
       {/* Action Dropdown Menu Portal */}
       {activeMenu && (
-        <div 
-          className="fixed inset-0 z-[9998]" 
+        <div
+          className="fixed inset-0 z-[9998]"
           onClick={() => setActiveMenu(null)}
           onContextMenu={(e) => { e.preventDefault(); setActiveMenu(null); }}
         />
       )}
       {activeMenu && (
-        <div 
+        <div
           style={{
             position: "fixed",
             right: `${activeMenu.x}px`,
-            ...(activeMenu.openUpward 
-              ? { bottom: `${activeMenu.y}px` } 
+            ...(activeMenu.openUpward
+              ? { bottom: `${activeMenu.y}px` }
               : { top: `${activeMenu.y}px` }),
             zIndex: 9999
           }}
           className="w-52 bg-white dark:bg-[#1E293B] rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden text-left animate-in fade-in zoom-in-95 duration-150 select-none"
         >
           <div className="py-1.5 px-1">
-            <button 
+            <button
               type="button"
-              onClick={() => { const id = activeMenu.id; setActiveMenu(null); navigate(`/superadmin/companies/${id}`); }} 
+              onClick={() => { const id = activeMenu.id; setActiveMenu(null); navigate(`/superadmin/companies/${id}`); }}
               className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <ExternalLink size={14} className="text-slate-400" /> <span>View Details</span>
             </button>
-            <button 
+            <button
               type="button"
-              onClick={() => { const comp = activeMenu.row; setActiveMenu(null); setEditingCompany(comp); }} 
+              onClick={() => { const comp = activeMenu.row; setActiveMenu(null); setEditingCompany(comp); }}
               className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <Settings size={14} className="text-slate-400" /> <span>Edit Company</span>
             </button>
-            <button 
+            <button
               type="button"
-              onClick={() => { setActiveMenu(null); toast("Impersonating admin user..."); }} 
+              onClick={() => { setActiveMenu(null); toast("Impersonating admin user..."); }}
               className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <Key size={14} className="text-slate-400" /> <span>Login as Admin</span>
             </button>
           </div>
           <div className="py-1.5 px-1 border-t border-slate-100 dark:border-slate-800">
-            <button 
+            <button
               type="button"
-              onClick={() => { const { id, row } = activeMenu; setActiveMenu(null); toggleStatus(id, row.status); }} 
+              onClick={() => { const { id, row } = activeMenu; setActiveMenu(null); toggleStatus(id, row.status); }}
               disabled={statusMutation.isPending}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                activeMenu.row.status === "active" 
-                  ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10" 
+              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeMenu.row.status === "active"
+                  ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                   : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-              }`}
+                }`}
             >
               <Ban size={14} /> <span>{activeMenu.row.status === "active" ? "Suspend Company" : "Activate Company"}</span>
             </button>
-            <button 
+            <button
               type="button"
-              onClick={() => { 
-                const comp = activeMenu.row; 
-                setActiveMenu(null); 
-                setCompanyToDelete(comp); 
-              }} 
+              onClick={() => {
+                const comp = activeMenu.row;
+                setActiveMenu(null);
+                setCompanyToDelete(comp);
+              }}
               className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             >
               <Trash2 size={14} /> <span>Delete Company</span>

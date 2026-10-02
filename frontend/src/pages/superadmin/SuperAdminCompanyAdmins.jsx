@@ -71,6 +71,7 @@ const SuperAdminCompanyAdmins = () => {
     phone: "",
     isPrimaryAdmin: false
   });
+  const [formError, setFormError] = useState("");
 
   const { data: adminsData, isLoading } = useQuery({ 
     queryKey: ["superAdminCompanyAdmins"], 
@@ -156,8 +157,17 @@ const SuperAdminCompanyAdmins = () => {
     statusMutation.mutate({ id, status: isActive ? "inactive" : "active" });
   };
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    setFormError("");
+    if (!formData.companyId) return setFormError("Please select a company.");
+    if (!formData.name.trim()) return setFormError("Admin full name is required.");
+    if (!formData.email.trim()) return setFormError("Email address is required.");
+    if (!EMAIL_RE.test(formData.email.trim())) return setFormError("Please enter a valid email address (e.g. admin@company.com).");
+    if (formData.phone.trim() && !PHONE_RE.test(formData.phone.trim())) return setFormError("Phone must be a valid 10-digit Indian number (e.g. +91 9876543210).");
     createMutation.mutate(formData);
   };
 
@@ -510,9 +520,14 @@ const SuperAdminCompanyAdmins = () => {
               </div>
 
               <div className="flex justify-end space-x-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                {formError && (
+                  <p className="flex-1 text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 border border-rose-500/20 rounded-lg px-3 py-2">
+                    <span>⚠</span> {formError}
+                  </p>
+                )}
                 <button 
                   type="button" 
-                  onClick={() => setIsModalOpen(false)} 
+                  onClick={() => { setIsModalOpen(false); setFormError(""); }} 
                   className="px-4 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C24] text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 >
                   Cancel

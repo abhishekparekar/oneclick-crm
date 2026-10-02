@@ -19,6 +19,16 @@ export const AppDataProvider = ({ children }) => {
   const [employeeDashboard, setEmployeeDashboard] = useState(null);
 
   const isFetchingDash = useRef(false);
+  const userRef = useRef(user);
+  userRef.current = user;
+  const employeesRef = useRef(employees);
+  employeesRef.current = employees;
+  const attendanceRef = useRef(attendance);
+  attendanceRef.current = attendance;
+  const dashboardStatsRef = useRef(dashboardStats);
+  dashboardStatsRef.current = dashboardStats;
+  const employeeDashboardRef = useRef(employeeDashboard);
+  employeeDashboardRef.current = employeeDashboard;
 
   const [loading, setLoading] = useState({
     user: false,
@@ -27,6 +37,8 @@ export const AppDataProvider = ({ children }) => {
     dashboardStats: false,
     employeeDashboard: false,
   });
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
   
   const [error, setError] = useState({
     user: null,
@@ -36,15 +48,29 @@ export const AppDataProvider = ({ children }) => {
     employeeDashboard: null,
   });
 
+  const prevUserIdRef = useRef(null);
+
   useEffect(() => {
-    if (authUser) {
+    const currentUserId = authUser?._id || authUser?.id || null;
+    if (currentUserId) {
       setUser(authUser);
+      if (prevUserIdRef.current && prevUserIdRef.current !== currentUserId) {
+        setEmployees([]);
+        setAttendance(null);
+        setDashboardStats(null);
+        setEmployeeDashboard(null);
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.clear();
+        }
+      }
+      prevUserIdRef.current = currentUserId;
     } else {
       setUser(null);
       setEmployees([]);
       setAttendance(null);
       setDashboardStats(null);
       setEmployeeDashboard(null);
+      prevUserIdRef.current = null;
       if (typeof sessionStorage !== "undefined") {
         sessionStorage.clear();
       }
@@ -52,68 +78,72 @@ export const AppDataProvider = ({ children }) => {
   }, [authUser]);
 
   const fetchUserData = useCallback(async (force = false) => {
-    if (loading.user) return;
-    if (!force && user) return;
+    if (loadingRef.current.user) return;
+    if (!force && userRef.current) return userRef.current;
     
     setLoading(prev => ({ ...prev, user: true }));
     setError(prev => ({ ...prev, user: null }));
     try {
       const data = await getCurrentUser();
       setUser(data);
+      return data;
     } catch (err) {
       setError(prev => ({ ...prev, user: err.message }));
     } finally {
       setLoading(prev => ({ ...prev, user: false }));
     }
-  }, [loading.user, user]);
+  }, []);
 
   const fetchEmployeesData = useCallback(async (force = false, params = {}) => {
-    if (loading.employees) return;
-    if (!force && employees.length > 0) return;
+    if (loadingRef.current.employees) return;
+    if (!force && employeesRef.current.length > 0) return employeesRef.current;
     
     setLoading(prev => ({ ...prev, employees: true }));
     setError(prev => ({ ...prev, employees: null }));
     try {
       const data = await getEmployees(params);
       setEmployees(data);
+      return data;
     } catch (err) {
       setError(prev => ({ ...prev, employees: err.message }));
     } finally {
       setLoading(prev => ({ ...prev, employees: false }));
     }
-  }, [loading.employees, employees]);
+  }, []);
 
   const fetchAttendanceData = useCallback(async (force = false, params = {}) => {
-    if (loading.attendance) return;
-    if (!force && attendance) return;
+    if (loadingRef.current.attendance) return;
+    if (!force && attendanceRef.current) return attendanceRef.current;
     
     setLoading(prev => ({ ...prev, attendance: true }));
     setError(prev => ({ ...prev, attendance: null }));
     try {
       const data = await getAttendance(params);
       setAttendance(data);
+      return data;
     } catch (err) {
       setError(prev => ({ ...prev, attendance: err.message }));
     } finally {
       setLoading(prev => ({ ...prev, attendance: false }));
     }
-  }, [loading.attendance, attendance]);
+  }, []);
 
   const fetchDashboardStatsData = useCallback(async (force = false) => {
-    if (loading.dashboardStats) return;
-    if (!force && dashboardStats) return;
+    if (loadingRef.current.dashboardStats) return;
+    if (!force && dashboardStatsRef.current) return dashboardStatsRef.current;
     
     setLoading(prev => ({ ...prev, dashboardStats: true }));
     setError(prev => ({ ...prev, dashboardStats: null }));
     try {
       const data = await getDashboardStats();
       setDashboardStats(data);
+      return data;
     } catch (err) {
       setError(prev => ({ ...prev, dashboardStats: err.message }));
     } finally {
       setLoading(prev => ({ ...prev, dashboardStats: false }));
     }
-  }, [loading.dashboardStats, dashboardStats]);
+  }, []);
 
   const refreshUser = useCallback(() => fetchUserData(true), [fetchUserData]);
   const refreshEmployees = useCallback((params) => fetchEmployeesData(true, params), [fetchEmployeesData]);
@@ -121,30 +151,32 @@ export const AppDataProvider = ({ children }) => {
   const refreshDashboardStats = useCallback(() => fetchDashboardStatsData(true), [fetchDashboardStatsData]);
 
   const getEmployeesCached = useCallback(async (force = false, params = {}) => {
-    if (force || employees.length === 0) {
+    if (force || employeesRef.current.length === 0) {
       await fetchEmployeesData(force, params);
     }
-    return employees;
-  }, [employees, fetchEmployeesData]);
+    return employeesRef.current;
+  }, [fetchEmployeesData]);
 
   const getAttendanceCached = useCallback(async (force = false, params = {}) => {
-    if (force || !attendance) {
+    if (force || !attendanceRef.current) {
       await fetchAttendanceData(force, params);
     }
-    return attendance;
-  }, [attendance, fetchAttendanceData]);
+    return attendanceRef.current;
+  }, [fetchAttendanceData]);
 
   const getDashboardStatsCached = useCallback(async (force = false) => {
-    if (force || !dashboardStats) {
+    if (force || !dashboardStatsRef.current) {
       await fetchDashboardStatsData(force);
     }
-    return dashboardStats;
-  }, [dashboardStats, fetchDashboardStatsData]);
+    return dashboardStatsRef.current;
+  }, [fetchDashboardStatsData]);
 
   const fetchEmployeeDashboardData = useCallback(async (force = false, params = {}) => {
-    if (isFetchingDash.current && !force) return employeeDashboard;
+    if (isFetchingDash.current && !force) return employeeDashboardRef.current;
     isFetchingDash.current = true;
-    setLoading((prev) => ({ ...prev, employeeDashboard: true }));
+    if (!employeeDashboardRef.current) {
+      setLoading((prev) => ({ ...prev, employeeDashboard: true }));
+    }
     setError((prev) => ({ ...prev, employeeDashboard: null }));
     try {
       if (force && typeof sessionStorage !== "undefined") {
@@ -163,16 +195,16 @@ export const AppDataProvider = ({ children }) => {
       isFetchingDash.current = false;
       setLoading((prev) => ({ ...prev, employeeDashboard: false }));
     }
-  }, [employeeDashboard]);
+  }, []);
 
   const refreshEmployeeDashboard = useCallback((params = {}) => fetchEmployeeDashboardData(true, params), [fetchEmployeeDashboardData]);
 
   const getEmployeeDashboardCached = useCallback(async (force = false, params = {}) => {
-    if (force || !employeeDashboard) {
+    if (force || !employeeDashboardRef.current) {
       return await fetchEmployeeDashboardData(force, params);
     }
-    return employeeDashboard;
-  }, [employeeDashboard, fetchEmployeeDashboardData]);
+    return employeeDashboardRef.current;
+  }, [fetchEmployeeDashboardData]);
 
   const value = useMemo(() => ({
     user,

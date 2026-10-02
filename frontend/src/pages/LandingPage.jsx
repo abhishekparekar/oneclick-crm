@@ -170,7 +170,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans relative selection:bg-blue-600 selection:text-white overflow-x-hidden">
-      
+
       {/* ── Soft Ambient Lighting ── */}
       <div className="fixed -top-36 -left-36 w-[550px] h-[550px] bg-blue-100/50 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed top-1/3 -right-36 w-[500px] h-[500px] bg-sky-100/40 rounded-full blur-3xl pointer-events-none" />
@@ -182,7 +182,7 @@ const LandingPage = () => {
       {/* ── 1. STICKY NAVBAR ──────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/90 border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          
+
           <div className="flex items-center gap-3">
             <OneClickLogo variant="landscape" />
           </div>
@@ -238,7 +238,7 @@ const LandingPage = () => {
 
       {/* ── 2. HERO SECTION ───────────────────────────────────────────────── */}
       <section className="relative pt-16 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center z-10 space-y-6">
-        
+
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-black uppercase tracking-wider shadow-2xs">
           <Sparkles size={14} className="text-blue-600 animate-pulse" />
           <span>Next-Gen Enterprise Workforce &amp; CRM Platform</span>
@@ -391,7 +391,7 @@ const LandingPage = () => {
       {/* ── 5. INTERACTIVE LIVE PLAYGROUND ────────────────────────────────── */}
       <section id="interactive" className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto z-10 relative">
         <div className="bg-slate-50/80 border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
-          
+
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10.5px] font-black uppercase tracking-wider shadow-2xs">
               <span>Interactive Simulator</span>
@@ -561,7 +561,7 @@ const LandingPage = () => {
       {/* ── 8. BOTTOM HERO CTA BANNER ─────────────────────────────────────── */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto z-10 relative">
         <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-center space-y-5 shadow-xl shadow-blue-600/25 relative overflow-hidden">
-          
+
           <div className="max-w-2xl mx-auto space-y-2">
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               Ready to Upgrade Your Company Operations?

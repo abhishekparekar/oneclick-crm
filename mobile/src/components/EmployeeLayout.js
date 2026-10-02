@@ -93,7 +93,9 @@ const EmployeeLayout = ({
                 }
               }}
               style={styles.menuBtn}
-              activeOpacity={0.7}
+              activeOpacity={0.5}
+              delayPressIn={0}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="arrow-back" size={24} color="#0F172A" />
             </TouchableOpacity>
@@ -101,7 +103,9 @@ const EmployeeLayout = ({
             <TouchableOpacity
               onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
               style={styles.menuBtn}
-              activeOpacity={0.7}
+              activeOpacity={0.5}
+              delayPressIn={0}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="menu-outline" size={26} color="#0F172A" />
             </TouchableOpacity>
@@ -124,7 +128,7 @@ const EmployeeLayout = ({
           {rightActionType === "tasks" ? (
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSearch && (
-                <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="search-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
@@ -135,13 +139,14 @@ const EmployeeLayout = ({
                     styles.headerActionBtn,
                     onRightActionPress.filterActive ? { backgroundColor: "#1268D9", padding: 6, borderRadius: 8 } : null
                   ]}
-                  activeOpacity={0.6}
+                  activeOpacity={0.5}
+                  delayPressIn={0}
                 >
                   <Ionicons name={onRightActionPress.filterActive ? "funnel" : "funnel-outline"} size={onRightActionPress.filterActive ? 18 : 22} color={onRightActionPress.filterActive ? "#FFFFFF" : "#0F172A"} />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onPlus && (
-                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               )}
@@ -149,12 +154,12 @@ const EmployeeLayout = ({
           ) : rightActionType === "projects" ? (
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSearch && (
-                <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="search-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onPlus && (
-                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               )}
@@ -162,12 +167,12 @@ const EmployeeLayout = ({
           ) : rightActionType === "profile" ? (
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSettings && (
-                <TouchableOpacity onPress={onRightActionPress.onSettings} style={styles.headerActionBtn} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onSettings} style={styles.headerActionBtn} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="settings-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onEdit && (
-                <TouchableOpacity onPress={onRightActionPress.onEdit} style={styles.headerActionBtn} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onEdit} style={styles.headerActionBtn} activeOpacity={0.5} delayPressIn={0}>
                   <Ionicons name="create-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
@@ -179,7 +184,9 @@ const EmployeeLayout = ({
                 <TouchableOpacity
                   onPress={() => navigation.navigate("Announcements")}
                   style={[styles.bellBtn, { marginRight: 8 }]}
-                  activeOpacity={0.7}
+                  activeOpacity={0.5}
+                  delayPressIn={0}
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                 >
                   <Ionicons name="megaphone-outline" size={24} color="#0F172A" />
                   <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#1268D9" }]}>
@@ -192,7 +199,9 @@ const EmployeeLayout = ({
               <TouchableOpacity
                 onPress={() => navigation.navigate("Notifications")}
                 style={styles.bellBtn}
-                activeOpacity={0.7}
+                activeOpacity={0.5}
+                delayPressIn={0}
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
               >
                 <Ionicons name="notifications-outline" size={24} color="#0F172A" />
                 {unreadNotificationsVal > 0 && (
@@ -207,7 +216,8 @@ const EmployeeLayout = ({
               <TouchableOpacity
                 style={styles.avatar}
                 onPress={() => navigation.navigate(getProfileScreenForRole(user?.role))}
-                activeOpacity={0.7}
+                activeOpacity={0.5}
+                delayPressIn={0}
               >
                 {showPlaceholder ? (
                   <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>

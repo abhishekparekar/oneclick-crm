@@ -86,16 +86,26 @@ const SuperAdminProfile = () => {
   const [pwdData,    setPwdData]    = useState({ current: "", newPwd: "", confirm: "" });
   const [pwdError,   setPwdError]   = useState("");
 
-  const handleEdit   = () => { setSnapshot(formData); setEditing(true); };
-  const handleCancel = () => { setFormData(snapshot); setEditing(false); };
+  const [profileError, setProfileError] = useState("");
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+
+  const handleEdit   = () => { setSnapshot(formData); setEditing(true); setProfileError(""); };
+  const handleCancel = () => { setFormData(snapshot); setEditing(false); setProfileError(""); };
 
   const handleChange = (e) => {
     if (!editing) return;
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setProfileError("");
   };
 
   const handleSaveInfo = (e) => {
     e.preventDefault();
+    setProfileError("");
+    if (!formData.email.trim()) return setProfileError("Email address is required.");
+    if (!EMAIL_RE.test(formData.email.trim())) return setProfileError("Please enter a valid email address (e.g. admin@example.com).");
+    if (formData.phone.trim() && !PHONE_RE.test(formData.phone.trim())) return setProfileError("Phone must be a valid 10-digit Indian number (e.g. +91 9876543210).");
     setSnapshot(formData);
     setEditing(false);
     setSavedInfo(true);
@@ -292,14 +302,21 @@ const SuperAdminProfile = () => {
                 </div>
               </div>
               {editing && (
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="submit"
-                    className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow transition-all ${savedInfo ? "bg-emerald-500 text-white" : "btn-primary"}`}
-                  >
-                    {savedInfo ? <CheckCircle size={15} /> : <Save size={15} />}
-                    <span>{savedInfo ? "Saved!" : "Save Changes"}</span>
-                  </button>
+                <div className="pt-1 space-y-2">
+                  {profileError && (
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 border border-rose-500/20 rounded-lg px-3 py-2">
+                      <span>⚠</span> {profileError}
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow transition-all ${savedInfo ? "bg-emerald-500 text-white" : "btn-primary"}`}
+                    >
+                      {savedInfo ? <CheckCircle size={15} /> : <Save size={15} />}
+                      <span>{savedInfo ? "Saved!" : "Save Changes"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </form>

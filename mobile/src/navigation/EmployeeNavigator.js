@@ -84,143 +84,149 @@ const EmployeeBottomTabs = () => {
   const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
 
   // Dynamically assemble an exact 5-tab balanced layout
-  const tabs = [];
+  const tabs = React.useMemo(() => {
+    const list = [];
 
-  // Tab 1: Dashboard (Always Left)
-  tabs.push({
-    name: "EmployeeDashboard",
-    label: "Dashboard",
-    component: EmployeeDashboard,
-    icon: "home-outline",
-    activeIcon: "home",
-  });
+    // Tab 1: Dashboard (Always Left)
+    list.push({
+      name: "EmployeeDashboard",
+      label: "Dashboard",
+      component: EmployeeDashboard,
+      icon: "home-outline",
+      activeIcon: "home",
+    });
 
-  // Tab 2: Work (Tasks -> Leads -> Projects -> Announcements)
-  if (canAccessTasks) {
-    tabs.push({
-      name: "Tasks",
-      label: "Tasks",
-      component: MyTasksScreen,
-      icon: "checkmark-done-circle-outline",
-      activeIcon: "checkmark-done-circle",
-    });
-  } else if (canAccessLeads) {
-    tabs.push({
-      name: "LeadsEngine",
-      label: "Leads",
-      component: EmployeeLeadsScreen,
-      icon: "magnet-outline",
-      activeIcon: "magnet",
-    });
-  } else if (canAccessProjects) {
-    tabs.push({
-      name: "MyProjects",
-      label: "Projects",
-      component: MyProjectsScreen,
-      icon: "folder-open-outline",
-      activeIcon: "folder-open",
-    });
-  } else {
-    tabs.push({
-      name: "Announcements",
-      label: "Updates",
-      component: AnnouncementsScreen,
-      icon: "megaphone-outline",
-      activeIcon: "megaphone",
-    });
-  }
+    // Tab 2: Work (Tasks -> Leads -> Projects -> Announcements)
+    if (canAccessTasks) {
+      list.push({
+        name: "Tasks",
+        label: "Tasks",
+        component: MyTasksScreen,
+        icon: "checkmark-done-circle-outline",
+        activeIcon: "checkmark-done-circle",
+      });
+    } else if (canAccessLeads) {
+      list.push({
+        name: "LeadsEngine",
+        label: "Leads",
+        component: EmployeeLeadsScreen,
+        icon: "magnet-outline",
+        activeIcon: "magnet",
+      });
+    } else if (canAccessProjects) {
+      list.push({
+        name: "MyProjects",
+        label: "Projects",
+        component: MyProjectsScreen,
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+      });
+    } else {
+      list.push({
+        name: "Announcements",
+        label: "Updates",
+        component: AnnouncementsScreen,
+        icon: "megaphone-outline",
+        activeIcon: "megaphone",
+      });
+    }
 
-  // Tab 3: Center Action Button (Attendance -> Leaves -> Requests)
-  if (canAccessAttendance) {
-    tabs.push({
-      name: "Attendance",
-      label: "Attendance",
-      component: EmployeeMonthlyAttendanceScreen,
-      icon: "leaf",
-      activeIcon: "leaf",
-      isCenter: true,
-    });
-  } else if (canAccessLeaves) {
-    tabs.push({
-      name: "Leave",
-      label: "Leaves",
-      component: MyLeavesScreen,
-      icon: "calendar-clear-outline",
-      activeIcon: "calendar-clear",
-      isCenter: true,
-    });
-  } else {
-    tabs.push({
-      name: "CompanyRequests",
-      label: "Requests",
-      component: CompanyRequestsScreen,
-      icon: "chatbubbles-outline",
-      activeIcon: "chatbubbles",
-      isCenter: true,
-    });
-  }
+    // Tab 3: Center Action Button (Attendance -> Leaves -> Requests)
+    if (canAccessAttendance) {
+      list.push({
+        name: "Attendance",
+        label: "Attendance",
+        component: EmployeeMonthlyAttendanceScreen,
+        icon: "leaf",
+        activeIcon: "leaf",
+        isCenter: true,
+      });
+    } else if (canAccessLeaves) {
+      list.push({
+        name: "Leave",
+        label: "Leaves",
+        component: MyLeavesScreen,
+        icon: "calendar-clear-outline",
+        activeIcon: "calendar-clear",
+        isCenter: true,
+      });
+    } else {
+      list.push({
+        name: "CompanyRequests",
+        label: "Requests",
+        component: CompanyRequestsScreen,
+        icon: "chatbubbles-outline",
+        activeIcon: "chatbubbles",
+        isCenter: true,
+      });
+    }
 
-  // Tab 4: Secondary Work (Leads -> Leaves -> Projects -> Requests -> Documents)
-  const hasLeads = tabs.some((t) => t.name === "LeadsEngine");
-  const hasLeaves = tabs.some((t) => t.name === "Leave");
-  const hasProjects = tabs.some((t) => t.name === "MyProjects");
-  const hasRequests = tabs.some((t) => t.name === "CompanyRequests");
+    // Tab 4: Secondary Work (Leads -> Leaves -> Projects -> Requests -> Documents)
+    const hasLeads = list.some((t) => t.name === "LeadsEngine");
+    const hasLeaves = list.some((t) => t.name === "Leave");
+    const hasProjects = list.some((t) => t.name === "MyProjects");
+    const hasRequests = list.some((t) => t.name === "CompanyRequests");
 
-  if (canAccessLeads && !hasLeads) {
-    tabs.push({
-      name: "LeadsEngine",
-      label: "Leads",
-      component: EmployeeLeadsScreen,
-      icon: "magnet-outline",
-      activeIcon: "magnet",
-    });
-  } else if (canAccessLeaves && !hasLeaves) {
-    tabs.push({
-      name: "Leave",
-      label: "Leaves",
-      component: MyLeavesScreen,
-      icon: "calendar-clear-outline",
-      activeIcon: "calendar-clear",
-    });
-  } else if (canAccessProjects && !hasProjects) {
-    tabs.push({
-      name: "MyProjects",
-      label: "Projects",
-      component: MyProjectsScreen,
-      icon: "folder-open-outline",
-      activeIcon: "folder-open",
-    });
-  } else if (!hasRequests) {
-    tabs.push({
-      name: "CompanyRequests",
-      label: "Requests",
-      component: CompanyRequestsScreen,
-      icon: "chatbubbles-outline",
-      activeIcon: "chatbubbles",
-    });
-  } else {
-    tabs.push({
-      name: "EmployeeDocuments",
-      label: "Docs",
-      component: EmployeeDocumentsScreen,
-      icon: "document-text-outline",
-      activeIcon: "document-text",
-    });
-  }
+    if (canAccessLeads && !hasLeads) {
+      list.push({
+        name: "LeadsEngine",
+        label: "Leads",
+        component: EmployeeLeadsScreen,
+        icon: "magnet-outline",
+        activeIcon: "magnet",
+      });
+    } else if (canAccessLeaves && !hasLeaves) {
+      list.push({
+        name: "Leave",
+        label: "Leaves",
+        component: MyLeavesScreen,
+        icon: "calendar-clear-outline",
+        activeIcon: "calendar-clear",
+      });
+    } else if (canAccessProjects && !hasProjects) {
+      list.push({
+        name: "MyProjects",
+        label: "Projects",
+        component: MyProjectsScreen,
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+      });
+    } else if (!hasRequests) {
+      list.push({
+        name: "CompanyRequests",
+        label: "Requests",
+        component: CompanyRequestsScreen,
+        icon: "chatbubbles-outline",
+        activeIcon: "chatbubbles",
+      });
+    } else {
+      list.push({
+        name: "EmployeeDocuments",
+        label: "Docs",
+        component: EmployeeDocumentsScreen,
+        icon: "document-text-outline",
+        activeIcon: "document-text",
+      });
+    }
 
-  // Tab 5: More / Profile (Always Right)
-  tabs.push({
-    name: "EmployeeProfile",
-    label: "More",
-    component: EmployeeProfileScreen,
-    icon: "grid-outline",
-    activeIcon: "grid",
-  });
+    // Tab 5: More / Profile (Always Right)
+    list.push({
+      name: "EmployeeProfile",
+      label: "More",
+      component: EmployeeProfileScreen,
+      icon: "grid-outline",
+      activeIcon: "grid",
+    });
+
+    return list;
+  }, [canAccessTasks, canAccessLeads, canAccessProjects, canAccessAttendance, canAccessLeaves]);
 
   return (
     <Tab.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
+        animation: "none",
         tabBarActiveTintColor: "#1268D9",
         tabBarInactiveTintColor: "#64748B",
         tabBarStyle: {
@@ -251,15 +257,22 @@ const EmployeeBottomTabs = () => {
           options={{
             tabBarLabel: tab.isCenter && tab.name === "Attendance" ? () => null : tab.label,
             headerShown: false,
-            tabBarIcon: ({ color, focused }) => {
-              if (tab.isCenter && tab.name === "Attendance") {
-                return (
-                  <View style={styles.customTabButtonContainer}>
+            tabBarButton: tab.isCenter && tab.name === "Attendance"
+              ? (props) => (
+                  <TouchableOpacity
+                    {...props}
+                    activeOpacity={0.7}
+                    style={[props.style, styles.centerTabTouchable]}
+                  >
                     <View style={styles.customTabButton}>
                       <Ionicons name="leaf" size={24} color="#ffffff" />
                     </View>
-                  </View>
-                );
+                  </TouchableOpacity>
+                )
+              : undefined,
+            tabBarIcon: ({ color, focused }) => {
+              if (tab.isCenter && tab.name === "Attendance") {
+                return null;
               }
               return (
                 <Ionicons
@@ -283,6 +296,8 @@ const EmployeeStackScreen = () => {
       initialRouteName="MainTabs"
       screenOptions={{
         headerShown: false,
+        animation: "slide_from_right",
+        animationDuration: 200,
       }}
     >
       <Stack.Screen name="MainTabs" component={EmployeeBottomTabs} options={{ headerShown: false }} />
@@ -376,6 +391,11 @@ const EmployeeNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  centerTabTouchable: {
+    top: -14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   customTabButtonContainer: {
     top: -16,
     justifyContent: "center",

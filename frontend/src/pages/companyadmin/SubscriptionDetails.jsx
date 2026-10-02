@@ -22,6 +22,7 @@ const RequestStatusBadge = ({ status }) => {
     in_review: { label: "In Review", bg: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800" },
     approved: { label: "Approved", bg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800" },
     provisioned: { label: "Provisioned & Active", bg: "bg-emerald-600 text-white border-emerald-600" },
+    resolved: { label: "Resolved ✓", bg: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800" },
     rejected: { label: "Declined", bg: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800" },
   };
   const b = badgeMap[status] || badgeMap.pending;
@@ -31,6 +32,7 @@ const RequestStatusBadge = ({ status }) => {
     </span>
   );
 };
+
 
 const MODULE_ICONS = {
   attendance: CalendarCheck,

@@ -151,6 +151,7 @@ exports.getSuperAdminSubscriptionRequests = async (req, res, next) => {
     const pending = await SubscriptionRequest.countDocuments({ status: "pending" });
     const inReview = await SubscriptionRequest.countDocuments({ status: "in_review" });
     const approved = await SubscriptionRequest.countDocuments({ status: { $in: ["approved", "provisioned"] } });
+    const resolved = await SubscriptionRequest.countDocuments({ status: "resolved" });
     const rejected = await SubscriptionRequest.countDocuments({ status: "rejected" });
 
     res.json({
@@ -161,6 +162,7 @@ exports.getSuperAdminSubscriptionRequests = async (req, res, next) => {
         pending,
         inReview,
         approved,
+        resolved,
         rejected,
       },
     });
@@ -252,13 +254,17 @@ exports.updateSubscriptionRequestStatus = async (req, res, next) => {
 
     // Send notification back to Company Admin
     try {
-      const notifTitle = status === "approved" || status === "provisioned"
+      const notifTitle = status === "resolved"
+        ? "Company Query / Request Resolved"
+        : status === "approved" || status === "provisioned"
         ? "Subscription Request Approved!"
         : status === "rejected"
         ? "Subscription Request Update"
         : "Subscription Request In Review";
 
-      const notifBody = status === "approved" || status === "provisioned"
+      const notifBody = status === "resolved"
+        ? `Your inquiry/request (${request.requestCode}) has been resolved by Super Admin: ${adminResponseNotes || "See details in Subscription section."}`
+        : status === "approved" || status === "provisioned"
         ? `Your request (${request.requestCode}) for ${request.requestedPlanName || "custom quota"} has been approved and provisioned by Super Admin.`
         : status === "rejected"
         ? `Your request (${request.requestCode}) was reviewed: ${adminResponseNotes || "Contact Super Admin for details."}`

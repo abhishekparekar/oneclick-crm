@@ -381,6 +381,21 @@ const ManagerTasksScreen = ({ navigation, route }) => {
   const [dateFilter, setDateFilter] = useState("all_time");
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
 
+  const statusScrollRef = useRef(null);
+  const statusTabPositions = useRef({});
+
+  useEffect(() => {
+    const xPos = statusTabPositions.current[taskFilter];
+    if (xPos !== undefined) {
+      statusScrollRef.current?.scrollTo({
+        x: Math.max(0, xPos - 16),
+        animated: true,
+      });
+    } else if (!taskFilter) {
+      statusScrollRef.current?.scrollTo({ x: 0, animated: true });
+    }
+  }, [taskFilter]);
+
   const applyRouteParams = useCallback((params) => {
     if (!params) return;
     if (params.activeTab !== undefined) {
@@ -399,6 +414,8 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     }
     if (params.deadlineComingFilter !== undefined) {
       setDeadlineComingFilter(params.deadlineComingFilter);
+    } else {
+      setDeadlineComingFilter("");
     }
     if (params.departmentId) {
       setSelectedDepts([params.departmentId]);
@@ -1229,30 +1246,67 @@ const ManagerTasksScreen = ({ navigation, route }) => {
                 {/* 1. Status Filter Chips Row */}
                 <View style={styles.chipsRowWrapper}>
                   <ScrollView
+                    ref={statusScrollRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.chipsScrollContent}
                   >
                     {STATUS_TABS.map((tab) => {
                       const isActive = taskFilter === tab.key;
+                      const isOverdueTab = tab.key === "overdue";
                       const cnt = getStatusCount(tab.key);
                       return (
                         <TouchableOpacity
                           key={tab.key || "all-status"}
-                          style={[styles.statusChipBtn, isActive && styles.statusChipBtnActive]}
+                          onLayout={(e) => {
+                            statusTabPositions.current[tab.key] = e.nativeEvent.layout.x;
+                            if (taskFilter === tab.key) {
+                              statusScrollRef.current?.scrollTo({
+                                x: Math.max(0, e.nativeEvent.layout.x - 16),
+                                animated: true,
+                              });
+                            }
+                          }}
+                          style={[
+                            styles.statusChipBtn,
+                            isOverdueTab && !isActive && styles.statusChipBtnOverdue,
+                            isActive && (isOverdueTab ? styles.statusChipBtnOverdueActive : styles.statusChipBtnActive),
+                          ]}
                           onPress={() => setTaskFilter(tab.key)}
                           activeOpacity={0.7}
                         >
                           <Ionicons
                             name={tab.icon}
                             size={14}
-                            color={isActive ? "#1268D9" : "#64748b"}
+                            color={
+                              isActive
+                                ? (isOverdueTab ? "#ef4444" : "#1268D9")
+                                : (isOverdueTab ? "#ef4444" : "#64748b")
+                            }
                           />
-                          <Text style={[styles.statusChipText, isActive && styles.statusChipTextActive]}>
+                          <Text
+                            style={[
+                              styles.statusChipText,
+                              isOverdueTab && !isActive && styles.statusChipTextOverdue,
+                              isActive && (isOverdueTab ? styles.statusChipTextOverdueActive : styles.statusChipTextActive),
+                            ]}
+                          >
                             {tab.label}
                           </Text>
-                          <View style={[styles.statusChipBadge, isActive && styles.statusChipBadgeActive]}>
-                            <Text style={[styles.statusChipBadgeText, isActive && styles.statusChipBadgeTextActive]}>
+                          <View
+                            style={[
+                              styles.statusChipBadge,
+                              isOverdueTab && !isActive && styles.statusChipBadgeOverdue,
+                              isActive && (isOverdueTab ? styles.statusChipBadgeOverdueActive : styles.statusChipBadgeActive),
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusChipBadgeText,
+                                isOverdueTab && !isActive && styles.statusChipBadgeTextOverdue,
+                                isActive && styles.statusChipBadgeTextActive,
+                              ]}
+                            >
                               {cnt}
                             </Text>
                           </View>
@@ -1753,6 +1807,14 @@ const styles = StyleSheet.create({
     borderColor: "#1268D9",
     backgroundColor: "#ffffff",
   },
+  statusChipBtnOverdue: {
+    borderColor: "#fecaca",
+    backgroundColor: "#ffffff",
+  },
+  statusChipBtnOverdueActive: {
+    borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+  },
   statusChipText: {
     fontSize: 11,
     fontWeight: "700",
@@ -1760,6 +1822,13 @@ const styles = StyleSheet.create({
   },
   statusChipTextActive: {
     color: "#1268D9",
+  },
+  statusChipTextOverdue: {
+    color: "#ef4444",
+  },
+  statusChipTextOverdueActive: {
+    color: "#ef4444",
+    fontWeight: "800",
   },
   statusChipBadge: {
     backgroundColor: "#f1f5f9",
@@ -1773,6 +1842,12 @@ const styles = StyleSheet.create({
   statusChipBadgeActive: {
     backgroundColor: "#1268D9",
   },
+  statusChipBadgeOverdue: {
+    backgroundColor: "#fee2e2",
+  },
+  statusChipBadgeOverdueActive: {
+    backgroundColor: "#ef4444",
+  },
   statusChipBadgeText: {
     fontSize: 9.5,
     fontWeight: "800",
@@ -1780,6 +1855,9 @@ const styles = StyleSheet.create({
   },
   statusChipBadgeTextActive: {
     color: "#ffffff",
+  },
+  statusChipBadgeTextOverdue: {
+    color: "#ef4444",
   },
 
   // Date Chip

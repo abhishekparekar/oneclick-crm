@@ -13,6 +13,7 @@ react {
     root = file("../../")
     debuggableVariants = ["debug"]
     autolinkLibrariesWithApp()
+    nodeExecutableAndArgs = ["node", "--max-old-space-size=8192"]
 }
 
 /**

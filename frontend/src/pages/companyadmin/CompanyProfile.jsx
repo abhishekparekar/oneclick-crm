@@ -100,8 +100,18 @@ const CompanyProfile = () => {
         }
     });
 
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        setErrorMsg("");
+        if (formData.email?.trim() && !EMAIL_RE.test(formData.email.trim())) {
+            return setErrorMsg("Please enter a valid company email address (e.g. info@company.com).");
+        }
+        if (formData.phone?.trim() && !PHONE_RE.test(formData.phone.trim())) {
+            return setErrorMsg("Company phone must be a valid 10-digit Indian number (e.g. +91 9876543210).");
+        }
         updateMutation.mutate(formData);
     };
 

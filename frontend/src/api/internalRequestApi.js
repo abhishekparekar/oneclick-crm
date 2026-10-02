@@ -8,6 +8,10 @@ export const getInternalRequestByIdApi = (id) => {
   return api.get(`/internal-requests/${id}`);
 };
 
+export const getInternalRequestTargetOptionsApi = () => {
+  return api.get("/internal-requests/target-options");
+};
+
 export const createInternalRequestApi = (data) => {
   return api.post("/internal-requests", data);
 };

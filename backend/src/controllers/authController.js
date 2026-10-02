@@ -452,7 +452,7 @@ const logoutCheck = async (req, res) => {
     const Task = require('../models/Task');
     const Company = require('../models/Company');
     const Subscription = require('../models/Subscription');
-    
+
     // Only applies to Employees (Team Members)
     if (req.user.role !== 'Employee') {
       return res.json({ success: true, canLogout: true });
@@ -520,9 +520,9 @@ const logoutCheck = async (req, res) => {
     });
 
     if (pendingTasks.length > 0) {
-      return res.json({ 
-        success: true, 
-        canLogout: false, 
+      return res.json({
+        success: true,
+        canLogout: false,
         pendingTasksCount: pendingTasks.length,
         message: 'You have pending tasks for today. Please update their status and provide a follow-up date before logging out.'
       });

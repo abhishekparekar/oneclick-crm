@@ -252,6 +252,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
       completedTeamTasks,
       overdueTeamTasks,
       myPendingTasks,
+      myOverdueTasks,
       recentMyTasks,
       recentTeamTasks,
       teamTemplatesCount,
@@ -294,6 +295,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
       Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds }, $or: [{ status: { $in: ["done", "complete", "late_complete"] } }, { statusKey: { $in: ["completed", "done"] } }] }),
       Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds }, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, endDateTime: { $lt: now } }),
       Task.countDocuments({ companyId, assignedTo: managerEmployeeId, status: { $ne: "cancelled" }, ...(departmentId ? { departmentId } : {}) }),
+      Task.countDocuments({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, endDateTime: { $lt: now }, ...(departmentId ? { departmentId } : {}) }),
       
       Task.find({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, ...(departmentId ? { departmentId } : {}) })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
@@ -375,6 +377,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
         taskSummary: {
           openTeamTasks: openTeamTasks + teamTemplatesCount,
           overdueTeamTasks,
+          myOverdueTasks,
           completedTeamTasks,
           myPendingTasks: myPendingTasks + myTemplatesCount,
           totalTeamTasks: totalTeamTasks + teamTemplatesCount,

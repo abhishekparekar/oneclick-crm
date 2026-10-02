@@ -834,8 +834,6 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   return (
     <EmployeeLayout navigation={navigation} title="Lead Profile" showBack={true}>
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
         {loading && !refreshing && !lead ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={THEME.primary} />

@@ -116,10 +116,16 @@ const SubAdminModal = ({ existingAdmin, onClose, onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_RE = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name.trim() || !form.email.trim()) return setError("Name and email are required.");
+    if (!form.name.trim()) return setError("Full name is required.");
+    if (!form.email.trim()) return setError("Email address is required.");
+    if (!EMAIL_RE.test(form.email.trim())) return setError("Please enter a valid email address (e.g. admin@example.com).");
+    if (form.phone.trim() && !PHONE_RE.test(form.phone.trim())) return setError("Phone must be a valid 10-digit Indian number (e.g. +91 9876543210).");
     if (!isEdit && form.password.length < 6) return setError("Password must be at least 6 characters.");
     const cleanPerms = {};
     Object.entries(form.permissions).forEach(([mod, actions]) => {

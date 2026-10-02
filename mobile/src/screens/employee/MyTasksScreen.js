@@ -197,7 +197,8 @@ const TaskCard = ({ item, onPress, onStatusUpdate, canCancel, onCancel }) => {
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={1}
+        activeOpacity={0.65}
+        delayPressIn={0}
       >
         {/* ── Card Body ── */}
         <View style={styles.taskCardBody}>
@@ -310,7 +311,8 @@ const TaskCard = ({ item, onPress, onStatusUpdate, canCancel, onCancel }) => {
                   { backgroundColor: isOverdue ? "#FF5B00" : (normalizeStatusValue(item.status) === "pending" || normalizeStatusValue(item.status) === "re_pending" ? "#2563EB" : "#10B981") }
                 ]}
                 onPress={() => onStatusUpdate(item)}
-                activeOpacity={0.8}
+                activeOpacity={0.5}
+                delayPressIn={0}
               >
                 <Ionicons
                   name={isOverdue ? "warning" : (normalizeStatusValue(item.status) === "pending" || normalizeStatusValue(item.status) === "re_pending" ? "play" : "checkmark")}
@@ -323,7 +325,7 @@ const TaskCard = ({ item, onPress, onStatusUpdate, canCancel, onCancel }) => {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.5} delayPressIn={0}>
               <Ionicons name="eye-outline" size={14} color="#64748B" />
               <Text style={styles.actionBtnText}>View</Text>
             </TouchableOpacity>
@@ -956,6 +958,8 @@ export default function MyTasksScreen({ route, navigation }) {
         <FlatList
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
+          delaysContentTouches={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1268D9" colors={["#1268D9"]} />
@@ -1047,7 +1051,7 @@ export default function MyTasksScreen({ route, navigation }) {
 
               {/* ── Status Pill Filter Tabs ── */}
               <View style={styles.statusTabsWrapper}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} delaysContentTouches={false} contentContainerStyle={styles.tabsScroll}>
                   {STATUS_TABS.map((tab) => {
                     const isActive = activeStatus === tab.key;
                     const cnt = getStatusCount(tab.key);
@@ -1056,7 +1060,8 @@ export default function MyTasksScreen({ route, navigation }) {
                         key={tab.key}
                         style={[styles.statusPillTab, isActive && styles.statusPillTabActive]}
                         onPress={() => setActiveStatus(tab.key)}
-                        activeOpacity={0.8}
+                        activeOpacity={0.6}
+                        delayPressIn={0}
                       >
                         <Text style={[styles.statusPillText, isActive && styles.statusPillTextActive]}>{tab.label}</Text>
                         <View style={[styles.statusPillBadge, isActive && styles.statusPillBadgeActive]}>
@@ -1070,7 +1075,7 @@ export default function MyTasksScreen({ route, navigation }) {
 
               {/* ── Date Tabs ── */}
               <View style={styles.dateTabsWrapper}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateTabsScroll}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} delaysContentTouches={false} contentContainerStyle={styles.dateTabsScroll}>
                   {DATE_TABS.map((dateTab) => {
                     const isActive = activeDateFilter === dateTab;
                     return (
@@ -1078,7 +1083,8 @@ export default function MyTasksScreen({ route, navigation }) {
                         key={dateTab}
                         style={[styles.dateTabItem, isActive && styles.dateTabItemActive]}
                         onPress={() => setActiveDateFilter(dateTab)}
-                        activeOpacity={0.7}
+                        activeOpacity={0.6}
+                        delayPressIn={0}
                       >
                         <Ionicons name="calendar-outline" size={14} color={isActive ? "#1268D9" : "#64748B"} style={{ marginRight: 5 }} />
                         <Text style={[styles.dateTabText, isActive && styles.dateTabTextActive]}>{dateTab}</Text>

@@ -274,12 +274,12 @@ const EmployeeProfileScreen = ({ navigation }) => {
       }}
     >
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          delaysContentTouches={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -304,7 +304,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={styles.cameraBtn}
                 onPress={() => navigation.navigate(editScreenName)}
-                activeOpacity={0.8}
+                activeOpacity={0.6}
+                delayPressIn={0}
               >
                 <Ionicons name="camera" size={13} color="#FFFFFF" />
               </TouchableOpacity>
@@ -361,7 +362,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.menuRowItem}
               onPress={() => setInfoModalCategory("job")}
-              activeOpacity={0.8}
+              activeOpacity={0.55}
+              delayPressIn={0}
             >
               <View style={styles.menuRowLeft}>
                 <View style={styles.menuRowIconBox}>
@@ -379,7 +381,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.menuRowItem}
               onPress={() => setInfoModalCategory("bank")}
-              activeOpacity={0.8}
+              activeOpacity={0.55}
+              delayPressIn={0}
             >
               <View style={styles.menuRowLeft}>
                 <View style={styles.menuRowIconBox}>
@@ -397,7 +400,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.menuRowItem}
               onPress={() => setInfoModalCategory("emergency")}
-              activeOpacity={0.8}
+              activeOpacity={0.55}
+              delayPressIn={0}
             >
               <View style={styles.menuRowLeft}>
                 <View style={styles.menuRowIconBox}>
@@ -415,7 +419,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.menuRowItem, { borderBottomWidth: 0 }]}
               onPress={() => navigation.navigate("EmployeeDocuments")}
-              activeOpacity={0.8}
+              activeOpacity={0.55}
+              delayPressIn={0}
             >
               <View style={styles.menuRowLeft}>
                 <View style={styles.menuRowIconBox}>
@@ -434,7 +439,8 @@ const EmployeeProfileScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={handleLogout}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
+            delayPressIn={0}
           >
             <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
             <Text style={styles.logoutBtnText}>Logout Account</Text>

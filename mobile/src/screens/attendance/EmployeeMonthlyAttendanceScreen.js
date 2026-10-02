@@ -37,8 +37,11 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
 
   const fetchMonthlyData = async (isRefresh = false) => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else if (!monthlyData) {
+        setLoading(true);
+      }
 
       const { data: res } = await getMyMonthlyApi({
         month: currentMonth,
@@ -213,7 +216,8 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
             navigation.navigate("AttendanceDetails", { date: dateStr });
           }}
           style={styles.dayCellWrapper}
-          activeOpacity={0.7}
+          activeOpacity={0.6}
+          delayPressIn={0}
         >
           <View
             style={[
@@ -240,13 +244,13 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
       <View style={styles.container}>
         {/* Month Selector Banner */}
         <View style={styles.dateSelectorPanel}>
-          <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrow}>
+          <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrow} activeOpacity={0.5} delayPressIn={0} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={22} color="#2563eb" />
           </TouchableOpacity>
           <Text style={styles.monthHeading}>
             {new Date(currentYear, currentMonth - 1).toLocaleString("en-US", { month: "long", year: "numeric" })}
           </Text>
-          <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrow}>
+          <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrow} activeOpacity={0.5} delayPressIn={0} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-forward" size={22} color="#2563eb" />
           </TouchableOpacity>
         </View>
@@ -261,6 +265,8 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            delaysContentTouches={false}
+            keyboardShouldPersistTaps="handled"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           >
             {/* Calendar Container (No Card) */}

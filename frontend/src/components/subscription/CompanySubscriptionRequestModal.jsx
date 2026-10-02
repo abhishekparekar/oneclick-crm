@@ -8,6 +8,7 @@ import {
 import toast from "react-hot-toast";
 
 const REQUEST_TYPES = [
+  { value: "company_inquiry", label: "Company Query / Inquiries", desc: "Ask questions, custom requirements or support to Super Admin" },
   { value: "upgrade_plan", label: "Upgrade SaaS Plan Tier", desc: "Move to a higher plan with more features" },
   { value: "renew_plan", label: "Renew Current Subscription", desc: "Extend validity for another billing cycle" },
   { value: "increase_seats", label: "Increase Employee Seats", desc: "Expand licensed employee capacity" },
@@ -28,7 +29,7 @@ export default function CompanySubscriptionRequestModal({ isOpen, onClose, curre
   const availablePlans = plansData?.data || [];
 
   const [form, setForm] = useState({
-    requestType: "upgrade_plan",
+    requestType: "company_inquiry",
     requestedPlanId: "",
     requestedSeats: 0,
     billingCycle: "yearly",
@@ -40,9 +41,9 @@ export default function CompanySubscriptionRequestModal({ isOpen, onClose, curre
     mutationFn: createCompanySubscriptionRequestApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companySubscriptionRequests"] });
-      toast.success("Subscription request sent to Super Admin!");
+      toast.success("Request / Inquiry sent to Super Admin!");
       setForm({
-        requestType: "upgrade_plan",
+        requestType: "company_inquiry",
         requestedPlanId: "",
         requestedSeats: 0,
         billingCycle: "yearly",
@@ -58,7 +59,7 @@ export default function CompanySubscriptionRequestModal({ isOpen, onClose, curre
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.message.trim() && form.requestType === "other") {
+    if (!form.message.trim() && (form.requestType === "other" || form.requestType === "company_inquiry")) {
       toast.error("Please provide details in the message box");
       return;
     }

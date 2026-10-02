@@ -378,4 +378,5 @@ router.get("/available-plans", ...adminOnly, getAvailablePlans);
 router.post("/subscription-requests", ...adminOnly, createCompanySubscriptionRequest);
 router.get("/subscription-requests", ...adminOnly, getCompanySubscriptionRequests);
 
+
 module.exports = router;

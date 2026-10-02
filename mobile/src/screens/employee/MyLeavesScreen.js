@@ -46,7 +46,7 @@ const MyLeavesScreen = ({ navigation }) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      if (showLoading) setLoading(true);
+      if (showLoading && leaves.length === 0) setLoading(true);
 
       const promises = [
         getMyLeavesApi().catch(() => ({ data: { leaves: [], success: false } })),
@@ -111,6 +111,8 @@ const MyLeavesScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          delaysContentTouches={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
         >
           {/* ── 1. Active Shift Blue Hero Card (Time Off & Leaves) ── */}
@@ -137,7 +139,8 @@ const MyLeavesScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.heroPillBtn}
                   onPress={() => navigation.navigate("EmployeeLeaveBalance")}
-                  activeOpacity={0.8}
+                  activeOpacity={0.6}
+                  delayPressIn={0}
                 >
                   <Ionicons name="pie-chart-outline" size={13} color="#FFFFFF" />
                   <Text style={styles.heroPillBtnText}>Balance</Text>
@@ -146,7 +149,8 @@ const MyLeavesScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.heroPillBtn}
                   onPress={() => navigation.navigate("EmployeeHolidayCalendar")}
-                  activeOpacity={0.8}
+                  activeOpacity={0.6}
+                  delayPressIn={0}
                 >
                   <Ionicons name="calendar-outline" size={13} color="#FFFFFF" />
                   <Text style={styles.heroPillBtnText}>Holidays</Text>
@@ -157,7 +161,7 @@ const MyLeavesScreen = ({ navigation }) => {
 
           {/* ── 2. Status Filter Tabs ── */}
           <View style={styles.statusTabsWrapper}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTabsScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} delaysContentTouches={false} contentContainerStyle={styles.statusTabsScroll}>
               {STATUS_FILTERS.map((pill) => {
                 const isActive = activeFilter === pill.value;
                 return (
@@ -165,7 +169,8 @@ const MyLeavesScreen = ({ navigation }) => {
                     key={pill.value}
                     onPress={() => setActiveFilter(pill.value)}
                     style={[styles.statusPillTab, isActive && styles.statusPillTabActive]}
-                    activeOpacity={0.8}
+                    activeOpacity={0.6}
+                    delayPressIn={0}
                   >
                     <Text style={[styles.statusPillText, isActive && styles.statusPillTextActive]}>
                       {pill.label}
@@ -224,7 +229,8 @@ const MyLeavesScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.requestButton}
             onPress={() => navigation.navigate("EmployeeApplyLeave")}
-            activeOpacity={0.85}
+            activeOpacity={0.6}
+            delayPressIn={0}
           >
             <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.requestButtonGradient}>
               <Ionicons name="send" size={15} color="#FFFFFF" style={{ marginRight: 8 }} />
@@ -235,7 +241,7 @@ const MyLeavesScreen = ({ navigation }) => {
           {/* ── 5. My Leave Applications History Stream ── */}
           <View style={styles.historyHeaderRow}>
             <Text style={styles.sectionTitle}>My Leave Applications History</Text>
-            <TouchableOpacity onPress={() => setActiveFilter("")} activeOpacity={0.7} style={styles.viewAllBtn}>
+            <TouchableOpacity onPress={() => setActiveFilter("")} activeOpacity={0.5} delayPressIn={0} style={styles.viewAllBtn}>
               <Text style={styles.viewAllText}>View All</Text>
               <Ionicons name="chevron-forward" size={12} color="#1268D9" />
             </TouchableOpacity>
@@ -276,7 +282,8 @@ const MyLeavesScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={leave._id || `leave-${idx}`}
                   onPress={() => navigation.navigate("EmployeeLeaveDetails", { leaveId: leave._id })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.6}
+                  delayPressIn={0}
                 >
                   <View style={[styles.historyCard, { borderLeftColor: cardAccentColor, borderLeftWidth: 4 }]}>
                     {/* Top Row */}

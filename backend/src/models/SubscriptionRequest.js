@@ -23,7 +23,7 @@ const subscriptionRequestSchema = new mongoose.Schema(
     },
     requestType: {
       type: String,
-      enum: ["upgrade_plan", "renew_plan", "increase_seats", "custom_module", "trial_extension", "other"],
+      enum: ["upgrade_plan", "renew_plan", "increase_seats", "custom_module", "trial_extension", "company_inquiry", "inquiry_query", "other"],
       default: "upgrade_plan",
     },
     currentPlanId: {
@@ -65,7 +65,7 @@ const subscriptionRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in_review", "approved", "rejected", "provisioned"],
+      enum: ["pending", "in_review", "approved", "rejected", "provisioned", "resolved"],
       default: "pending",
     },
     adminResponseNotes: {

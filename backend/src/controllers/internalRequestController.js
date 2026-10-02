@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Employee = require("../models/Employee");
 const Department = require("../models/Department");
 const Notification = require("../models/Notification");
+const { resolveToUserIds } = require("../utils/notificationHelper");
 const path = require("path");
 const fs = require("fs");
 
@@ -16,6 +17,65 @@ const generateRequestCode = async (companyId) => {
   const count = await InternalRequest.countDocuments({ companyId });
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   return `REQ-${count + 1}-${randomSuffix}`;
+};
+
+// @desc    Get all available target options (Departments & Employees) for broadcasting request
+// @route   GET /api/internal-requests/target-options
+// @access  Private (All Roles: Employee, Manager, HR, Admin)
+const getTargetOptions = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+
+    const [departments, employees] = await Promise.all([
+      Department.find({ companyId }).select("_id name code description").sort({ name: 1 }).lean(),
+      Employee.find({
+        companyId,
+        status: { $regex: /^active$/i },
+      })
+        .select("_id userId employeeCode firstName lastName fullName email phone departmentId role photo profileImage")
+        .populate("userId", "_id name email role profileImage")
+        .populate("departmentId", "_id name")
+        .sort({ firstName: 1 })
+        .lean(),
+    ]);
+
+    const formattedEmployees = employees.map((emp) => {
+      const name =
+        emp.fullName ||
+        `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
+        emp.userId?.name ||
+        "Staff Member";
+      const uId = emp.userId?._id
+        ? emp.userId._id.toString()
+        : emp.userId
+        ? emp.userId.toString()
+        : emp._id.toString();
+      return {
+        _id: emp._id.toString(),
+        userId: uId,
+        name,
+        employeeCode: emp.employeeCode || "",
+        email: emp.email || emp.userId?.email || "",
+        role: emp.role || emp.userId?.role || "Employee",
+        departmentId: emp.departmentId?._id
+          ? emp.departmentId._id.toString()
+          : emp.departmentId
+          ? emp.departmentId.toString()
+          : null,
+        departmentName: emp.departmentId?.name || "",
+        avatar: emp.photo || emp.profileImage || emp.userId?.profileImage || null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      departments: departments || [],
+      employees: formattedEmployees || [],
+    });
+  } catch (err) {
+    console.error("[InternalRequest] getTargetOptions error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 // @desc    Get all company requests with filters & pagination
@@ -48,14 +108,39 @@ const getRequests = async (req, res) => {
     } else if (tab === "assigned_to_me") {
       const employee = await Employee.findOne({ userId });
       const userDeptId = employee?.departmentId;
+      const deptList = (employee?.departmentIds || []).map((id) => (id?._id || id).toString());
+      const accList = (employee?.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+      const allMyDeptIds = Array.from(new Set([userDeptId?.toString(), ...deptList, ...accList].filter(Boolean)));
 
       query.$or = [
         { targetType: "ALL_EMPLOYEES" },
         { targetEmployeeIds: userId },
-        ...(userDeptId ? [{ targetDepartmentId: userDeptId }] : []),
+        ...(allMyDeptIds.length > 0 ? [{ targetDepartmentId: { $in: allMyDeptIds } }] : []),
       ];
     } else if (tab === "resolved") {
       query.status = { $in: ["Resolved", "Closed"] };
+    }
+
+    // Role-based visibility scoping for standard Employee role on general views
+    const userRole = (req.user?.role || "").toLowerCase();
+    if (userRole === "employee" && tab !== "sent_by_me") {
+      const employee = await Employee.findOne({ userId });
+      const userDeptId = employee?.departmentId;
+      const deptList = (employee?.departmentIds || []).map((id) => (id?._id || id).toString());
+      const accList = (employee?.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+      const allMyDeptIds = Array.from(new Set([userDeptId?.toString(), ...deptList, ...accList].filter(Boolean)));
+
+      const visibilityClause = [
+        { requesterId: userId },
+        { targetType: "ALL_EMPLOYEES" },
+        { targetEmployeeIds: userId },
+      ];
+      if (allMyDeptIds.length > 0) {
+        visibilityClause.push({ targetDepartmentId: { $in: allMyDeptIds } });
+      }
+
+      if (!query.$and) query.$and = [];
+      query.$and.push({ $or: visibilityClause });
     }
 
     // Search query
@@ -166,6 +251,12 @@ const createRequest = async (req, res) => {
       if (dept) targetDepartmentName = dept.name;
     }
 
+    // Resolve target employee IDs into clean User ObjectIds
+    let cleanTargetUserIds = [];
+    if (targetType === "SPECIFIC_EMPLOYEES" && Array.isArray(targetEmployeeIds) && targetEmployeeIds.length > 0) {
+      cleanTargetUserIds = await resolveToUserIds(targetEmployeeIds, companyId);
+    }
+
     const requestCode = await generateRequestCode(companyId);
 
     const newRequest = await InternalRequest.create({
@@ -181,72 +272,66 @@ const createRequest = async (req, res) => {
       targetType,
       targetDepartmentId: targetDepartmentId || null,
       targetDepartmentName,
-      targetEmployeeIds: Array.isArray(targetEmployeeIds) ? targetEmployeeIds : [],
+      targetEmployeeIds: cleanTargetUserIds,
       status: "Open",
       responses: [],
     });
 
-    // ── Dispatch targeted notifications ──
+    // ── Dispatch targeted notifications with Mobile FCM Push & Deduplication ──
     try {
+      let recipientUserIds = [];
+      let notifTitle = `📢 New Request: ${newRequest.title}`;
+      let notifBody = `${req.user?.name || "A team member"} requested info/feedback (${newRequest.requestCode}): "${newRequest.description.slice(0, 80)}..."`;
+
       if (targetType === "ALL_EMPLOYEES") {
         const usersToNotify = await User.find({
           companyId,
           _id: { $ne: userId },
-          isActive: true,
-        }).select("_id");
-
-        const notifications = usersToNotify.map((u) => ({
-          companyId,
-          userId: u._id,
-          title: `📢 New Request: ${newRequest.title}`,
-          body: `${req.user?.name || "A team member"} requested info/feedback (${newRequest.requestCode}) from all company members: "${newRequest.description.slice(0, 80)}..."`,
-          type: "company_request",
-          data: { requestId: newRequest._id, requestCode: newRequest.requestCode },
-        }));
-
-        if (notifications.length > 0) {
-          await Notification.insertMany(notifications);
-        }
+          isActive: { $ne: false },
+        }).select("_id").lean();
+        recipientUserIds = usersToNotify.map((u) => u._id.toString());
       } else if (targetType === "DEPARTMENT" && targetDepartmentId) {
+        notifTitle = `📁 Dept Request (${targetDepartmentName || "Department"}): ${newRequest.title}`;
+        notifBody = `${req.user?.name || "A team member"} requested data/feedback (${newRequest.requestCode}) for the ${targetDepartmentName || "department"}.`;
+
         const deptEmployees = await Employee.find({
           companyId,
-          departmentId: targetDepartmentId,
-          status: "Active",
-        }).select("userId");
+          $or: [
+            { departmentId: targetDepartmentId },
+            { departmentIds: targetDepartmentId },
+            { accessibleDepartments: targetDepartmentId },
+          ],
+          status: { $regex: /^active$/i },
+        }).select("userId").lean();
 
-        const targetUserIds = deptEmployees
-          .map((e) => e.userId)
-          .filter((uid) => uid && uid.toString() !== userId.toString());
+        recipientUserIds = deptEmployees
+          .map((e) => (e.userId ? (e.userId._id || e.userId).toString() : null))
+          .filter((uid) => uid && uid !== userId.toString());
+      } else if (targetType === "SPECIFIC_EMPLOYEES" && cleanTargetUserIds.length > 0) {
+        notifTitle = `👤 Direct Request: ${newRequest.title}`;
+        notifBody = `${req.user?.name || "A team member"} assigned a company request (${newRequest.requestCode}) directly to you.`;
+        recipientUserIds = cleanTargetUserIds.filter((uid) => uid !== userId.toString());
+      }
 
-        const notifications = targetUserIds.map((uid) => ({
-          companyId,
-          userId: uid,
-          title: `📁 Dept Request (${targetDepartmentName}): ${newRequest.title}`,
-          body: `${req.user?.name || "A team member"} requested data/feedback (${newRequest.requestCode}) for the ${targetDepartmentName} department.`,
-          type: "company_request",
-          data: { requestId: newRequest._id, requestCode: newRequest.requestCode },
-        }));
+      recipientUserIds = Array.from(new Set(recipientUserIds.filter(Boolean)));
 
-        if (notifications.length > 0) {
-          await Notification.insertMany(notifications);
-        }
-      } else if (targetType === "SPECIFIC_EMPLOYEES" && targetEmployeeIds?.length > 0) {
-        const targetUserIds = targetEmployeeIds.filter(
-          (uid) => uid && uid.toString() !== userId.toString()
+      if (recipientUserIds.length > 0) {
+        await Promise.allSettled(
+          recipientUserIds.map((targetUid) =>
+            Notification.createDeduplicated({
+              companyId,
+              userId: targetUid,
+              title: notifTitle,
+              body: notifBody,
+              type: "company_request",
+              data: {
+                requestId: newRequest._id.toString(),
+                requestCode: newRequest.requestCode,
+              },
+              idempotencyKey: `req_notif_${newRequest._id}_${targetUid}`,
+            })
+          )
         );
-
-        const notifications = targetUserIds.map((uid) => ({
-          companyId,
-          userId: uid,
-          title: `👤 Direct Request: ${newRequest.title}`,
-          body: `${req.user?.name || "A team member"} assigned a request (${newRequest.requestCode}) directly to you.`,
-          type: "company_request",
-          data: { requestId: newRequest._id, requestCode: newRequest.requestCode },
-        }));
-
-        if (notifications.length > 0) {
-          await Notification.insertMany(notifications);
-        }
       }
     } catch (notifErr) {
       console.error("[InternalRequest] Notification creation error:", notifErr);
@@ -319,16 +404,17 @@ const replyToRequest = async (req, res) => {
       .populate("targetEmployeeIds", "name email role profileImage")
       .populate("resolvedBy", "name role");
 
-    // ── Dispatch Notification to Requester ──
+    // ── Dispatch Notification to Requester with Push Notification ──
     try {
       if (existing.requesterId && existing.requesterId.toString() !== user._id.toString()) {
-        await Notification.create({
+        await Notification.createDeduplicated({
           companyId: existing.companyId,
           userId: existing.requesterId,
           title: `💬 New Feedback on ${existing.requestCode}`,
           body: `${user.name || "A team member"} (${departmentName || user.role || "Staff"}) submitted response: "${message.slice(0, 80)}..."`,
           type: "company_request",
-          data: { requestId: existing._id, requestCode: existing.requestCode },
+          data: { requestId: existing._id.toString(), requestCode: existing.requestCode },
+          idempotencyKey: `req_reply_${existing._id}_${Date.now()}`,
         });
       }
     } catch (notifErr) {
@@ -531,6 +617,7 @@ const markRequestsSeen = async (req, res) => {
 module.exports = {
   getRequests,
   getRequestById,
+  getTargetOptions,
   createRequest,
   replyToRequest,
   updateRequestStatus,

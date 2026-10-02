@@ -75,6 +75,8 @@ export default function CompanyRequestsScreen({ navigation }) {
 
   const [requests, setRequests] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [empSearch, setEmpSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState("all"); // 'all' | 'sent_by_me' | 'assigned_to_me' | 'resolved'
@@ -94,6 +96,7 @@ export default function CompanyRequestsScreen({ navigation }) {
     priority: "Medium",
     targetType: "ALL_EMPLOYEES",
     targetDepartmentId: "",
+    targetEmployeeIds: [],
     description: "",
     attachments: [],
   });
@@ -106,16 +109,22 @@ export default function CompanyRequestsScreen({ navigation }) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [reqRes, deptRes] = await Promise.all([
+      const [reqRes, targetRes] = await Promise.all([
         api.get("/internal-requests", { params: { tab, search } }),
-        api.get("/company/departments").catch(() => ({ data: { departments: [] } })),
+        api.get("/internal-requests/target-options").catch(() => null),
       ]);
 
       const list = reqRes.data?.data || [];
       setRequests(Array.isArray(list) ? list : []);
 
-      const deptList = deptRes.data?.departments || deptRes.data?.data || [];
-      setDepartments(Array.isArray(deptList) ? deptList : []);
+      if (targetRes?.data) {
+        if (Array.isArray(targetRes.data.departments)) {
+          setDepartments(targetRes.data.departments);
+        }
+        if (Array.isArray(targetRes.data.employees)) {
+          setEmployees(targetRes.data.employees);
+        }
+      }
     } catch (err) {
       console.warn("[CompanyRequestsScreen] fetch error:", err?.message || err);
     } finally {
@@ -176,9 +185,51 @@ export default function CompanyRequestsScreen({ navigation }) {
     }
   };
 
+  const toggleEmployeeSelection = (empId) => {
+    setForm((prev) => {
+      const exists = prev.targetEmployeeIds.includes(empId);
+      return {
+        ...prev,
+        targetEmployeeIds: exists
+          ? prev.targetEmployeeIds.filter((id) => id !== empId)
+          : [...prev.targetEmployeeIds, empId],
+      };
+    });
+  };
+
+  const toggleSelectAllEmployees = (filtered) => {
+    setForm((prev) => {
+      const allIds = filtered.map((e) => e.userId || e._id);
+      const isAllSelected = allIds.length > 0 && allIds.every((id) => prev.targetEmployeeIds.includes(id));
+      return {
+        ...prev,
+        targetEmployeeIds: isAllSelected
+          ? prev.targetEmployeeIds.filter((id) => !allIds.includes(id))
+          : Array.from(new Set([...prev.targetEmployeeIds, ...allIds])),
+      };
+    });
+  };
+
+  const filteredEmployees = (employees || []).filter((emp) => {
+    if (!empSearch.trim()) return true;
+    const q = empSearch.toLowerCase().trim();
+    return (
+      (emp.name || "").toLowerCase().includes(q) ||
+      (emp.employeeCode || "").toLowerCase().includes(q) ||
+      (emp.departmentName || "").toLowerCase().includes(q) ||
+      (emp.role || "").toLowerCase().includes(q)
+    );
+  });
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.description.trim()) {
       return Alert.alert("Required Fields", "Please enter request title and detailed instructions.");
+    }
+    if (form.targetType === "DEPARTMENT" && !form.targetDepartmentId) {
+      return Alert.alert("Required", "Please choose a target department.");
+    }
+    if (form.targetType === "SPECIFIC_EMPLOYEES" && (!form.targetEmployeeIds || form.targetEmployeeIds.length === 0)) {
+      return Alert.alert("Required", "Please select at least one staff member.");
     }
     try {
       setSubmitting(true);
@@ -191,9 +242,11 @@ export default function CompanyRequestsScreen({ navigation }) {
         priority: "Medium",
         targetType: "ALL_EMPLOYEES",
         targetDepartmentId: "",
+        targetEmployeeIds: [],
         description: "",
         attachments: [],
       });
+      setEmpSearch("");
       fetchData();
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || "Failed to create request");
@@ -319,13 +372,21 @@ export default function CompanyRequestsScreen({ navigation }) {
           <View style={styles.cardFooter}>
             <View style={styles.targetPill}>
               <Ionicons
-                name={item.targetType === "ALL_EMPLOYEES" ? "business" : "people"}
+                name={
+                  item.targetType === "ALL_EMPLOYEES"
+                    ? "business"
+                    : item.targetType === "SPECIFIC_EMPLOYEES"
+                    ? "person"
+                    : "people"
+                }
                 size={12}
                 color="#4338CA"
               />
               <Text style={styles.targetPillText} numberOfLines={1}>
                 {item.targetType === "ALL_EMPLOYEES"
                   ? "All Company"
+                  : item.targetType === "SPECIFIC_EMPLOYEES"
+                  ? (item.targetEmployeeIds?.length === 1 ? (item.targetEmployeeIds[0]?.name || "1 Staff") : `${item.targetEmployeeIds?.length || 1} Staff`)
                   : item.targetDepartmentName || item.targetDepartmentId?.name || "Department"}
               </Text>
             </View>
@@ -603,7 +664,7 @@ export default function CompanyRequestsScreen({ navigation }) {
                 >
                   <Ionicons
                     name="business"
-                    size={16}
+                    size={15}
                     color={form.targetType === "ALL_EMPLOYEES" ? "#FFFFFF" : "#64748B"}
                   />
                   <Text
@@ -612,7 +673,7 @@ export default function CompanyRequestsScreen({ navigation }) {
                       form.targetType === "ALL_EMPLOYEES" && styles.targetSelectTextActive,
                     ]}
                   >
-                    Entire Company
+                    Company
                   </Text>
                 </TouchableOpacity>
 
@@ -625,7 +686,7 @@ export default function CompanyRequestsScreen({ navigation }) {
                 >
                   <Ionicons
                     name="people"
-                    size={16}
+                    size={15}
                     color={form.targetType === "DEPARTMENT" ? "#FFFFFF" : "#64748B"}
                   />
                   <Text
@@ -637,12 +698,34 @@ export default function CompanyRequestsScreen({ navigation }) {
                     Department
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.targetSelectBtn,
+                    form.targetType === "SPECIFIC_EMPLOYEES" && styles.targetSelectBtnActive,
+                  ]}
+                  onPress={() => setForm((p) => ({ ...p, targetType: "SPECIFIC_EMPLOYEES" }))}
+                >
+                  <Ionicons
+                    name="person"
+                    size={15}
+                    color={form.targetType === "SPECIFIC_EMPLOYEES" ? "#FFFFFF" : "#64748B"}
+                  />
+                  <Text
+                    style={[
+                      styles.targetSelectText,
+                      form.targetType === "SPECIFIC_EMPLOYEES" && styles.targetSelectTextActive,
+                    ]}
+                  >
+                    Staff
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {form.targetType === "DEPARTMENT" && (
                 <>
-                  <Text style={styles.fieldLabel}>Select Target Department</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                  <Text style={styles.fieldLabel}>Select Target Department *</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                     {departments.map((d) => {
                       const dId = d._id || d.id;
                       const isSel = form.targetDepartmentId === dId;
@@ -658,6 +741,125 @@ export default function CompanyRequestsScreen({ navigation }) {
                     })}
                   </ScrollView>
                 </>
+              )}
+
+              {form.targetType === "SPECIFIC_EMPLOYEES" && (
+                <View style={styles.empSelectCard}>
+                  {/* Search bar */}
+                  <View style={styles.empSearchWrap}>
+                    <Ionicons name="search" size={14} color="#94A3B8" />
+                    <TextInput
+                      style={styles.empSearchInput}
+                      placeholder="Search staff by name, code, dept..."
+                      placeholderTextColor="#94A3B8"
+                      value={empSearch}
+                      onChangeText={setEmpSearch}
+                    />
+                    {empSearch ? (
+                      <TouchableOpacity onPress={() => setEmpSearch("")}>
+                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {/* Header: Available count, Select all button, Selected count */}
+                  <View style={styles.empHeaderRow}>
+                    <Text style={styles.empHeaderTitle}>
+                      Available ({filteredEmployees.length})
+                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      {filteredEmployees.length > 0 && (
+                        <TouchableOpacity
+                          style={styles.empSelectAllBtn}
+                          onPress={() => toggleSelectAllEmployees(filteredEmployees)}
+                        >
+                          <Text style={styles.empSelectAllText}>
+                            {filteredEmployees.every((e) =>
+                              form.targetEmployeeIds.includes(e.userId || e._id)
+                            )
+                              ? "Deselect All"
+                              : "Select All"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      <View style={styles.empSelectedBadge}>
+                        <Text style={styles.empSelectedBadgeText}>
+                          {form.targetEmployeeIds.length} Selected
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Selected staff chips */}
+                  {form.targetEmployeeIds.length > 0 && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.empChipsScroll}
+                      contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
+                    >
+                      {form.targetEmployeeIds.map((targetId) => {
+                        const targetEmp = employees.find(
+                          (e) => (e.userId || e._id) === targetId || e._id === targetId
+                        );
+                        const empName = targetEmp?.name || "Staff";
+                        return (
+                          <View key={targetId} style={styles.empSelectedChip}>
+                            <Text style={styles.empSelectedChipText} numberOfLines={1}>
+                              {empName}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => toggleEmployeeSelection(targetId)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            >
+                              <Ionicons name="close-circle" size={14} color="#D97706" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+
+                  {/* Employee rows list */}
+                  <View style={styles.empListContainer}>
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }} showsVerticalScrollIndicator={true}>
+                      {filteredEmployees.length === 0 ? (
+                        <Text style={styles.empEmptyText}>No staff members found.</Text>
+                      ) : (
+                        filteredEmployees.map((emp) => {
+                          const targetId = emp.userId || emp._id;
+                          const isSelected = form.targetEmployeeIds.includes(targetId);
+                          const initials = (emp.name || "E").slice(0, 2).toUpperCase();
+                          return (
+                            <TouchableOpacity
+                              key={emp._id}
+                              style={[styles.empRow, isSelected && styles.empRowSelected]}
+                              onPress={() => toggleEmployeeSelection(targetId)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.empAvatar, isSelected && styles.empAvatarSelected]}>
+                                <Text style={[styles.empAvatarText, isSelected && styles.empAvatarTextSelected]}>
+                                  {initials}
+                                </Text>
+                              </View>
+                              <View style={styles.empInfo}>
+                                <Text style={styles.empName} numberOfLines={1}>
+                                  {emp.name}
+                                </Text>
+                                <Text style={styles.empMeta} numberOfLines={1}>
+                                  {[emp.employeeCode, emp.departmentName, emp.role].filter(Boolean).join(" • ")}
+                                </Text>
+                              </View>
+                              <View style={[styles.empCheckbox, isSelected && styles.empCheckboxActive]}>
+                                {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })
+                      )}
+                    </ScrollView>
+                  </View>
+                </View>
               )}
 
               <Text style={styles.fieldLabel}>Instructions / Details *</Text>
@@ -1764,5 +1966,165 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
+  },
+  // Specific Staff Target Selection Styles
+  empSelectCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  empSearchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  empSearchInput: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: "#0F172A",
+    padding: 0,
+  },
+  empHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  empHeaderTitle: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#64748B",
+  },
+  empSelectAllBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  empSelectAllText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.primary,
+  },
+  empSelectedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "#FEF3C7",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  empSelectedBadgeText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#B45309",
+  },
+  empChipsScroll: {
+    marginBottom: 6,
+    maxHeight: 38,
+  },
+  empSelectedChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+    marginRight: 6,
+  },
+  empSelectedChipText: {
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+    maxWidth: 110,
+  },
+  empListContainer: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  empRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    gap: 8,
+  },
+  empRowSelected: {
+    backgroundColor: "#F0FDF4",
+  },
+  empAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  empAvatarSelected: {
+    backgroundColor: "#DCFCE7",
+  },
+  empAvatarText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#475569",
+  },
+  empAvatarTextSelected: {
+    color: "#166534",
+  },
+  empInfo: {
+    flex: 1,
+  },
+  empName: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  empMeta: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  empCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  empCheckboxActive: {
+    backgroundColor: "#10B981",
+    borderColor: "#10B981",
+  },
+  empEmptyText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.body,
+    color: "#94A3B8",
+    textAlign: "center",
+    paddingVertical: 18,
   },
 });

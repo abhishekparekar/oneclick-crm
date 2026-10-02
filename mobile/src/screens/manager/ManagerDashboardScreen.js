@@ -264,7 +264,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const clockStr = liveTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   const pendingLeavesCount = leaveSummary.pendingLeaveRequests || 0;
-  const overdueTasksCount = taskSummary.overdueTeamTasks || 0;
+  const overdueTeamTasksCount = taskSummary.overdueTeamTasks || 0;
+  const myOverdueTasksCount = taskSummary.myOverdueTasks || 0;
+  const overdueTasksCount = overdueTeamTasksCount + myOverdueTasksCount;
 
   return (
     <ManagerLayout navigation={navigation} title="Dashboard" unreadCount={unreadCount}>
@@ -435,7 +437,24 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
 
-                {canAccessTasks && overdueTasksCount > 0 && (
+                {canAccessTasks && myOverdueTasksCount > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertActionChip}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.alertIconBox, { backgroundColor: "#FEF2F2" }]}>
+                      <Ionicons name="time" size={14} color="#EF4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.alertChipTitle}>{myOverdueTasksCount} My Overdue Task{myOverdueTasksCount > 1 ? "s" : ""}</Text>
+                      <Text style={styles.alertChipSub}>Action needed</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+
+                {canAccessTasks && overdueTeamTasksCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
                     onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
@@ -445,7 +464,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <Ionicons name="time" size={14} color="#D97706" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.alertChipTitle}>{overdueTasksCount} Overdue Task{overdueTasksCount > 1 ? "s" : ""}</Text>
+                      <Text style={styles.alertChipTitle}>{overdueTeamTasksCount} Team Overdue Task{overdueTeamTasksCount > 1 ? "s" : ""}</Text>
                       <Text style={styles.alertChipSub}>Needs follow-up</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
@@ -624,18 +643,34 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
 
-                {/* Overdue */}
+                {/* My Overdue */}
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
                       <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
-                      <Text style={styles.kpiLabel}>Overdue</Text>
+                      <Text style={styles.kpiLabel}>My Overdue</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{loadingDashboard ? "..." : (taskSummary.overdueTeamTasks ?? 0)}</Text>
+                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{loadingDashboard ? "..." : (taskSummary.myOverdueTasks ?? 0)}</Text>
+                    <Text style={styles.kpiSub}>Action Needed</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Team Overdue */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#F97316" }]}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#F97316" }]} />
+                      <Text style={styles.kpiLabel}>Team Overdue</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#EA580C" }]}>{loadingDashboard ? "..." : (taskSummary.overdueTeamTasks ?? 0)}</Text>
                     <Text style={styles.kpiSub}>Urgent Followup</Text>
                   </TouchableOpacity>
                 )}

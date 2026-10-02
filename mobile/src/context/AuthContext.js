@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Alert, View, Text, StyleSheet, Modal, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAuthToken, setOnSessionInvalidated } from "../api/api";
@@ -12,6 +12,8 @@ const USER_KEY = "hrms_user";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const userRef = useRef(user);
+  userRef.current = user;
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -58,8 +60,23 @@ export const AuthProvider = ({ children }) => {
         getMeApi()
           .then(async ({ data }) => {
             console.log("[AuthContext] Token verified in background, user:", data.user?.email);
-            setUser(data.user);
-            await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
+            const newUser = data.user;
+            const currentUser = userRef.current;
+            const hasChanged =
+              !currentUser ||
+              currentUser._id !== newUser._id ||
+              currentUser.role !== newUser.role ||
+              currentUser.updatedAt !== newUser.updatedAt ||
+              JSON.stringify(currentUser.permissions) !== JSON.stringify(newUser.permissions) ||
+              JSON.stringify(currentUser.assignedModules) !== JSON.stringify(newUser.assignedModules) ||
+              currentUser.name !== newUser.name ||
+              currentUser.email !== newUser.email;
+
+            if (hasChanged) {
+              setUser(newUser);
+              userRef.current = newUser;
+              await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+            }
           })
           .catch(async (error) => {
             console.warn("[AuthContext] Background token verification failed:", error.message);
@@ -240,20 +257,48 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
   };
 
-  const refreshUserProfile = async () => {
+  const lastProfileRefreshTimeRef = useRef(0);
+  const isRefreshingProfileRef = useRef(false);
+
+  const refreshUserProfile = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Throttle repeated background requests within 10 seconds unless explicitly forced
+    if (!force && (now - lastProfileRefreshTimeRef.current < 10000 || isRefreshingProfileRef.current)) {
+      return userRef.current;
+    }
+    isRefreshingProfileRef.current = true;
+    lastProfileRefreshTimeRef.current = now;
     try {
       const { data } = await getMeApi();
       if (data && data.success && data.user) {
-        setUser(data.user);
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
-        console.log("[AuthContext] User profile refreshed successfully:", data.user?.email);
-        return data.user;
+        const newUser = data.user;
+        const currentUser = userRef.current;
+
+        const hasChanged =
+          !currentUser ||
+          currentUser._id !== newUser._id ||
+          currentUser.role !== newUser.role ||
+          currentUser.updatedAt !== newUser.updatedAt ||
+          JSON.stringify(currentUser.permissions) !== JSON.stringify(newUser.permissions) ||
+          JSON.stringify(currentUser.assignedModules) !== JSON.stringify(newUser.assignedModules) ||
+          currentUser.name !== newUser.name ||
+          currentUser.email !== newUser.email;
+
+        if (hasChanged) {
+          setUser(newUser);
+          userRef.current = newUser;
+          await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+          console.log("[AuthContext] User profile refreshed and updated:", newUser.email);
+        }
+        return newUser;
       }
     } catch (err) {
-      console.warn("[AuthContext] Failed to refresh user profile:", err.message);
+      console.warn("[AuthContext] Failed to refresh user profile:", err?.message);
+    } finally {
+      isRefreshingProfileRef.current = false;
     }
-    return null;
-  };
+    return userRef.current;
+  }, []);
 
   const syncCompanyProfile = (companyData) => {
     if (!companyData || !user) return;
@@ -301,7 +346,7 @@ export const AuthProvider = ({ children }) => {
     "recruitment", "performance", "whatsapp", "mobileapp", "webadmin", "locationTracking", "map_leads"
   ];
 
-  const hasPermission = (category, action) => {
+  const hasPermission = useCallback((category, action) => {
     if (!user) return false;
     const roleLower = (user.role || "").toLowerCase();
     if (roleLower === "superadmin") return true;
@@ -415,9 +460,9 @@ export const AuthProvider = ({ children }) => {
       }
     }
     return false;
-  };
+  }, [user]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     token,
     isLoading,
@@ -430,7 +475,19 @@ export const AuthProvider = ({ children }) => {
     refreshUserProfile,
     syncCompanyProfile,
     hasPermission,
-  };
+  }), [
+    user,
+    token,
+    isLoading,
+    isLoggingOut,
+    login,
+    logout,
+    register,
+    updateUser,
+    refreshUserProfile,
+    syncCompanyProfile,
+    hasPermission,
+  ]);
 
   // Initialize push notifications when user is authenticated
   useEffect(() => {

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDrawerStatus } from "@react-navigation/drawer";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
@@ -260,9 +261,11 @@ const EmployeeDrawerContent = (props) => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const isDrawerOpen = useDrawerStatus() === "open";
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
+      {isDrawerOpen && <StatusBar barStyle="light-content" backgroundColor="#071A2F" />}
 
       {/* ── COMPACT PROFILE HEADER ──────────────────────────────────── */}
       <LinearGradient
@@ -304,6 +307,8 @@ const EmployeeDrawerContent = (props) => {
             onPress={() => navigation.closeDrawer()}
             style={styles.closeBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.6}
+            delayPressIn={0}
           >
             <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
@@ -314,6 +319,7 @@ const EmployeeDrawerContent = (props) => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        delaysContentTouches={false}
       >
         {sections.map((section) => {
           const visibleItems = section.items;
@@ -328,7 +334,8 @@ const EmployeeDrawerContent = (props) => {
                     key={item.label}
                     onPress={() => handleNavigate(item)}
                     style={[styles.navItem, active && styles.navItemActive]}
-                    activeOpacity={0.7}
+                    activeOpacity={0.55}
+                    delayPressIn={0}
                   >
                     {active && <View style={[styles.activeBar, { backgroundColor: item.color }]} />}
                     <View
@@ -366,7 +373,8 @@ const EmployeeDrawerContent = (props) => {
         <TouchableOpacity
           onPress={handleLogout}
           style={[styles.logoutBtn, isLoggingOut && { opacity: 0.6 }]}
-          activeOpacity={0.7}
+          activeOpacity={0.6}
+          delayPressIn={0}
           disabled={isLoggingOut}
         >
           <View style={styles.logoutIconBox}>

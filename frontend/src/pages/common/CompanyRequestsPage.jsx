@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
 import {
   getInternalRequestsApi,
+  getInternalRequestTargetOptionsApi,
   createInternalRequestApi,
   replyToInternalRequestApi,
   updateInternalRequestStatusApi,
@@ -147,7 +148,21 @@ export default function CompanyRequestsPage({ role = "hr" }) {
   const [empSearch, setEmpSearch] = useState("");
 
   // Queries
-  const { data: deptData } = useQuery({
+  // Fetch Target Options (Departments & Employees for broadcast)
+  const { data: targetOptionsData } = useQuery({
+    queryKey: ["internalRequestTargetOptions"],
+    queryFn: async () => {
+      try {
+        const res = await getInternalRequestTargetOptionsApi();
+        return res.data || { departments: [], employees: [] };
+      } catch (_) {
+        return { departments: [], employees: [] };
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: fallbackDeptData } = useQuery({
     queryKey: ["departmentsListForRequests"],
     queryFn: async () => {
       try {
@@ -158,32 +173,18 @@ export default function CompanyRequestsPage({ role = "hr" }) {
       }
     },
     staleTime: 10 * 60 * 1000,
+    enabled: !targetOptionsData?.departments?.length,
   });
 
-  const { data: employeesData } = useQuery({
-    queryKey: ["employeesListForRequests"],
-    queryFn: async () => {
-      try {
-        const res = await getEmployeesApi({ limit: 1000 });
-        return res.data?.employees || res.data?.data || res.data || [];
-      } catch (_) {
-        try {
-          const res2 = await api.get("/tasks/assignable-users");
-          return res2.data?.users || res2.data?.data || res2.data || [];
-        } catch (_) {
-          return [];
-        }
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const deptData = useMemo(() => {
+    if (targetOptionsData?.departments?.length) return targetOptionsData.departments;
+    return fallbackDeptData || [];
+  }, [targetOptionsData?.departments, fallbackDeptData]);
 
   const allEmployeesList = useMemo(() => {
-    if (Array.isArray(employeesData)) return employeesData;
-    if (Array.isArray(employeesData?.employees)) return employeesData.employees;
-    if (Array.isArray(employeesData?.data)) return employeesData.data;
+    if (targetOptionsData?.employees?.length) return targetOptionsData.employees;
     return [];
-  }, [employeesData]);
+  }, [targetOptionsData?.employees]);
 
   const filteredEmployees = useMemo(() => {
     if (!empSearch.trim()) return allEmployeesList;

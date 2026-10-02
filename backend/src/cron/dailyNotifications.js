@@ -144,7 +144,8 @@ const checkAndSendNotifications = async () => {
           }
         }
 
-        // Action 3: Shift End - 15 mins Trigger (e.g. 5:45 PM for 6:00 PM shift)
+        // Action 3: Shift End - 15 mins Trigger (Disabled: Keeping only Pre-shift 1-hour reminder)
+        /*
         if (isEndShiftMinus15) {
           if (allPending.length === 0 && tasks.length > 0) {
             const msg = `Great Job ${emp.firstName}! 🎉 All your tasks for today are completed. Shift ends in 15 mins. Have a wonderful evening!`;
@@ -162,6 +163,7 @@ const checkAndSendNotifications = async () => {
             }
           }
         }
+        */
       });
 
       // Await batch completion, catching errors gracefully
