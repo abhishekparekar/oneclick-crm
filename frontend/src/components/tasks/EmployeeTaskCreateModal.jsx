@@ -39,6 +39,7 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
     startDate: getTodayDateString(),
     endDate: "",
     deadlineTime: "17:00",
+    deadlineDays: 1,
     followUpDate: getTodayDateString(),
     attachments: [],
     repeatType: "daily",
@@ -176,7 +177,8 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
       repeatType: form.repeatType,
       weeklyDays: form.weeklyDays,
       monthlyDates: form.monthlyDates,
-      finishDate: form.finishDate,
+      deadlineDays: form.taskType === "recurring" ? (parseInt(form.deadlineDays, 10) || 1) : 1,
+      finishDate: form.taskType === "recurring" && form.finishDate ? form.finishDate : null,
     };
     mutation.mutate(submitData);
   };
@@ -449,25 +451,100 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
+                {/* Days to Complete Before Overdue */}
+                <div className="mb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+                    <label className="block text-[11px] font-bold text-slate-800">
+                      Task Overdue After / Deadline (Days to Complete)
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Task moves to Overdue if not completed within selected days
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    {[
+                      { label: "1 Day (Same Day)", val: 1 },
+                      { label: "2 Days", val: 2 },
+                      { label: "3 Days", val: 3 },
+                      { label: "5 Days", val: 5 },
+                      { label: "7 Days", val: 7 },
+                    ].map(opt => {
+                      const isSel = Number(form.deadlineDays || 1) === opt.val;
+                      return (
+                        <button
+                          key={opt.val}
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, deadlineDays: opt.val }))}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                            isSel
+                              ? "bg-[#f97316] text-white border-[#f97316] shadow-sm"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-xs text-slate-500 font-medium">Custom:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={form.deadlineDays || 1}
+                        onChange={(e) => setForm(p => ({ ...p, deadlineDays: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        className="w-14 px-2 py-1 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center focus:outline-none focus:border-[#f97316]"
+                      />
+                      <span className="text-xs text-slate-500 font-medium">days</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mb-6">
-                  <label className="block text-[11px] font-bold text-slate-800 mb-1.5">
-                    Stop Repeating On (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-slate-800">
+                      End Date of Generating Task (Stop Recurring Date)
+                    </label>
+                    {form.finishDate && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(p => ({ ...p, finishDate: "" }))}
+                        className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                      >
+                        Clear (Run Indefinitely)
+                      </button>
+                    )}
+                  </div>
                   <CustomDateTimeField 
                     type="date" 
                     name="finishDate" 
-                    value={form.finishDate} 
+                    value={form.finishDate || ""} 
                     onChange={handleChange} 
                     icon={null}
                     className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
-                    placeholder="DD/MM/YYYY"
+                    placeholder="DD/MM/YYYY (Optional)"
                   />
+                  <p className="text-[10.5px] text-slate-500 mt-1 font-medium">
+                    {form.finishDate ? "Series stops creating tasks after this date." : "Optional: Leave empty to run indefinitely without stopping."}
+                  </p>
                 </div>
 
                 <div className="bg-[#f5f3ff] rounded-xl p-4 flex items-start gap-3 mb-2">
                   <AlertCircle size={18} className="text-[#8b5cf6] shrink-0 mt-0.5" />
                   <p className="text-[13px] font-medium text-[#7c3aed] leading-relaxed">
-                    This template will auto-generate a new task {form.repeatType === 'daily' ? 'every day' : form.repeatType === 'weekly' ? 'every week on selected days' : 'every month on the selected dates'} at this exact time, with a deadline of <span className="font-bold">{form.deadlineTime}</span>.
+                    {form.repeatType === "monthly" ? (
+                      <span>
+                        📅 <strong>Monthly Schedule:</strong> If task triggers on 1st of month with a <strong>{form.deadlineDays || 1}-day</strong> deadline, the deadline date will be on the <strong>{Math.min(31, 1 + (Math.max(1, parseInt(form.deadlineDays || 1, 10)) - 1))}th</strong> at {form.deadlineTime || "17:00"}. After {form.deadlineDays || 1} day(s), it moves to <strong>Overdue</strong>.
+                      </span>
+                    ) : form.repeatType === "weekly" ? (
+                      <span>
+                        📅 <strong>Weekly Schedule:</strong> Each task will be due <strong>{form.deadlineDays || 1} day(s)</strong> after its assigned trigger day at {form.deadlineTime || "17:00"}. After {form.deadlineDays || 1} day(s), it moves to <strong>Overdue</strong>.
+                      </span>
+                    ) : (
+                      <span>
+                        📅 <strong>Daily Schedule:</strong> Each daily task will be due on that day at {form.deadlineTime || "17:00"}. If not completed by then, it moves to <strong>Overdue</strong>.
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

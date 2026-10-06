@@ -238,11 +238,26 @@ export default function HRLeads() {
     return true;
   });
 
-  // KPIs
-  const totalCount = leadsList.length;
-  const contactedCount = leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("contact")).length;
-  const inProgressCount = leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("progress") || (l.status?.name || "").toLowerCase().includes("qualif")).length;
-  const wonCount = leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("won")).length;
+  // KPIs computed dynamically from filteredLeads so card values update when filters change
+  const totalCount = filteredLeads.length;
+  const totalDealValue = filteredLeads.reduce((acc, l) => acc + (Number(l.estimatedValue) || 0), 0);
+  const pendingLeads = filteredLeads.filter((l) => {
+    const st = (l.status?.name || "").toLowerCase();
+    return !st.includes("won") && !st.includes("lost");
+  });
+  const pendingCount = pendingLeads.length;
+  const pendingValue = pendingLeads.reduce((acc, l) => acc + (Number(l.estimatedValue) || 0), 0);
+  const wonLeads = filteredLeads.filter((l) => (l.status?.name || "").toLowerCase().includes("won"));
+  const wonCount = wonLeads.length;
+  const wonValue = wonLeads.reduce((acc, l) => acc + (Number(l.estimatedValue) || 0), 0);
+
+  const formatCurrency = (val) => {
+    const num = Number(val) || 0;
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)} L`;
+    if (num >= 1000) return `₹${(num / 1000).toFixed(1)} k`;
+    return `₹${num.toLocaleString("en-IN")}`;
+  };
 
   // Change Status Mutation
   const updateStatusMutation = useMutation({
@@ -385,33 +400,46 @@ export default function HRLeads() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* Card 1: Leads Count */}
         <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-            <span>Total Leads</span>
+            <span>{selectedStatus !== "all" ? "Filtered Leads" : "Total Leads"}</span>
             <div className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
           </div>
           <div className="text-xl font-black text-[#ea580c]">{totalCount}</div>
-        </div>
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-            <span>Contacted</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
+            {selectedStatus !== "all" ? "In selected stage" : "Active in pipeline"}
           </div>
-          <div className="text-xl font-black text-[#7c3aed]">{contactedCount}</div>
         </div>
+
+        {/* Card 2: Total Deal Value */}
         <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-            <span>In Progress</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
-          </div>
-          <div className="text-xl font-black text-[#d97706]">{inProgressCount}</div>
-        </div>
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-            <span>Won Deals</span>
+            <span>Deal Value</span>
             <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
           </div>
-          <div className="text-xl font-black text-[#059669]">{wonCount}</div>
+          <div className="text-xl font-black text-[#059669]">{formatCurrency(totalDealValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Total valuation in view</div>
+        </div>
+
+        {/* Card 3: Pending Leads Value */}
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>Pending Leads</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+          </div>
+          <div className="text-xl font-black text-[#d97706]">{formatCurrency(pendingValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{pendingCount} leads in pipeline</div>
+        </div>
+
+        {/* Card 4: Won Deals Value */}
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>Won / Closed</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+          </div>
+          <div className="text-xl font-black text-[#7c3aed]">{formatCurrency(wonValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{wonCount} converted deals</div>
         </div>
       </div>
 

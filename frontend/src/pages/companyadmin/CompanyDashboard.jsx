@@ -11,7 +11,11 @@ import {
   getCompanyAnnouncementsApi,
   getBranchesApi,
   getDepartmentsApi,
+  getCompanyLeadsApi,
+  getCompanyLeadStatsApi,
+  getCompanyLeadStatusesApi,
 } from "../../api/companyAdminApi";
+import api from "../../api/api";
 import { api as leadApi } from "../../utils/leads/api";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 import {
@@ -289,15 +293,64 @@ export default function CompanyDashboard() {
   const { data: leadsData, isLoading: isLoadingLeads } = useQuery({
     queryKey: ["leadEngineData"],
     queryFn: async () => {
-      const [leadsRes, statusesRes] = await Promise.allSettled([
-        leadApi.get("/api/leads?limit=200"),
-        leadApi.get("/api/statuses"),
-      ]);
-      const rawLeads = leadsRes.status === "fulfilled" && (leadsRes.value?.leads || leadsRes.value?.data?.leads || (Array.isArray(leadsRes.value) ? leadsRes.value : []));
-      const rawStatuses = statusesRes.status === "fulfilled" && Array.isArray(statusesRes.value) ? statusesRes.value : [];
-      return { leads: Array.isArray(rawLeads) ? rawLeads : [], statuses: rawStatuses };
+      let leadsResult = null;
+      let statusesResult = null;
+      let statsResult = null;
+
+      // 1. Try central API first
+      try {
+        const [lRes, sRes, stRes] = await Promise.allSettled([
+          getCompanyLeadsApi({ limit: 200 }),
+          getCompanyLeadStatusesApi(),
+          getCompanyLeadStatsApi(),
+        ]);
+        if (lRes.status === "fulfilled" && lRes.value?.data) leadsResult = lRes.value.data;
+        if (sRes.status === "fulfilled" && sRes.value?.data) statusesResult = sRes.value.data;
+        if (stRes.status === "fulfilled" && stRes.value?.data) statsResult = stRes.value.data;
+      } catch (_) {}
+
+      // 2. Fallback to leadApi client if needed
+      if (!leadsResult) {
+        try {
+          const [lRes, sRes] = await Promise.allSettled([
+            leadApi.get("/api/leads?limit=200"),
+            leadApi.get("/api/statuses"),
+          ]);
+          if (lRes.status === "fulfilled" && lRes.value) leadsResult = lRes.value;
+          if (sRes.status === "fulfilled" && sRes.value) statusesResult = sRes.value;
+        } catch (_) {}
+      }
+
+      let rawLeads = [];
+      let totalCount = 0;
+      if (leadsResult) {
+        if (Array.isArray(leadsResult?.data)) {
+          rawLeads = leadsResult.data;
+        } else if (Array.isArray(leadsResult?.leads)) {
+          rawLeads = leadsResult.leads;
+        } else if (Array.isArray(leadsResult?.data?.leads)) {
+          rawLeads = leadsResult.data.leads;
+        } else if (Array.isArray(leadsResult)) {
+          rawLeads = leadsResult;
+        }
+
+        totalCount =
+          statsResult?.totalContacts ??
+          leadsResult?.pagination?.total ??
+          leadsResult?.total ??
+          leadsResult?.totalContacts ??
+          rawLeads.length;
+      } else if (statsResult?.totalContacts !== undefined) {
+        totalCount = statsResult.totalContacts;
+      }
+
+      const rawStatuses = Array.isArray(statusesResult?.data)
+        ? statusesResult.data
+        : (Array.isArray(statusesResult) ? statusesResult : []);
+
+      return { leads: rawLeads, total: totalCount, statuses: rawStatuses };
     },
-    enabled: !!hasPermission("leads"),
+    enabled: true,
     staleTime: 30000,
   });
 
@@ -335,6 +388,7 @@ export default function CompanyDashboard() {
 
   const realLeads = useMemo(() => {
     if (Array.isArray(leadsData?.leads)) return leadsData.leads;
+    if (Array.isArray(leadsData?.data)) return leadsData.data;
     if (Array.isArray(leadsData)) return leadsData;
     return [];
   }, [leadsData]);
@@ -603,7 +657,7 @@ export default function CompanyDashboard() {
   }, [realTasks]);
 
   // ── Leads Tab Real Data ──
-  const totalLeadsCount = realLeads.length;
+  const totalLeadsCount = leadsData?.total ?? leadsData?.pagination?.total ?? (realLeads.length > 0 ? realLeads.length : (kpis.totalLeads ?? 0));
   const totalLeadValue = useMemo(() => {
     return realLeads.reduce((acc, l) => {
       const val = Number(l.value || l.dealValue || l.estimatedValue || l.budget || 0);

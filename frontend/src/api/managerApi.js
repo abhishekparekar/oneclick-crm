@@ -94,3 +94,8 @@ export const getManagerSettingsApi = () => api.get("/manager/task-permissions");
 export const updateManagerSettingsApi = (data) => api.put("/company/settings", data);
 export const getManagerNotificationsApi = (params = {}) => api.get("/notifications", { params });
 export const markManagerNotificationReadApi = (id) => api.patch(`/notifications/${id}/read`);
+
+// ── Manager Leads & CRM ───────────────────────────────────────────────────
+export const getManagerLeadsApi = (params = {}) => api.get("/leads-engine/leads", { params });
+export const getManagerLeadStatsApi = () => api.get("/leads-engine/leads/stats");
+

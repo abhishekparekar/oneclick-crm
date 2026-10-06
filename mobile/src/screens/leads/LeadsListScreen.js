@@ -314,6 +314,64 @@ export default function LeadsListScreen({ navigation, route }) {
     return statuses.find((s) => (s.id || s._id) === form.statusId) || statuses[0] || null;
   }, [form.statusId, statuses]);
 
+  // Selected Status Object for Active Filter Strip & KPI Cards
+  const selectedStatusObj = useMemo(() => {
+    if (selectedStatus === "all") return null;
+    return statuses.find((s) => (s.id || s._id) === selectedStatus) || null;
+  }, [selectedStatus, statuses]);
+
+  // Format currency helper for compact KPI cards
+  const formatDealAmount = useCallback((amount) => {
+    const val = Number(amount) || 0;
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(2).replace(/\.00$/, "")} L`;
+    if (val >= 10000) return `₹${(val / 1000).toFixed(1).replace(/\.0$/, "")} k`;
+    return `₹${val.toLocaleString("en-IN")}`;
+  }, []);
+
+  // Dynamic KPI Metrics: Instantly updates whenever leads change due to filter or search
+  const leadMetrics = useMemo(() => {
+    let count = leads.length;
+    let totalValue = 0;
+    let pendingCount = 0;
+    let pendingValue = 0;
+    let wonCount = 0;
+    let wonValue = 0;
+    let lostCount = 0;
+    let lostValue = 0;
+
+    leads.forEach((l) => {
+      const val = Number(l.estimatedValue) || 0;
+      totalValue += val;
+
+      const stName = (l.status?.name || "").toLowerCase().trim();
+      const isWon = stName.includes("won") || stName.includes("close") || stName.includes("converted");
+      const isLost = stName.includes("lost") || stName.includes("drop") || stName.includes("cancel") || stName.includes("reject");
+
+      if (isWon) {
+        wonCount += 1;
+        wonValue += val;
+      } else if (isLost) {
+        lostCount += 1;
+        lostValue += val;
+      } else {
+        pendingCount += 1;
+        pendingValue += val;
+      }
+    });
+
+    return {
+      count,
+      totalValue,
+      pendingCount,
+      pendingValue,
+      wonCount,
+      wonValue,
+      lostCount,
+      lostValue,
+    };
+  }, [leads]);
+
   useEffect(() => {
     fetchData();
   }, [selectedStatus, selectedSource, selectedAssignee, selectedProduct, selectedOptIn, selectedTimeframe, selectedTag]);
@@ -703,6 +761,87 @@ export default function LeadsListScreen({ navigation, route }) {
                 </TouchableOpacity>
               );
             })}
+          </ScrollView>
+        </View>
+
+        {/* ── 2.5 Compact KPI Summary Cards Row (Dynamic to Active Filter) ── */}
+        <View style={styles.compactKpiContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.compactKpiScroll}
+          >
+            {/* Card 1: Leads Count */}
+            <View style={[styles.compactKpiCard, { borderColor: "#BFDBFE", backgroundColor: "#EFF6FF" }]}>
+              <View style={styles.compactKpiTopRow}>
+                <Text style={[styles.compactKpiLabel, { color: "#1D4ED8" }]} numberOfLines={1}>
+                  {selectedStatus !== "all" ? (selectedStatusObj?.name || "STAGE").toUpperCase() : "TOTAL LEADS"}
+                </Text>
+                <View style={[styles.compactKpiIconCircle, { backgroundColor: "#DBEAFE" }]}>
+                  <Ionicons name="people" size={11} color="#1D4ED8" />
+                </View>
+              </View>
+              <Text style={[styles.compactKpiValue, { color: "#1E3A8A" }]}>
+                {leadMetrics.count}
+              </Text>
+              <Text style={styles.compactKpiSubtext} numberOfLines={1}>
+                {selectedStatus !== "all" ? "Filtered Leads" : "Active in CRM"}
+              </Text>
+            </View>
+
+            {/* Card 2: Total Deal Value (₹) */}
+            <View style={[styles.compactKpiCard, { borderColor: "#A7F3D0", backgroundColor: "#ECFDF5" }]}>
+              <View style={styles.compactKpiTopRow}>
+                <Text style={[styles.compactKpiLabel, { color: "#047857" }]} numberOfLines={1}>
+                  DEAL VALUE
+                </Text>
+                <View style={[styles.compactKpiIconCircle, { backgroundColor: "#D1FAE5" }]}>
+                  <Ionicons name="cash" size={11} color="#059669" />
+                </View>
+              </View>
+              <Text style={[styles.compactKpiValue, { color: "#065F46" }]}>
+                {formatDealAmount(leadMetrics.totalValue)}
+              </Text>
+              <Text style={styles.compactKpiSubtext} numberOfLines={1}>
+                Total In View
+              </Text>
+            </View>
+
+            {/* Card 3: Pending Leads Value (₹) */}
+            <View style={[styles.compactKpiCard, { borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }]}>
+              <View style={styles.compactKpiTopRow}>
+                <Text style={[styles.compactKpiLabel, { color: "#B45309" }]} numberOfLines={1}>
+                  PENDING LEADS
+                </Text>
+                <View style={[styles.compactKpiIconCircle, { backgroundColor: "#FEF3C7" }]}>
+                  <Ionicons name="time" size={11} color="#D97706" />
+                </View>
+              </View>
+              <Text style={[styles.compactKpiValue, { color: "#92400E" }]}>
+                {formatDealAmount(leadMetrics.pendingValue)}
+              </Text>
+              <Text style={styles.compactKpiSubtext} numberOfLines={1}>
+                {leadMetrics.pendingCount} In Pipeline
+              </Text>
+            </View>
+
+            {/* Card 4: Won / Closed Value (₹) */}
+            <View style={[styles.compactKpiCard, { borderColor: "#DDD6FE", backgroundColor: "#F5F3FF" }]}>
+              <View style={styles.compactKpiTopRow}>
+                <Text style={[styles.compactKpiLabel, { color: "#6D28D9" }]} numberOfLines={1}>
+                  WON / CLOSED
+                </Text>
+                <View style={[styles.compactKpiIconCircle, { backgroundColor: "#EDE9FE" }]}>
+                  <Ionicons name="trophy" size={11} color="#7C3AED" />
+                </View>
+              </View>
+              <Text style={[styles.compactKpiValue, { color: "#5B21B6" }]}>
+                {formatDealAmount(leadMetrics.wonValue)}
+              </Text>
+              <Text style={styles.compactKpiSubtext} numberOfLines={1}>
+                {leadMetrics.wonCount} Converted
+              </Text>
+            </View>
           </ScrollView>
         </View>
 
@@ -1633,6 +1772,9 @@ export default function LeadsListScreen({ navigation, route }) {
         >
           <View style={styles.modalBackdrop}>
             <View style={styles.filterModalContainer}>
+              {/* Drag Handle Indicator */}
+              <View style={styles.filterModalDragHandle} />
+
               {/* Dark Navy / Corporate Blue Top Banner */}
               <View style={styles.filterModalHeaderBanner}>
                 <View style={styles.filterModalIconBadge}>
@@ -1641,7 +1783,7 @@ export default function LeadsListScreen({ navigation, route }) {
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.filterModalHeadingText}>FILTER LEADS</Text>
                   <Text style={styles.filterModalSubheadingText}>
-                    Refine lead  by stage, source & assigned staff
+                    Refine leads by stage, source & assigned staff
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1653,7 +1795,11 @@ export default function LeadsListScreen({ navigation, route }) {
               </View>
 
               {/* Scrollable Filter Content */}
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterModalScrollBody}>
+              <ScrollView
+                style={{ flexShrink: 1, maxHeight: "100%" }}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={styles.filterModalScrollBody}
+              >
                 {/* ── Section 1: Timeframe / Date Range ── */}
                 <View style={styles.filterSectionBox}>
                   <View style={styles.filterSectionHeaderRow}>
@@ -2013,7 +2159,7 @@ export default function LeadsListScreen({ navigation, route }) {
                   activeOpacity={0.85}
                 >
                   <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
+                  <Text style={styles.filterApplyBtnText}>Apply Filters ({leadMetrics.count})</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2781,15 +2927,78 @@ const styles = StyleSheet.create({
   // ── Filter Modal Styling (Corporate Blue & Dark Navy) ──
   filterModalContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    width: "92%",
-    maxHeight: "85%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    width: "100%",
+    maxHeight: "88%",
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 10,
+    elevation: 12,
+  },
+  filterModalDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#94A3B8",
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+
+  // ── Compact KPI Metrics Summary Row ──
+  compactKpiContainer: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingVertical: 7,
+  },
+  compactKpiScroll: {
+    paddingHorizontal: 12,
+    gap: 8,
+    alignItems: "center",
+  },
+  compactKpiCard: {
+    minWidth: 125,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: "center",
+  },
+  compactKpiTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+    gap: 4,
+  },
+  compactKpiLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    flex: 1,
+  },
+  compactKpiIconCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactKpiValue: {
+    fontSize: 14.5,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  compactKpiSubtext: {
+    fontSize: 9.5,
+    color: "#64748B",
+    fontWeight: "600",
+    marginTop: 1,
   },
   filterModalHeaderBanner: {
     flexDirection: "row",
@@ -2892,7 +3101,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",

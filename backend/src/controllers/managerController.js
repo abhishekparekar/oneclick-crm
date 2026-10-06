@@ -19,6 +19,7 @@ const Department = require("../models/Department");
 const Designation = require("../models/Designation");
 const Branch = require("../models/Branch");
 const User = require("../models/User");
+const Lead = require("../models/Lead");
 const mongoose = require("mongoose");
 const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors } = require("../utils/notificationHelper");
 const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
@@ -82,16 +83,26 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
     });
   }
 
+  const deptMatchList = [];
+  allowedDeptIds.forEach(id => {
+    if (!id) return;
+    const str = id.toString();
+    deptMatchList.push(str);
+    if (mongoose.Types.ObjectId.isValid(str)) {
+      deptMatchList.push(new mongoose.Types.ObjectId(str));
+    }
+  });
+
   let departmentMemberIds = [];
-  if (allowedDeptIds.length > 0) {
+  if (deptMatchList.length > 0) {
     const departmentMembers = await Employee.find(
       { 
         companyId, 
-        status: "active",
+        status: { $nin: ["inactive", "terminated", "deleted", "Inactive", "Terminated", "Deleted"] },
         $or: [
-          { departmentId: { $in: allowedDeptIds } },
-          { departmentIds: { $in: allowedDeptIds } },
-          { accessibleDepartments: { $in: allowedDeptIds } }
+          { departmentId: { $in: deptMatchList } },
+          { departmentIds: { $in: deptMatchList } },
+          { accessibleDepartments: { $in: deptMatchList } }
         ]
       },
       { _id: 1 }
@@ -99,8 +110,24 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
     departmentMemberIds = departmentMembers.map((e) => e._id.toString());
   }
 
+  const reportingManagerIds = [
+    managerId,
+    managerId?.toString(),
+    manager.userId,
+    manager.userId?.toString(),
+    ...(managerId && mongoose.Types.ObjectId.isValid(managerId.toString()) ? [new mongoose.Types.ObjectId(managerId.toString())] : []),
+    ...(manager.userId && mongoose.Types.ObjectId.isValid(manager.userId.toString()) ? [new mongoose.Types.ObjectId(manager.userId.toString())] : [])
+  ].filter(Boolean);
+
   const teamMembers = await Employee.find(
-    { companyId, reportingManagerId: managerId, status: "active" },
+    { 
+      companyId, 
+      $or: [
+        { reportingManagerId: { $in: reportingManagerIds } },
+        { reportingManager: { $in: reportingManagerIds } }
+      ],
+      status: { $nin: ["inactive", "terminated", "deleted", "Inactive", "Terminated", "Deleted"] }
+    },
     { _id: 1 }
   ).lean();
   const teamMemberIds = teamMembers.map((e) => e._id.toString());
@@ -193,19 +220,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
     const { departmentId } = req.query;
     let teamEmployeeIds = await getManagerTeamEmployeeIds(managerEmployeeId, companyId);
 
-    if (departmentId) {
-      const mongoose = require("mongoose");
-      const Employee = require("../models/Employee");
-      const filtered = await Employee.find({
-        companyId,
-        _id: { $in: teamEmployeeIds },
-        departmentId: new mongoose.Types.ObjectId(departmentId)
-      }).select("_id").lean();
-      teamEmployeeIds = filtered.map(e => e._id);
-    }
-    const teamCount = teamEmployeeIds.length;
-
-    // Resolve departments the manager has access to (for project visibility)
+    // Resolve departments the manager has access to (for project and task visibility)
     const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
     
     if (manager.departmentIds && manager.departmentIds.length > 0) {
@@ -231,11 +246,69 @@ const getManagerDashboardSummary = async (req, res, next) => {
         }
       });
     }
+
+    const deptMatchList = [];
+    allowedDeptIds.forEach(id => {
+      if (!id) return;
+      const str = id.toString();
+      deptMatchList.push(str);
+      if (mongoose.Types.ObjectId.isValid(str)) {
+        deptMatchList.push(new mongoose.Types.ObjectId(str));
+      }
+    });
+
+    if (departmentId) {
+      const mongoose = require("mongoose");
+      const Employee = require("../models/Employee");
+      const filtered = await Employee.find({
+        companyId,
+        _id: { $in: teamEmployeeIds },
+        $or: [
+          { departmentId: new mongoose.Types.ObjectId(departmentId) },
+          { departmentId: departmentId.toString() },
+          { departmentIds: new mongoose.Types.ObjectId(departmentId) },
+          { departmentIds: departmentId.toString() }
+        ]
+      }).select("_id").lean();
+      teamEmployeeIds = filtered.map(e => e._id.toString());
+    }
+    const teamCount = teamEmployeeIds.length;
     const teamIdsForProj = [...teamEmployeeIds, managerEmployeeId];
 
-    const teamEmployees = await Employee.find({ _id: { $in: teamEmployeeIds } }).select("userId").lean();
-    const teamUserIds = teamEmployees.map(e => e.userId).filter(Boolean);
-    const allRelevantUserIds = [userId, ...teamUserIds];
+    const teamEmployees = await Employee.find({ _id: { $in: teamEmployeeIds } }).select("userId _id").lean();
+    const teamUserIds = teamEmployees.map(e => e.userId?.toString()).filter(Boolean);
+    const allRelevantUserIds = [userId?.toString(), ...teamUserIds].filter(Boolean);
+
+    const allTeamAssigneeIds = [];
+    teamEmployeeIds.forEach(id => {
+      const s = id?.toString();
+      if (s) {
+        allTeamAssigneeIds.push(s);
+        if (mongoose.Types.ObjectId.isValid(s)) allTeamAssigneeIds.push(new mongoose.Types.ObjectId(s));
+      }
+    });
+    teamUserIds.forEach(uid => {
+      allTeamAssigneeIds.push(uid);
+      if (mongoose.Types.ObjectId.isValid(uid)) allTeamAssigneeIds.push(new mongoose.Types.ObjectId(uid));
+    });
+
+    const targetDeptMatchList = departmentId
+      ? [departmentId.toString(), ...(mongoose.Types.ObjectId.isValid(departmentId) ? [new mongoose.Types.ObjectId(departmentId)] : [])]
+      : deptMatchList;
+
+    let dashboardTeamTaskOr = [
+      { assignedTo: { $in: allTeamAssigneeIds } },
+      { assignedBy: userId }
+    ];
+    if (targetDeptMatchList.length > 0) {
+      dashboardTeamTaskOr.push({ departmentId: { $in: targetDeptMatchList } });
+      dashboardTeamTaskOr.push({ departmentIds: { $in: targetDeptMatchList } });
+    }
+
+    const teamTaskBaseFilter = {
+      companyId,
+      $or: dashboardTeamTaskOr
+    };
 
     const [
       teamAttendanceTodayRaw,
@@ -256,7 +329,8 @@ const getManagerDashboardSummary = async (req, res, next) => {
       recentMyTasks,
       recentTeamTasks,
       teamTemplatesCount,
-      myTemplatesCount
+      myTemplatesCount,
+      totalLeadsCount,
     ] = await Promise.all([
       Attendance.find({ companyId, employeeId: { $in: teamEmployeeIds }, date: todayStr })
         .populate({ path: "employeeId", select: "fullName employeeCode photo" })
@@ -290,21 +364,31 @@ const getManagerDashboardSummary = async (req, res, next) => {
         startTime: { $gte: now },
       }).lean(),
 
-      Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds } }),
-      Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds }, status: { $ne: "cancelled" } }),
-      Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds }, $or: [{ status: { $in: ["done", "complete", "late_complete"] } }, { statusKey: { $in: ["completed", "done"] } }] }),
-      Task.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds }, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, endDateTime: { $lt: now } }),
+      Task.countDocuments(teamTaskBaseFilter),
+      Task.countDocuments({ ...teamTaskBaseFilter, status: { $ne: "cancelled" } }),
+      Task.countDocuments({ ...teamTaskBaseFilter, $or: [{ status: { $in: ["done", "complete", "late_complete", "re_complete", "re_late_complete"] } }, { statusKey: { $in: ["completed", "done"] } }] }),
+      Task.countDocuments({ ...teamTaskBaseFilter, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: now } }),
       Task.countDocuments({ companyId, assignedTo: managerEmployeeId, status: { $ne: "cancelled" }, ...(departmentId ? { departmentId } : {}) }),
-      Task.countDocuments({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, endDateTime: { $lt: now }, ...(departmentId ? { departmentId } : {}) }),
+      Task.countDocuments({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: now }, ...(departmentId ? { departmentId } : {}) }),
       
-      Task.find({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] }, ...(departmentId ? { departmentId } : {}) })
+      Task.find({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, ...(departmentId ? { departmentId } : {}) })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .sort({ endDateTime: 1 }).limit(5).lean(),
-      Task.find({ companyId, assignedTo: { $in: teamEmployeeIds }, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete"] } })
+      Task.find({ ...teamTaskBaseFilter, status: { $ne: "cancelled" } })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
-        .sort({ endDateTime: 1 }).limit(5).lean(),
-      TaskTemplate.countDocuments({ companyId, assignedTo: { $in: teamEmployeeIds } }),
+        .populate({ path: "assignedTo", select: "firstName lastName fullName photo employeeCode" })
+        .populate({ path: "departmentId", select: "name", strictPopulate: false })
+        .sort({ endDateTime: 1 }).limit(10).lean(),
+      TaskTemplate.countDocuments({ companyId, $or: dashboardTeamTaskOr }),
       TaskTemplate.countDocuments({ companyId, assignedTo: managerEmployeeId, ...(departmentId ? { departmentId } : {}) }),
+      Lead.countDocuments({
+        $or: [
+          { companyId: new mongoose.Types.ObjectId(companyId) },
+          { companyId: companyId ? companyId.toString() : null },
+          { companyId: null }
+        ],
+        deletedAt: null
+      }),
     ]);
 
     recentMyTasks.forEach(t => t.assignees = t.assignedTo);
@@ -367,6 +451,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
           accessibleDepartments: manager.accessibleDepartments || [],
         },
         teamSummary: { teamCount },
+        leadSummary: { totalLeads: totalLeadsCount || 0 },
         attendanceSummary: {
           totalTeam: teamCount,
           presentToday,
@@ -1645,34 +1730,75 @@ const getTeamTasks = async (req, res, next) => {
 
     let allTeamIds = await getManagerTeamEmployeeIds(managerEmpId, companyId);
 
-    // Comprehensive scope: Tasks assigned to team members, tasks created/assigned by manager, and tasks in manager's department(s)
-    let teamFilterOr = [
-      { assignedTo: { $in: allTeamIds } },
-      { assignedBy: req.user._id }
-    ];
-    const rawDeptId = manager.departmentId?._id || manager.departmentId;
-    if (rawDeptId) {
-      teamFilterOr.push({ departmentId: rawDeptId });
+    const teamEmployees = await Employee.find({ _id: { $in: allTeamIds } }).select("userId _id").lean();
+    const teamUserIds = teamEmployees.map(e => e.userId?.toString()).filter(Boolean);
+    const allTeamAssigneeIds = [];
+    allTeamIds.forEach(id => {
+      const s = id?.toString();
+      if (s) {
+        allTeamAssigneeIds.push(s);
+        if (mongoose.Types.ObjectId.isValid(s)) allTeamAssigneeIds.push(new mongoose.Types.ObjectId(s));
+      }
+    });
+    teamUserIds.forEach(uid => {
+      allTeamAssigneeIds.push(uid);
+      if (mongoose.Types.ObjectId.isValid(uid)) allTeamAssigneeIds.push(new mongoose.Types.ObjectId(uid));
+    });
+
+    // Resolve manager's assigned and accessible departments
+    const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
+    if (manager.departmentIds && manager.departmentIds.length > 0) {
+      manager.departmentIds.forEach(d => {
+        const id = d?._id || d;
+        if (id) allowedDeptIds.push(id);
+      });
     }
     if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
-      const accDeptIds = manager.accessibleDepartments
-        .map(d => d?._id || d)
-        .filter(Boolean);
-      if (accDeptIds.length > 0) {
-        teamFilterOr.push({ departmentId: { $in: accDeptIds } });
+      manager.accessibleDepartments.forEach(d => {
+        const id = d?._id || d;
+        if (id) allowedDeptIds.push(id);
+      });
+    }
+    const deptMatchList = [];
+    allowedDeptIds.forEach(id => {
+      if (!id) return;
+      const str = id.toString();
+      deptMatchList.push(str);
+      if (mongoose.Types.ObjectId.isValid(str)) {
+        deptMatchList.push(new mongoose.Types.ObjectId(str));
       }
+    });
+
+    // Comprehensive scope: Tasks assigned to team members, tasks created/assigned by manager, and tasks in manager's department(s)
+    let teamFilterOr = [
+      { assignedTo: { $in: allTeamAssigneeIds } },
+      { assignedBy: req.user._id }
+    ];
+    if (deptMatchList.length > 0) {
+      teamFilterOr.push({ departmentId: { $in: deptMatchList } });
+      teamFilterOr.push({ departmentIds: { $in: deptMatchList } });
     }
 
     if (isTemplate) {
       const TaskTemplate = require("../models/TaskTemplate");
       let filter = {
         companyId,
-        $or: teamFilterOr,
-        assignmentType: { $ne: "self" }
+        $or: teamFilterOr
       };
       if (priority) filter.priority = priority;
       if (projectId) filter.projectId = projectId;
-      if (departmentId) filter.departmentId = departmentId;
+      if (departmentId) {
+        const dObj = mongoose.Types.ObjectId.isValid(departmentId) ? new mongoose.Types.ObjectId(departmentId) : departmentId;
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          $or: [
+            { departmentId: dObj },
+            { departmentId: departmentId.toString() },
+            { departmentIds: dObj },
+            { departmentIds: departmentId.toString() }
+          ]
+        });
+      }
       if (employeeId) {
         delete filter.$or;
         filter.assignedTo = employeeId;
@@ -1698,7 +1824,6 @@ const getTeamTasks = async (req, res, next) => {
 
       if (!employeeId) {
         templates = templates.filter(t => {
-          if (t.assignmentType === "self") return false;
           const assignees = Array.isArray(t.assignedTo)
             ? t.assignedTo
             : t.assignedTo
@@ -1716,10 +1841,12 @@ const getTeamTasks = async (req, res, next) => {
         });
       }
       
+      const totalTemplatesCount = await TaskTemplate.countDocuments(filter);
+
       return res.json({
         success: true,
         count: templates.length,
-        totalCount: templates.length,
+        totalCount: Math.max(totalTemplatesCount, templates.length),
         page: 1,
         totalPages: 1,
         data: templates
@@ -1728,8 +1855,7 @@ const getTeamTasks = async (req, res, next) => {
 
     let filter = {
       companyId,
-      $or: teamFilterOr,
-      assignmentType: { $ne: "self" }
+      $or: teamFilterOr
     };
     
     if (status) {
@@ -1739,7 +1865,18 @@ const getTeamTasks = async (req, res, next) => {
     }
     if (priority) filter.priority = priority;
     if (projectId) filter.projectId = projectId;
-    if (departmentId) filter.departmentId = departmentId;
+    if (departmentId) {
+      const dObj = mongoose.Types.ObjectId.isValid(departmentId) ? new mongoose.Types.ObjectId(departmentId) : departmentId;
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { departmentId: dObj },
+          { departmentId: departmentId.toString() },
+          { departmentIds: dObj },
+          { departmentIds: departmentId.toString() }
+        ]
+      });
+    }
     if (employeeId) {
       delete filter.$or;
       filter.assignedTo = employeeId;
@@ -1750,20 +1887,23 @@ const getTeamTasks = async (req, res, next) => {
     }
 
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 500;
+    const limit = parseInt(req.query.limit, 10) || 1000;
     const skip = (page - 1) * limit;
 
-    const tasks = await Task.find(filter)
-      .populate({ path: "projectId", select: "name", strictPopulate: false })
-      .populate({ 
-        path: "assignedTo", 
-        select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
-      })
-      .populate({ path: "departmentId", select: "name", strictPopulate: false })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const [totalTasksCount, tasks] = await Promise.all([
+      Task.countDocuments(filter),
+      Task.find(filter)
+        .populate({ path: "projectId", select: "name", strictPopulate: false })
+        .populate({ 
+          path: "assignedTo", 
+          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
+        })
+        .populate({ path: "departmentId", select: "name", strictPopulate: false })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
     tasks.forEach(t => t.assignees = t.assignedTo || []);
 
@@ -1772,7 +1912,6 @@ const getTeamTasks = async (req, res, next) => {
     let finalTasks = tasks;
     if (!employeeId) {
       finalTasks = tasks.filter(task => {
-        if (task.assignmentType === "self") return false;
         const assignees = Array.isArray(task.assignedTo)
           ? task.assignedTo
           : task.assignedTo
@@ -1796,9 +1935,9 @@ const getTeamTasks = async (req, res, next) => {
     return res.json({ 
       success: true, 
       count: finalTasks.length,
-      totalCount: finalTasks.length,
+      totalCount: Math.max(totalTasksCount, finalTasks.length),
       page,
-      totalPages: Math.ceil(finalTasks.length / limit) || 1,
+      totalPages: Math.ceil(Math.max(totalTasksCount, finalTasks.length) / limit) || 1,
       data: finalTasks 
     });
   } catch (error) {
@@ -1814,7 +1953,7 @@ const createTask = async (req, res, next) => {
     const companyId = req.companyId;
     const { 
       title, description, priority, assignmentType, projectId, dependsOn, estimatedHours,
-      repeatEnabled, repeatType, startDate, endDate, nextFollowUpDate, finishDate, deadlineTime, checklist,
+      repeatEnabled, repeatType, startDate, endDate, nextFollowUpDate, finishDate, deadlineTime, deadlineDays, checklist,
       weeklyDays, monthlyDates, attachments
     } = req.body;
 
@@ -1950,6 +2089,7 @@ const createTask = async (req, res, next) => {
         nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : startDt,
         finishDate: finishDate ? new Date(finishDate) : undefined,
         deadlineTime: deadlineTime || "18:00",
+        deadlineDays: deadlineDays ? Math.max(1, parseInt(deadlineDays, 10)) : 1,
         attachments: attachments || [],
         projectId: projectId || null,
         checklist: checklist || [],
@@ -3192,8 +3332,27 @@ const updateProjectChangeRequestStatus = async (req, res, next) => {
 const toggleTaskTemplateStatus = async (req, res, next) => {
   try {
     const TaskTemplate = require("../models/TaskTemplate");
-    // Verify the template exists and belongs to the company
-    const template = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.companyId });
+    const Task = require("../models/Task");
+    const companyId = req.companyId || req.user?.companyId;
+    const id = req.params.id;
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    
+    let template = null;
+    if (isObjectId) {
+      template = await TaskTemplate.findOne({ _id: id, ...(companyId ? { companyId } : {}) });
+    }
+    if (!template) {
+      template = await TaskTemplate.findOne({ taskId: id, ...(companyId ? { companyId } : {}) });
+    }
+    if (!template && isObjectId) {
+      const task = await Task.findOne({ _id: id, ...(companyId ? { companyId } : {}) });
+      if (task && (task.templateId || task.parentTemplateId)) {
+        template = await TaskTemplate.findOne({ 
+          _id: task.templateId || task.parentTemplateId, 
+          ...(companyId ? { companyId } : {}) 
+        });
+      }
+    }
     if (!template) {
       return res.status(404).json({ success: false, message: "Task template not found" });
     }

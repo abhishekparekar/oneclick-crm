@@ -1,5 +1,6 @@
 import Geolocation from '@react-native-community/geolocation';
 import { PermissionsAndroid, Platform } from 'react-native';
+import { promptEnableLocation } from './locationEnabler';
 
 // Use standard location provider to prevent PlayServicesLocationManager removeLocationUpdates NullPointerException
 try {
@@ -16,10 +17,12 @@ try {
 /**
  * Unified Location Service for One Click Mobile
  * Captures accurate GPS coordinates with high accuracy and low accuracy fallback.
+ * Automatically prompts to enable device GPS if turned off.
  * 
+ * @param {boolean} shouldPrompt - whether to trigger Google Location Accuracy system dialog if GPS is OFF
  * @returns {Promise<{latitude: number, longitude: number, accuracy: number, address: string}|null>}
  */
-export const captureGPSLocation = async () => {
+export const captureGPSLocation = async (shouldPrompt = true) => {
   try {
     if (Platform.OS === 'android') {
       try {
@@ -41,6 +44,11 @@ export const captureGPSLocation = async () => {
         }
       } catch (permErr) {
         console.warn('Android location permission check error:', permErr);
+      }
+
+      // Prompt Google Location Accuracy dialog (Image 2) if location is off
+      if (shouldPrompt) {
+        await promptEnableLocation();
       }
     }
 
@@ -76,7 +84,18 @@ export const captureGPSLocation = async () => {
       // 1. First attempt: High Accuracy GPS
       return await getPos(true, 7000);
     } catch (highErr) {
-      console.warn("[LocationService] High accuracy GPS notice, trying network fallback:", highErr?.message);
+      console.warn("[LocationService] High accuracy GPS notice, checking prompt & retry:", highErr?.message);
+      
+      // If failed due to disabled location provider on Android, prompt again
+      if (Platform.OS === 'android' && shouldPrompt) {
+        const enabled = await promptEnableLocation();
+        if (enabled) {
+          try {
+            return await getPos(true, 7000);
+          } catch (_) {}
+        }
+      }
+
       try {
         // 2. Fallback: Network / cell-tower location
         return await getPos(false, 4000);

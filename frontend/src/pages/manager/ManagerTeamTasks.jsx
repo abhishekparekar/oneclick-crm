@@ -143,6 +143,15 @@ const CARD_THEMES = {
     valueText: "text-purple-700 dark:text-purple-300",
     topBar: "bg-purple-500",
   },
+  violet: {
+    baseClass: "bg-violet-50/80 dark:bg-violet-950/35 border-violet-200/90 dark:border-violet-800/80 shadow-2xs hover:shadow-md hover:border-violet-400 dark:hover:border-violet-600",
+    activeClass: "bg-violet-100/90 dark:bg-violet-950/70 border-2 border-violet-600 ring-2 ring-violet-500/30 shadow-md",
+    activeBadge: "bg-violet-600 text-white",
+    iconBg: "bg-violet-600 text-white shadow-xs",
+    labelText: "text-violet-950 dark:text-violet-200 font-extrabold",
+    valueText: "text-violet-700 dark:text-violet-300",
+    topBar: "bg-violet-600",
+  },
 };
 
 const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) => {
@@ -239,7 +248,7 @@ export default function ManagerTeamTasks() {
 
   const { data: tasksRes, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["managerTeamTasks"],
-    queryFn: () => getManagerTeamTasksApi({ limit: 200 }).then((r) => r.data),
+    queryFn: () => getManagerTeamTasksApi({ limit: 1000 }).then((r) => r.data),
     refetchInterval: 5000,
     retry: 1,
   });
@@ -254,7 +263,6 @@ export default function ManagerTeamTasks() {
     const list = Array.isArray(_raw) ? _raw : [];
     if (!managerEmpId && !managerUserId) return list;
     return list.filter((task) => {
-      if (task.assignmentType === "self") return false;
       const assigneesArr = Array.isArray(task.assignedTo)
         ? task.assignedTo
         : task.assignedTo
@@ -268,6 +276,7 @@ export default function ManagerTeamTasks() {
           (managerUserId && aId === managerUserId.toString())
         );
       });
+      // Only exclude tasks that are exclusively assigned to the manager (personal self tasks belong in My Tasks)
       return !allAreManager;
     });
   }, [_raw, managerEmpId, managerUserId]);
@@ -343,7 +352,7 @@ export default function ManagerTeamTasks() {
       if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
-    if (!isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
+    if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
 
     if (filters.assignedTo) {
       const assigneesArr = Array.isArray(task.assignedTo) ? task.assignedTo : task.assignedTo ? [task.assignedTo] : (task.assignees || []);
@@ -469,10 +478,21 @@ export default function ManagerTeamTasks() {
     return counts;
   }, [tabFilteredTasks]);
 
-  const totalCount = tabFilteredTasks.length;
+  const activeCustomFiltersCount = useMemo(() => {
+    const hasTimeframe = activeTab && activeTab !== "All Time" ? 1 : 0;
+    return [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue, statusFilter || filters.status, hasTimeframe].filter(Boolean).length;
+  }, [filters, statusFilter, activeTab]);
+
+  const totalCount = useMemo(() => {
+    if (activeCustomFiltersCount === 0 && !search && (!activeTab || activeTab === "All Time")) {
+      return Math.max(tabFilteredTasks.length, tasksRes?.totalCount || 0, tasksRes?.count || 0);
+    }
+    return tabFilteredTasks.length;
+  }, [activeCustomFiltersCount, search, activeTab, tabFilteredTasks.length, tasksRes?.totalCount, tasksRes?.count]);
+
   const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase())).length;
   const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
-  const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete"].includes((t.status || "").toLowerCase())).length;
+  const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const overdueCount = tabFilteredTasks.filter(t => {
     const st = (t.status || "").toLowerCase();
     const done = ["complete", "completed", "done"].includes(st);
@@ -497,11 +517,6 @@ export default function ManagerTeamTasks() {
     }
     return { name: cat, count };
   });
-
-  const activeCustomFiltersCount = useMemo(() => {
-    const hasTimeframe = activeTab && activeTab !== "All Time" ? 1 : 0;
-    return [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue, statusFilter || filters.status, hasTimeframe].filter(Boolean).length;
-  }, [filters, statusFilter, activeTab]);
 
   const exportToCSV = () => {
     if (!filteredTasks.length) return alert("No tasks to export!");
@@ -1073,8 +1088,8 @@ export default function ManagerTeamTasks() {
       )}
 
 
-      {/* ── 2. MICRO-KPI CARDS (6 Cards: Total, Pending, In Process, Completed, Overdue, Re-Open) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      {/* ── 2. MICRO-KPI CARDS (7 Cards: Total, Pending, In Process, Completed, Overdue, Re-Open, Recurring) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         <KPICard
           label="Total Tasks"
           value={totalCount}
@@ -1152,6 +1167,74 @@ export default function ManagerTeamTasks() {
           }}
           isActive={statusFilter === "re_open" || filters.status === "re_pending,re_in_process,re_complete,re_late_complete"}
         />
+        <KPICard
+          label="Recurring Tasks"
+          value={recurringCount}
+          Icon={Repeat}
+          theme="violet"
+          onClick={() => {
+            if (activeTab === "Recurring") {
+              setActiveTab("All Time");
+              setTempTab("All Time");
+              setFilters(prev => ({ ...prev, startDate: "", endDate: "" }));
+            } else {
+              setActiveTab("Recurring");
+              setTempTab("Recurring");
+              setStatusFilter("");
+              setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+            }
+          }}
+          isActive={activeTab === "Recurring"}
+        />
+      </div>
+
+      {/* ── Quick Filter Tabs Bar ── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {[
+            { id: "Today", label: "Today", count: categoryCounts.find(c => c.name === "Today")?.count || 0 },
+            { id: "This Week", label: "This Week", count: categoryCounts.find(c => c.name === "This Week")?.count || 0 },
+            { id: "This Month", label: "This Month", count: categoryCounts.find(c => c.name === "This Month")?.count || 0 },
+            { id: "All Time", label: "All Tasks", count: allTasks.filter(t => !t.isTemplate).length },
+            { id: "Recurring", label: "Recurring Tasks", count: recurringCount, icon: Repeat, isSpecial: true },
+          ].map(tab => {
+            const isTabActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.id === "Recurring") {
+                    setActiveTab("Recurring");
+                    setTempTab("Recurring");
+                    setStatusFilter("");
+                    setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+                  } else {
+                    handleTabChange(tab.id);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isTabActive
+                    ? tab.isSpecial
+                      ? "bg-violet-600 text-white shadow-xs ring-2 ring-violet-500/30"
+                      : "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30"
+                    : tab.isSpecial
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100"
+                    : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {TabIcon && <TabIcon size={12} className={isTabActive ? "text-white" : "text-violet-600 dark:text-violet-400"} />}
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${
+                  isTabActive ? "bg-white/20 text-white" : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Active Filters Bar ────────────────────────────────────────── */}

@@ -54,6 +54,7 @@ exports.createTask = async (req, res) => {
             nextFollowUpDate,
             finishDate,
             deadlineTime,
+            deadlineDays,
             attachments,
             projectId,
             checklist
@@ -310,6 +311,7 @@ exports.createTask = async (req, res) => {
             nextFollowUpDate: nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime()) ? new Date(nextFollowUpDate) : startDt,
             finishDate: finishDate && !isNaN(new Date(finishDate).getTime()) ? new Date(finishDate) : null,
             deadlineTime: deadlineTime || "18:00",
+            deadlineDays: deadlineDays ? Math.max(1, parseInt(deadlineDays, 10)) : 1,
             attachments: safeAttachments,
             projectId: (projectId && mongoose.Types.ObjectId.isValid(projectId)) ? projectId : null,
             checklist: safeChecklist,
@@ -452,7 +454,8 @@ exports.getTasks = async (req, res) => {
         if (!isTemplate) {
             query.isLive = { $ne: false };
         } else {
-            query.isActive = true;
+            if (req.query.status === 'active') query.isActive = true;
+            else if (req.query.status === 'stopped') query.isActive = false;
         }
 
         // Resolve corresponding Employee record — try all fallbacks
@@ -682,7 +685,13 @@ exports.getTasks = async (req, res) => {
 
 exports.getTaskDetails = async (req, res) => {
     try {
-        let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId })
+        const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
+        const isObjectId = mongoose.Types.ObjectId.isValid(req.params.id);
+        const query = isObjectId
+            ? (companyId ? { _id: req.params.id, companyId } : { _id: req.params.id })
+            : (companyId ? { taskId: req.params.id, companyId } : { taskId: req.params.id });
+
+        let task = await Task.findOne(query)
             .populate({
                 path: "assignedTo",
                 select: "firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds",
@@ -697,7 +706,7 @@ exports.getTaskDetails = async (req, res) => {
 
         if (!task) {
             // Fallback: Check if it's a recurring template
-            const template = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.user.companyId })
+            const template = await TaskTemplate.findOne(query)
                 .populate({
                     path: "assignedTo",
                     select: "firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds",
@@ -867,12 +876,13 @@ exports.updateTask = async (req, res) => {
 
         if (isTemplate) {
             // Update recurring properties
-            const { repeatEnabled, repeatType, weeklyDays, monthlyDates, finishDate } = req.body;
+            const { repeatEnabled, repeatType, weeklyDays, monthlyDates, finishDate, deadlineDays } = req.body;
             if (repeatEnabled !== undefined) task.repeatEnabled = repeatEnabled;
             if (repeatType) task.repeatType = repeatType;
             if (weeklyDays) task.weeklyDays = weeklyDays;
             if (monthlyDates) task.monthlyDates = monthlyDates;
             if (finishDate !== undefined) task.finishDate = finishDate ? new Date(finishDate) : null;
+            if (deadlineDays !== undefined) task.deadlineDays = Math.max(1, parseInt(deadlineDays, 10));
         }
 
         const rawEnd = endDate || endDateTime;

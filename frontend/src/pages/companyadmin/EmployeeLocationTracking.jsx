@@ -56,6 +56,12 @@ const EmployeeLocationTracking = () => {
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "active" | "halt" | "moving" | "hr_mgr" | "low_bat"
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString("en-CA");
+  }, []);
   const [mapReady, setMapReady] = useState(false);
   const [isRadarSweepActive, setIsRadarSweepActive] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -967,6 +973,44 @@ const EmployeeLocationTracking = () => {
             </button>
           </div>
 
+          {/* Trail Date Selector (Today / Yesterday / Date Picker) */}
+          {viewMode === "trail" && (
+            <div className="flex items-center bg-muted/70 p-1 rounded-xl border border-border gap-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedDate(todayStr)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  selectedDate === todayStr
+                    ? "bg-background text-foreground shadow-xs font-black text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                आज (Today)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(yesterdayStr)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  selectedDate === yesterdayStr
+                    ? "bg-background text-foreground shadow-xs font-black text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                काल (Yesterday)
+              </button>
+              <div className="flex items-center gap-1 bg-background/80 px-2 py-0.5 rounded-lg border border-border/80">
+                <Calendar size={12} className="text-muted-foreground" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  max={todayStr}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent text-foreground text-xs font-semibold focus:outline-none cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+
           <Link
             to={
               (user?.role || "").toLowerCase().includes("hr")
@@ -1363,7 +1407,13 @@ const EmployeeLocationTracking = () => {
                 {/* Pod 2: Distance */}
                 <div className="bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs flex flex-col justify-between">
                   <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                    आजचा प्रवास (Travel)
+                    {viewMode === "trail"
+                      ? selectedDate === todayStr
+                        ? "आजचा प्रवास (Travel)"
+                        : selectedDate === yesterdayStr
+                        ? "कालचा प्रवास (Yesterday)"
+                        : `प्रवास (${selectedDate})`
+                      : "आजचा प्रवास (Travel)"}
                   </p>
                   <p className="font-black text-sm text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1.5">
                     <Navigation size={14} />
@@ -1374,7 +1424,11 @@ const EmployeeLocationTracking = () => {
                     </span>
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude
+                    {viewMode === "trail" && trailData
+                      ? trailData.isStationaryAllDay || trailData.distanceKm === 0
+                        ? "🏢 एकाच ठिकाणी उपस्थित (Stationary)"
+                        : "🎯 Pure GPS Verified"
+                      : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude
                       ? "🎯 Pure GPS Verified"
                       : "Standby (NA)"}
                   </p>

@@ -156,6 +156,15 @@ const CARD_THEMES = {
     valueText: "text-purple-700 dark:text-purple-300",
     topBar: "bg-purple-500",
   },
+  violet: {
+    baseClass: "bg-violet-50/80 dark:bg-violet-950/35 border-violet-200/90 dark:border-violet-800/80 shadow-2xs hover:shadow-md hover:border-violet-400 dark:hover:border-violet-600",
+    activeClass: "bg-violet-100/90 dark:bg-violet-950/70 border-2 border-violet-600 ring-2 ring-violet-500/30 shadow-md",
+    activeBadge: "bg-violet-600 text-white",
+    iconBg: "bg-violet-600 text-white shadow-xs",
+    labelText: "text-violet-950 dark:text-violet-200 font-extrabold",
+    valueText: "text-violet-700 dark:text-violet-300",
+    topBar: "bg-violet-600",
+  },
 };
 
 const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) => {
@@ -657,7 +666,7 @@ export default function TaskBoard() {
       if (task.isTemplate) return false;
       if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes((task.status || "").toLowerCase())) return false;
     }
-    const passesDate = isTaskInDateRange(task, filters.startDate, filters.endDate);
+    const passesDate = activeTab === "Recurring" ? true : isTaskInDateRange(task, filters.startDate, filters.endDate);
 
     let passesDept = true;
     if (filters.departmentId) {
@@ -800,7 +809,7 @@ export default function TaskBoard() {
     return !done && due && due < new Date();
   }).length;
   const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
-  const recurringCount = tabFilteredTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+  const recurringCount = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
 
   // STRICT UNIQUE DATE CATEGORIES
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
@@ -810,7 +819,7 @@ export default function TaskBoard() {
     if (cat === "Re Open") {
       count = allTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
     } else if (cat === "Recurring") {
-      count = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+      count = recurringCount;
     } else if (cat === "All Time") {
       count = allTasks.filter(t => !t.isTemplate).length;
     } else {
@@ -1365,8 +1374,8 @@ export default function TaskBoard() {
         </div>
       )}
 
-      {/* ── Top 6 KPI Summary Stat Cards (Total, Pending, In Process, Completed, Overdue, Re-Open) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+      {/* ── Top 7 KPI Summary Stat Cards (Total, Pending, In Process, Completed, Overdue, Re-Open, Recurring) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 pt-1">
         <KPICard
           label="Total Tasks"
           value={totalCount}
@@ -1450,6 +1459,74 @@ export default function TaskBoard() {
           }}
           isActive={statusFilter === "re_open" || filters.status === "re_pending,re_in_process,re_complete,re_late_complete"}
         />
+        <KPICard
+          label="Recurring Tasks"
+          value={recurringCount}
+          Icon={Repeat}
+          theme="violet"
+          onClick={() => {
+            if (activeTab === "Recurring") {
+              setActiveTab("All Time");
+              setTempTab("All Time");
+              setFilters(prev => ({ ...prev, startDate: "", endDate: "" }));
+            } else {
+              setActiveTab("Recurring");
+              setTempTab("Recurring");
+              setStatusFilter("");
+              setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+            }
+          }}
+          isActive={activeTab === "Recurring"}
+        />
+      </div>
+
+      {/* ── Quick Filter Tabs Bar (Today, This Week, This Month, All Tasks, Recurring) ── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {[
+            { id: "Today", label: "Today", count: categoryCounts.find(c => c.name === "Today")?.count || 0 },
+            { id: "This Week", label: "This Week", count: categoryCounts.find(c => c.name === "This Week")?.count || 0 },
+            { id: "This Month", label: "This Month", count: categoryCounts.find(c => c.name === "This Month")?.count || 0 },
+            { id: "All Time", label: "All Tasks", count: allTasks.filter(t => !t.isTemplate).length },
+            { id: "Recurring", label: "Recurring Tasks", count: recurringCount, icon: Repeat, isSpecial: true },
+          ].map(tab => {
+            const isTabActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.id === "Recurring") {
+                    setActiveTab("Recurring");
+                    setTempTab("Recurring");
+                    setStatusFilter("");
+                    setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+                  } else {
+                    handleTabChange(tab.id);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isTabActive
+                    ? tab.isSpecial
+                      ? "bg-violet-600 text-white shadow-xs ring-2 ring-violet-500/30"
+                      : "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30"
+                    : tab.isSpecial
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100"
+                    : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {TabIcon && <TabIcon size={12} className={isTabActive ? "text-white" : "text-violet-600 dark:text-violet-400"} />}
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${
+                  isTabActive ? "bg-white/20 text-white" : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Active Filters Bar ────────────────────────────────────────── */}

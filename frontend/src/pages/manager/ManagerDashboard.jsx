@@ -7,7 +7,10 @@ import {
   getManagerTeamTasksApi,
   getManagerProjectsApi,
   getManagerTeamApi,
+  getManagerLeadsApi,
+  getManagerLeadStatsApi,
 } from "../../api/managerApi";
+import api from "../../api/api";
 import { api as leadApi } from "../../utils/leads/api";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 import {
@@ -205,7 +208,7 @@ export default function ManagerDashboard() {
   const { data: teamTasksRes, isLoading: isLoadingTasks } = useQuery({
     queryKey: ["managerDashboardTeamTasks", timeRange],
     queryFn: async () => {
-      const res = await getManagerTeamTasksApi({ limit: 500 });
+      const res = await getManagerTeamTasksApi({ limit: 1000 });
       return res.data?.tasks || res.data?.data || (Array.isArray(res.data) ? res.data : []);
     },
     staleTime: 10000,
@@ -215,12 +218,51 @@ export default function ManagerDashboard() {
   const { data: leadsData, isLoading: isLoadingLeads } = useQuery({
     queryKey: ["managerDashboardLeads"],
     queryFn: async () => {
+      let leadsResult = null;
+      let statsResult = null;
+
+      // 1. Try central API first
       try {
-        const res = await leadApi.get("/api/leads?limit=200");
-        return res?.leads || res?.data?.leads || (Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []));
-      } catch {
-        return [];
+        const [lRes, stRes] = await Promise.allSettled([
+          getManagerLeadsApi({ limit: 200 }),
+          getManagerLeadStatsApi(),
+        ]);
+        if (lRes.status === "fulfilled" && lRes.value?.data) leadsResult = lRes.value.data;
+        if (stRes.status === "fulfilled" && stRes.value?.data) statsResult = stRes.value.data;
+      } catch (_) {}
+
+      // 2. Fallback to leadApi client if needed
+      if (!leadsResult) {
+        try {
+          const res = await leadApi.get("/api/leads?limit=200");
+          leadsResult = res;
+        } catch (_) {}
       }
+
+      let rawLeads = [];
+      let totalCount = 0;
+      if (leadsResult) {
+        if (Array.isArray(leadsResult?.data)) {
+          rawLeads = leadsResult.data;
+        } else if (Array.isArray(leadsResult?.leads)) {
+          rawLeads = leadsResult.leads;
+        } else if (Array.isArray(leadsResult?.data?.leads)) {
+          rawLeads = leadsResult.data.leads;
+        } else if (Array.isArray(leadsResult)) {
+          rawLeads = leadsResult;
+        }
+
+        totalCount =
+          statsResult?.totalContacts ??
+          leadsResult?.pagination?.total ??
+          leadsResult?.total ??
+          leadsResult?.totalContacts ??
+          rawLeads.length;
+      } else if (statsResult?.totalContacts !== undefined) {
+        totalCount = statsResult.totalContacts;
+      }
+
+      return { leads: rawLeads, total: totalCount };
     },
     staleTime: 30000,
   });
@@ -251,9 +293,9 @@ export default function ManagerDashboard() {
   }, [teamTasksRes]);
 
   const realLeads = useMemo(() => {
-    if (Array.isArray(leadsData)) return leadsData;
     if (Array.isArray(leadsData?.leads)) return leadsData.leads;
     if (Array.isArray(leadsData?.data)) return leadsData.data;
+    if (Array.isArray(leadsData)) return leadsData;
     return [];
   }, [leadsData]);
 
@@ -399,26 +441,26 @@ export default function ManagerDashboard() {
   }, [activeProjects, realTasks]);
 
   // ── Tasks Tab Data ──
-  const totalTasksCount = realTasks.length || (tasks.totalTeamTasks ?? 0);
+  const totalTasksCount = Math.max(realTasks.length, tasks.totalTeamTasks ?? 0);
   const completedTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
       ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
     ).length;
-    return count || (tasks.completedTeamTasks ?? 0);
+    return Math.max(count, tasks.completedTeamTasks ?? 0, tasks.teamTaskDoneCount ?? 0);
   }, [realTasks, tasks]);
 
   const activeTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
-      ["in_process", "re_in_process", "in-progress", "working"].includes((t.status || "").toLowerCase())
+      ["in_process", "re_in_process", "in-progress", "working", "in progress", "started", "active"].includes((t.status || "").toLowerCase())
     ).length;
-    return count || (tasks.openTeamTasks ?? 0);
+    return Math.max(count, tasks.openTeamTasks ?? 0);
   }, [realTasks, tasks]);
 
   const pendingTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
       ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
     ).length;
-    return count || (tasks.myPendingTasks ?? 0);
+    return Math.max(count, tasks.myPendingTasks ?? 0);
   }, [realTasks, tasks]);
 
   const overdueTasksCount = useMemo(() => {
@@ -434,7 +476,7 @@ export default function ManagerDashboard() {
       const dueTime = new Date(raw).getTime();
       return !isNaN(dueTime) && now >= dueTime;
     }).length;
-    return count || (tasks.overdueTeamTasks ?? 0);
+    return Math.max(count, tasks.overdueTeamTasks ?? 0);
   }, [realTasks, tasks]);
 
   const taskCompletionRate = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
@@ -511,7 +553,10 @@ export default function ManagerDashboard() {
   }, [realTasks]);
 
   // ── Leads Tab Real Data ──
-  const totalLeadsCount = realLeads.length;
+  const totalLeadsCount =
+    leadsData?.total ??
+    leadsData?.pagination?.total ??
+    (realLeads.length > 0 ? realLeads.length : (d.leadSummary?.totalLeads ?? 0));
   const totalLeadValue = useMemo(() => {
     return realLeads.reduce((acc, l) => {
       const val = Number(l.value || l.dealValue || l.estimatedValue || l.budget || 0);

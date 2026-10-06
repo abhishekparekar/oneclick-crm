@@ -87,6 +87,10 @@ const taskTemplateSchema = new mongoose.Schema(
       type: String, // e.g. "18:00" - time of day tasks are due
       default: "18:00",
     },
+    deadlineDays: {
+      type: Number, // Duration in days to complete the task from occurrence (e.g. 1 = same day, 5 = 5 days to complete, e.g. 1st to 5th)
+      default: 1,
+    },
     finishDate: {
       type: Date,
       default: null, // The absolute final date this recurring template stops generating

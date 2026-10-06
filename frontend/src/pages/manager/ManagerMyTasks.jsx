@@ -341,7 +341,7 @@ export default function ManagerMyTasks() {
       if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
-    if (!isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
+    if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
 
     if (filters.departmentId) {
       const dId = task.departmentId?._id || task.departmentId || task.department?._id || task.department;

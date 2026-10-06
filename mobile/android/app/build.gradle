@@ -48,9 +48,9 @@ android {
     defaultConfig {
         applicationId 'com.oneclick.hrms'
         minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion 35
-        versionCode 1
-        versionName "1.0.0"
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 3
+        versionName "1.0.2"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
         externalNativeBuild {
@@ -163,6 +163,7 @@ def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: false).toBool
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
     if (isGifEnabled) {
         // For animated gif support

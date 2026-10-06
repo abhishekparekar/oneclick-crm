@@ -27,6 +27,7 @@ import {
   validateLocationApi,
 } from "../../api/attendanceService";
 import { captureGPSLocation } from "../../utils/locationService";
+import { promptEnableLocation } from "../../utils/locationEnabler";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
 import locationTrackingService from "../../services/locationTrackingService";
 
@@ -150,18 +151,24 @@ const EmployeePunchScreen = ({ navigation, route }) => {
     }
   };
 
-  const verifyLocation = async () => {
+  const verifyLocation = async (userInitiated = false) => {
     try {
       setCapturingGps(true);
       setLocationStatusMsg("");
-      const coords = await captureGPSLocation();
+
+      // On Android, prompt to turn on Google Location Accuracy dialog (Image 2)
+      if (Platform.OS === "android") {
+        await promptEnableLocation();
+      }
+
+      const coords = await captureGPSLocation(true);
 
       if (!coords || !coords.latitude || !coords.longitude) {
         setGpsCoords(null);
         setGpsCaptured(false);
         setCapturingGps(false);
         setIsPunchDisabled(true);
-        setLocationStatusMsg("Unable to detect GPS. Please turn ON Location/GPS in your phone settings.");
+        setLocationStatusMsg("Location is OFF. Please turn ON Location/GPS to punch attendance.");
         return;
       }
 
@@ -635,20 +642,27 @@ const EmployeePunchScreen = ({ navigation, route }) => {
           </View>
         ) : isPunchDisabled ? (
           <View style={styles.outsideOfficeContainer}>
-            <Ionicons name="warning" size={28} color="#EF4444" style={{ marginBottom: 6 }} />
-            <Text style={styles.outsideOfficeText}>Out of Office Boundary</Text>
+            <Ionicons
+              name={!gpsCoords ? "navigate-circle" : "warning"}
+              size={30}
+              color={!gpsCoords ? "#3B82F6" : "#EF4444"}
+              style={{ marginBottom: 6 }}
+            />
+            <Text style={[styles.outsideOfficeText, !gpsCoords && { color: "#60A5FA" }]}>
+              {!gpsCoords ? "Turn ON Location / GPS" : "Out of Office Boundary"}
+            </Text>
             <Text style={styles.outsideOfficeSub}>
-              {locationStatusMsg || "Punching is not allowed outside the authorized office boundary."}
+              {locationStatusMsg || (!gpsCoords ? "Please turn ON Location Accuracy to punch attendance." : "Punching is not allowed outside the authorized office boundary.")}
             </Text>
             <TouchableOpacity
-              style={styles.retryGpsBtn}
-              onPress={verifyLocation}
+              style={[styles.retryGpsBtn, !gpsCoords && { backgroundColor: "#2563EB" }]}
+              onPress={() => verifyLocation(true)}
               disabled={capturingGps}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Ionicons name={!gpsCoords ? "navigate" : "refresh"} size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.retryGpsBtnText}>
-                {capturingGps ? "Checking GPS..." : "Refresh / Re-check GPS"}
+                {capturingGps ? "Acquiring GPS..." : !gpsCoords ? "Turn ON Location Accuracy" : "Refresh / Re-check GPS"}
               </Text>
             </TouchableOpacity>
           </View>

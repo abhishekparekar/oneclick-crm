@@ -179,3 +179,9 @@ export const uploadTaskMediaApi = (file) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+// ── Leads & CRM ────────────────────────────────────────────────────────────
+export const getCompanyLeadsApi = (params = {}) => api.get("/leads-engine/leads", { params });
+export const getCompanyLeadStatsApi = () => api.get("/leads-engine/leads/stats");
+export const getCompanyLeadStatusesApi = () => api.get("/leads-engine/statuses");
+

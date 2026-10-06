@@ -95,7 +95,8 @@ const processSingleTemplate = async (template, targetDate = new Date()) => {
           _id: template._id,
           $or: [
             { lastGeneratedDate: { $lt: currentDate } },
-            { lastGeneratedDate: { $exists: false } }
+            { lastGeneratedDate: { $exists: false } },
+            { lastGeneratedDate: null }
           ]
         },
         { $set: { lastGeneratedDate: currentDate } },
@@ -164,7 +165,11 @@ const processSingleTemplate = async (template, targetDate = new Date()) => {
           if (availableAssignees.length > 0) {
             const { taskId, seqNumber } = await generateNextTaskId(template.companyId);
 
-            const dateStr = currentDate.toISOString().split("T")[0];
+            const deadlineDays = (template.deadlineDays && Number(template.deadlineDays) > 1) ? Number(template.deadlineDays) : 1;
+            const deadlineDate = new Date(currentDate);
+            deadlineDate.setUTCDate(deadlineDate.getUTCDate() + (deadlineDays - 1));
+            const dateStr = deadlineDate.toISOString().split("T")[0];
+
             let endDateTime;
             if (template.deadlineTime) {
               endDateTime = new Date(`${dateStr}T${template.deadlineTime}:00.000+05:30`);

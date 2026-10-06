@@ -89,9 +89,10 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
       // Normal continuous movement (< 2 minutes between points)
       calculatedSpeedKmh = (distMeters / timeDiffSeconds) * 3.6;
 
-      // Discard stationary micro jitter (< 10 meters when stationary) to prevent false movement queues
+      // Discard stationary indoor GPS drift & multipath jitter (< 25 meters when stationary or low speed)
       const reportedSpeedKmh = (Number(point.speed) || 0) * 3.6;
-      if (distMeters < 10 && calculatedSpeedKmh < 3.0 && reportedSpeedKmh < 2.5) {
+      const effectiveSpeedKmh = Math.max(reportedSpeedKmh, calculatedSpeedKmh);
+      if (distMeters < 25 && effectiveSpeedKmh < 3.8) {
         return false;
       }
 

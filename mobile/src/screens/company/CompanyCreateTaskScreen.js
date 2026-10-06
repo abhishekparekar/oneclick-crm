@@ -122,8 +122,14 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const [repeatEnabled, setRepeatEnabled] = useState(editingTask?.repeatEnabled || isRecurring || false);
   const [repeatType, setRepeatType] = useState(editingTask?.repeatType || "daily");
   const [finishDate, setFinishDate] = useState(editingTask?.finishDate ? formatDateToDDMMYYYY(editingTask.finishDate) : "");
+  const [finishTime, setFinishTime] = useState(
+    editingTask?.finishDate 
+      ? `${String(new Date(editingTask.finishDate).getHours()).padStart(2, '0')}:${String(new Date(editingTask.finishDate).getMinutes()).padStart(2, '0')}`
+      : "18:00"
+  );
   const [weeklyDays, setWeeklyDays] = useState(editingTask?.weeklyDays || []);
   const [monthlyDates, setMonthlyDates] = useState(editingTask?.monthlyDates || []);
+  const [deadlineDays, setDeadlineDays] = useState(editingTask?.deadlineDays ? String(editingTask.deadlineDays) : "1");
 
   const toggleWeeklyDay = (day) => {
     setWeeklyDays(prev => 
@@ -317,7 +323,9 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
       const datesStr = monthlyDates.length > 0 ? monthlyDates.join(", ") : "selected dates";
       freqText = `every month on the ${datesStr}`;
     }
-    return `🔄 This template will auto-generate a new task ${freqText} at this exact time, with a deadline of ${deadlineTime}.`;
+    const dDays = parseInt(deadlineDays, 10) || 1;
+    const stopText = finishDate ? ` until ${finishDate} at ${finishTime || "18:00"}` : " (ongoing series)";
+    return `🔄 Auto-generates a task ${freqText}${stopText}. Each task has ${dDays} day(s) to complete, moving to Overdue after ${dDays} day(s) at ${deadlineTime || "18:00"}.`;
   };
 
   const submitForm = async () => {
@@ -367,9 +375,10 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
         nextFollowUpDate: repeatEnabled ? null : (nextFollowUpDate ? combineDateAndTimeToISO(nextFollowUpDate, nextFollowUpTime) : null),
         repeatEnabled,
         repeatType: repeatEnabled ? repeatType : null,
-        finishDate: repeatEnabled && finishDate ? parseDDMMYYYYToISO(finishDate) : null,
+        finishDate: repeatEnabled && finishDate ? combineDateAndTimeToISO(finishDate, finishTime || "18:00") : null,
         weeklyDays: repeatEnabled && repeatType === "weekly" ? weeklyDays : null,
         monthlyDates: repeatEnabled && repeatType === "monthly" ? monthlyDates : null,
+        deadlineDays: repeatEnabled ? (parseInt(deadlineDays, 10) || 1) : 1,
         checklist: checkpoints.filter(c => c.title.trim() !== "").map(c => ({ title: c.title, isCompleted: c.isCompleted || false })),
         attachments,
       };
@@ -798,44 +807,105 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             </View>
           </View>
 
-          {/* End Date & Time (or Daily Deadline for recurring) */}
+          {/* End Date & Time (or Recurring Deadline & Series End configuration) */}
           <View style={{ marginBottom: 12 }}>
-            <Text style={styles.inputLabel}>{repeatEnabled ? "Daily Deadline" : "Deadline"}</Text>
-            <View style={styles.row}>
-              {repeatEnabled ? (
-                <>
-                  <View style={[styles.half, { flex: 1.3 }]}>
-                    <AppDatePicker
-                      value={startDate}
-                      onChangeText={setStartDate}
-                      compact
-                    />
+            <Text style={styles.inputLabel}>
+              {repeatEnabled ? "Task Overdue After / Deadline (Days to Complete)" : "Deadline"}
+            </Text>
+            {repeatEnabled ? (
+              <View style={{ backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 10, padding: 12 }}>
+                {/* Days to complete before overdue */}
+                <Text style={[styles.inputLabel, { fontSize: 11, marginBottom: 4, color: "#334155" }]}>
+                  Days to Complete Before Overdue
+                </Text>
+                <Text style={{ fontSize: 11, color: "#64748B", marginBottom: 8, fontFamily: FONTS.body }}>
+                  Each generated task will move to Overdue if not completed within these days.
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {[
+                    { label: "1 Day (Same Day)", value: "1" },
+                    { label: "2 Days", value: "2" },
+                    { label: "3 Days", value: "3" },
+                    { label: "5 Days", value: "5" },
+                    { label: "7 Days", value: "7" },
+                  ].map((opt) => {
+                    const isSelected = String(deadlineDays) === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        onPress={() => setDeadlineDays(opt.value)}
+                        style={[
+                          styles.dayChip,
+                          { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+                          isSelected && styles.dayChipActive,
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.dayChipText, isSelected && styles.dayChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Custom days input & Deadline Time picker */}
+                <View style={styles.row}>
+                  <View style={[styles.half, { flex: 1.1 }]}>
+                    <Text style={{ fontSize: 11, color: "#64748B", marginBottom: 4, fontFamily: FONTS.bodyMedium }}>
+                      Or Custom Days:
+                    </Text>
+                    <View style={[styles.inputContainer, { marginBottom: 0, paddingVertical: 4, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" }]}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, fontSize: 13, height: 36, paddingVertical: 0 }]}
+                        placeholder="e.g. 3"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="numeric"
+                        value={deadlineDays}
+                        onChangeText={(val) => setDeadlineDays(val.replace(/[^0-9]/g, ""))}
+                      />
+                      <Text style={{ fontSize: 11, color: "#64748B", marginLeft: 4 }}>days</Text>
+                    </View>
                   </View>
-                  <View style={[styles.half, { flex: 1 }]}>
+                  <View style={[styles.half, { flex: 1.2 }]}>
+                    <Text style={{ fontSize: 11, color: "#64748B", marginBottom: 4, fontFamily: FONTS.bodyMedium }}>
+                      Due Time of Day:
+                    </Text>
                     <AppTimePicker
                       value={deadlineTime}
                       onChangeText={setDeadlineTime}
                     />
                   </View>
-                </>
-              ) : (
-                <>
-                  <View style={[styles.half, { flex: 1.3 }]}>
-                    <AppDatePicker
-                      value={endDate}
-                      onChangeText={setEndDate}
-                      compact
-                    />
-                  </View>
-                  <View style={[styles.half, { flex: 1 }]}>
-                    <AppTimePicker
-                      value={deadlineTime}
-                      onChangeText={setDeadlineTime}
-                    />
-                  </View>
-                </>
-              )}
-            </View>
+                </View>
+
+                {/* Helpful preview explanation banner */}
+                <View style={{ marginTop: 10, padding: 8, backgroundColor: "#EFF6FF", borderRadius: 8, borderWidth: 1, borderColor: "#BFDBFE" }}>
+                  <Text style={{ fontSize: 11, color: "#1E40AF", lineHeight: 16, fontFamily: FONTS.bodyMedium }}>
+                    {repeatType === "monthly"
+                      ? `📅 Monthly Example: If task triggers on 1st of month with ${deadlineDays || 1} day(s) deadline, it will be due on the ${Math.min(31, 1 + (Math.max(1, parseInt(deadlineDays, 10) || 1) - 1))}${Math.min(31, 1 + (Math.max(1, parseInt(deadlineDays, 10) || 1) - 1)) === 1 ? "st" : Math.min(31, 1 + (Math.max(1, parseInt(deadlineDays, 10) || 1) - 1)) === 2 ? "nd" : Math.min(31, 1 + (Math.max(1, parseInt(deadlineDays, 10) || 1) - 1)) === 3 ? "rd" : "th"} at ${deadlineTime || "18:00"}. After ${deadlineDays || 1} day(s), it moves to Overdue.`
+                      : repeatType === "weekly"
+                      ? `📅 Weekly Example: Each task will be due ${deadlineDays || 1} day(s) after its assigned day at ${deadlineTime || "18:00"}. After ${deadlineDays || 1} day(s), it moves to Overdue.`
+                      : `📅 Daily Example: Each daily task will be due on that day at ${deadlineTime || "18:00"}. If not finished by then, it moves to Overdue.`}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.row}>
+                <View style={[styles.half, { flex: 1.3 }]}>
+                  <AppDatePicker
+                    value={endDate}
+                    onChangeText={setEndDate}
+                    compact
+                  />
+                </View>
+                <View style={[styles.half, { flex: 1 }]}>
+                  <AppTimePicker
+                    value={deadlineTime}
+                    onChangeText={setDeadlineTime}
+                  />
+                </View>
+              </View>
+            )}
           </View>
 
           {!repeatEnabled && (
@@ -859,10 +929,39 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             </View>
           )}
 
+          {/* End Date of Generating Task (Stop Recurring Date & Time) */}
           {repeatEnabled && (
-            <View style={{ marginTop: 6 }}>
-              <AppDatePicker label="Stop Repeating On (Optional)" value={finishDate} onChangeText={setFinishDate} compact />
-              <View style={styles.recurringInfoBanner}>
+            <View style={{ marginTop: 4, marginBottom: 12 }}>
+              <Text style={styles.inputLabel}>End Date of Generating Task (Stop Recurring Date & Time)</Text>
+              <Text style={{ fontSize: 11, color: "#64748B", marginBottom: 6, fontFamily: FONTS.body }}>
+                Series will stop creating new tasks after this date & time. (Leave empty if recurring should not stop)
+              </Text>
+              <View style={styles.row}>
+                <View style={[styles.half, { flex: 1.3 }]}>
+                  <AppDatePicker
+                    value={finishDate}
+                    onChangeText={setFinishDate}
+                    placeholder="Stop Date (Optional)"
+                    compact
+                  />
+                </View>
+                <View style={[styles.half, { flex: 1 }]}>
+                  <AppTimePicker
+                    value={finishTime}
+                    onChangeText={setFinishTime}
+                  />
+                </View>
+              </View>
+              {finishDate ? (
+                <TouchableOpacity
+                  onPress={() => setFinishDate("")}
+                  style={{ alignSelf: "flex-start", marginTop: 4, paddingVertical: 2, paddingHorizontal: 6 }}
+                >
+                  <Text style={{ fontSize: 11, color: "#EF4444", fontFamily: FONTS.bodyBold }}>✕ Clear Stop Date (Run Indefinitely)</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <View style={[styles.recurringInfoBanner, { marginTop: 8 }]}>
                 <Ionicons name="information-circle-outline" size={18} color="#7C3AED" style={{ marginRight: 6 }} />
                 <Text style={styles.recurringInfoText}>
                   {getHelperText()}

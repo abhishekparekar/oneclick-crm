@@ -108,28 +108,8 @@ class LocationTrackingService {
         }
       }
 
-      // 3. Background Location Permission (Android 10+ / API 29+)
-      // Note: On Android 10+, this is requested non-blockingly so failures don't abort foreground service tracking
-      if (Platform.Version >= 29) {
-        try {
-          const bgGranted = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION
-          );
-
-          if (!bgGranted) {
-            await PermissionsAndroid.request(
-              PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-              {
-                title: "Background Location Access",
-                message: "Please choose 'Allow all the time' so travel routes are recorded when screen is locked.",
-                buttonPositive: "Allow All The Time",
-              }
-            );
-          }
-        } catch (bgErr) {
-          console.warn("[LocationService] Background location permission check notice (non-fatal):", bgErr?.message);
-        }
-      }
+      // Note: Location tracking when minimized is managed via Foreground Service (FOREGROUND_SERVICE_LOCATION)
+      // which displays an active notification without requiring sensitive background location declaration on Play Store.
 
       return true;
     } catch (err) {

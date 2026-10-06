@@ -17,6 +17,7 @@ const SalaryStructure = require("../models/SalaryStructure");
 const Notification = require("../models/Notification");
 const AuditLog = require("../models/AuditLog");
 const Announcement = require("../models/Announcement");
+const Lead = require("../models/Lead");
 const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
 const { checkUserPermission } = require("../utils/permissionCheck");
 const {
@@ -174,7 +175,16 @@ const getDashboardStats = async (req, res, next) => {
             // Project count definitions
             Project.countDocuments({ companyId }),
             Project.countDocuments({ companyId, status: "active" }),
-            Project.countDocuments({ companyId, status: "completed" })
+            Project.countDocuments({ companyId, status: "completed" }),
+            // Lead count definitions
+            Lead.countDocuments({
+                $or: [
+                    { companyId: new mongoose.Types.ObjectId(companyId) },
+                    { companyId: companyId ? companyId.toString() : null },
+                    { companyId: null }
+                ],
+                deletedAt: null
+            })
         ]);
 
         const daysInPeriod = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
@@ -218,6 +228,10 @@ const getDashboardStats = async (req, res, next) => {
                 activeProjects: activeProjectsCount,
                 completedProjects: completedProjectsCount,
             },
+            leads: {
+                totalLeads: totalLeadsCount || 0,
+            },
+            totalLeads: totalLeadsCount || 0,
             tasks: {
                 totalTasks: totalTasksCount,
                 completedTasks: completedTasksCount,
@@ -670,6 +684,7 @@ const getCompanyDashboard = async (req, res, next) => {
             onLeave,
             leaveSummaryAgg,
             upcomingBirthdaysRaw,
+            totalLeads,
         ] = await Promise.all([
             Employee.countDocuments({ companyId }),
             Employee.countDocuments({ companyId, status: "active" }),
@@ -681,6 +696,14 @@ const getCompanyDashboard = async (req, res, next) => {
             Task.countDocuments({ companyId, isLive: true, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: new Date() } }),
             Project.countDocuments({ companyId, status: "active" }),
             TaskTemplate.countDocuments({ companyId, isActive: true }),
+            Lead.countDocuments({
+                $or: [
+                    { companyId: compObjId },
+                    { companyId: companyId ? companyId.toString() : null },
+                    { companyId: null }
+                ],
+                deletedAt: null
+            }),
             // Monthly payroll cost via aggregation (no full-collection load)
             SalaryStructure.aggregate([
                 { $match: { companyId: compObjId } },
@@ -861,6 +884,7 @@ const getCompanyDashboard = async (req, res, next) => {
                     overdueTasks,
                     activeProjects,
                     monthlyPayrollCost,
+                    totalLeads: totalLeads || 0,
                 },
                 attendanceSummary,
                 recentEmployees,
@@ -2811,7 +2835,27 @@ const uploadEmployeeDocumentAdmin = async (req, res, next) => {
 const toggleTaskTemplateStatus = async (req, res) => {
     try {
         const TaskTemplate = require("../models/TaskTemplate");
-        const template = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.companyId });
+        const Task = require("../models/Task");
+        const companyId = req.companyId || req.user?.companyId;
+        const id = req.params.id;
+        const isObjectId = mongoose.Types.ObjectId.isValid(id);
+        
+        let template = null;
+        if (isObjectId) {
+            template = await TaskTemplate.findOne({ _id: id, ...(companyId ? { companyId } : {}) });
+        }
+        if (!template) {
+            template = await TaskTemplate.findOne({ taskId: id, ...(companyId ? { companyId } : {}) });
+        }
+        if (!template && isObjectId) {
+            const task = await Task.findOne({ _id: id, ...(companyId ? { companyId } : {}) });
+            if (task && (task.templateId || task.parentTemplateId)) {
+                template = await TaskTemplate.findOne({ 
+                    _id: task.templateId || task.parentTemplateId, 
+                    ...(companyId ? { companyId } : {}) 
+                });
+            }
+        }
         if (!template) {
             return res.status(404).json({ success: false, message: "Task template not found" });
         }

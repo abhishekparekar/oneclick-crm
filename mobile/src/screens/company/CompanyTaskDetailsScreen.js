@@ -260,10 +260,12 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
   const handleToggleRecurring = async () => {
     try {
       setSubmitting(true);
-      const res = await toggleTaskTemplateApi(taskId);
-      if (res.success) {
-        setTask(prev => ({ ...prev, isActive: res.isActive }));
-        Alert.alert("Success", res.message);
+      const targetId = task?.parentTemplateId || task?.templateId || taskId;
+      const res = await toggleTaskTemplateApi(targetId);
+      if (res?.success || res?.data?.success) {
+        const newIsActive = res.isActive !== undefined ? res.isActive : res.data?.isActive;
+        setTask(prev => ({ ...prev, isActive: newIsActive }));
+        Alert.alert("Success", res.message || res.data?.message || "Recurring status updated successfully.");
       }
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message);
@@ -315,6 +317,66 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
     }
   }, [reopenModalVisible]);
 
+  // Helper: compute next recurring occurrence deadline for a template
+  const getRecurringNextDeadline = (tmpl) => {
+    if (!tmpl || !tmpl.isTemplate) return null;
+    const now = new Date();
+    const timeStr = tmpl.deadlineTime || "18:00";
+    const [dlHour, dlMin] = timeStr.split(":").map(Number);
+    const offsetDays = (tmpl.deadlineDays && Number(tmpl.deadlineDays) > 1) ? Number(tmpl.deadlineDays) - 1 : 0;
+
+    const buildDeadline = (baseDate) => {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + offsetDays);
+      d.setHours(dlHour || 18, dlMin || 0, 0, 0);
+      return d;
+    };
+
+    if (tmpl.repeatType === "daily") {
+      // Next deadline is end of today or tomorrow if today's deadline already passed
+      const todayDeadline = buildDeadline(now);
+      if (now < todayDeadline) return todayDeadline;
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return buildDeadline(tomorrow);
+    }
+
+    if (tmpl.repeatType === "weekly" && Array.isArray(tmpl.weeklyDays) && tmpl.weeklyDays.length > 0) {
+      const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      const normalised = tmpl.weeklyDays.map(d => d.toLowerCase());
+      // Find the next matching weekday (including today if deadline not yet passed)
+      for (let i = 0; i <= 7; i++) {
+        const candidate = new Date(now);
+        candidate.setDate(candidate.getDate() + i);
+        const candidateName = dayNames[candidate.getDay()].toLowerCase();
+        if (normalised.includes(candidateName)) {
+          const dl = buildDeadline(candidate);
+          if (dl > now) return dl;
+        }
+      }
+    }
+
+    if (tmpl.repeatType === "monthly" && Array.isArray(tmpl.monthlyDates) && tmpl.monthlyDates.length > 0) {
+      const sortedDates = [...tmpl.monthlyDates].sort((a, b) => a - b);
+      const todayDate = now.getDate();
+      // Check current month first
+      for (const d of sortedDates) {
+        if (d >= todayDate) {
+          const candidate = new Date(now.getFullYear(), now.getMonth(), d);
+          const dl = buildDeadline(candidate);
+          if (dl > now) return dl;
+        }
+      }
+      // Try next month
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const lastDayNextMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+      const firstDate = Math.min(sortedDates[0], lastDayNextMonth);
+      return buildDeadline(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), firstDate));
+    }
+
+    return null;
+  };
+
   const fetchTask = useCallback(
     async (silent = false) => {
       if (!taskId) return;
@@ -327,6 +389,8 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         }
       } catch (err) {
         console.warn("[CompanyTaskDetails] Fetch error:", err?.message || err);
+        // Only show error alert if no task data is currently loaded
+        // (prevents showing 'Task not found' popup when refocus-reloading)
         if (!taskRef.current) {
           Alert.alert("Error", err?.response?.data?.message || err.message);
         }
@@ -810,10 +874,41 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.nativeGridLabel, isOverdueTime && { color: "#EF4444" }]}>Due Deadline</Text>
                   <Text style={[styles.nativeGridVal, isOverdueTime && { color: "#DC2626", fontFamily: FONTS.bodyBold }]}>
-                    {task.endDateTime ? formatDateTimeToDDMMYYYY(task.endDateTime) : (task.endDate ? formatDateToDDMMYYYY(task.endDate) : "No deadline")}
+                    {task.isTemplate
+                      ? (() => {
+                          const nextDl = getRecurringNextDeadline(task);
+                          return nextDl ? formatDateTimeToDDMMYYYY(nextDl) : (task.deadlineTime ? `Daily at ${task.deadlineTime}` : "Each occurrence end of day");
+                        })()
+                      : (task.endDateTime ? formatDateTimeToDDMMYYYY(task.endDateTime) : (task.endDate ? formatDateToDDMMYYYY(task.endDate) : "No deadline"))
+                    }
                   </Text>
+                  {task.isTemplate && task.repeatType && (
+                    <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
+                      {task.repeatType === "weekly" && Array.isArray(task.weeklyDays) && task.weeklyDays.length > 0
+                        ? `Weekly on: ${task.weeklyDays.join(", ")}`
+                        : task.repeatType === "monthly" && Array.isArray(task.monthlyDates) && task.monthlyDates.length > 0
+                        ? `Monthly on: ${task.monthlyDates.map(d => `${d}${d===1?"st":d===2?"nd":d===3?"rd":"th"}`).join(", ")}`
+                        : task.repeatType === "daily"
+                        ? `Repeats daily at ${task.deadlineTime || "18:00"}`
+                        : ""}
+                    </Text>
+                  )}
                 </View>
               </View>
+
+              {/* Recurring series end date */}
+              {task.isTemplate && task.finishDate && (
+                <View style={[styles.nativeGridCell, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
+                  <Ionicons name="flag-outline" size={15} color="#EA580C" style={styles.gridCellIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.nativeGridLabel, { color: "#EA580C" }]}>Recurring Until</Text>
+                    <Text style={[styles.nativeGridVal, { color: "#C2410C", fontFamily: FONTS.bodyBold }]}>
+                      {formatDateToDDMMYYYY(task.finishDate)}
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#9A3412", marginTop: 2 }}>Series ends on this date</Text>
+                  </View>
+                </View>
+              )}
 
               {task.nextFollowUpDate ? (
                 <View style={[styles.nativeGridCell, { width: "100%", backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>

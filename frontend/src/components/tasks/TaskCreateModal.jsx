@@ -188,8 +188,9 @@ export default function TaskCreateModal({
     startDate: getNowDateTimeString(),
     endDate: getDefaultEndDateTimeString(),
     deadlineTime: "18:00",
+    deadlineDays: 1,
     nextFollowUpDate: getNowDateTimeString(),
-    finishDate: getDefaultEndDateTimeString(),
+    finishDate: "",
     checklist: [],
     attachments: [],
   };
@@ -212,7 +213,7 @@ export default function TaskCreateModal({
           startDate: nowStr,
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
-          finishDate: prev.finishDate || endStr,
+          finishDate: prev.finishDate || "",
           assignedTo: defaultSelfId ? [defaultSelfId] : prev.assignedTo,
           departmentId: prev.departmentId || selfDeptId
         }));
@@ -222,7 +223,7 @@ export default function TaskCreateModal({
           startDate: nowStr,
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
-          finishDate: prev.finishDate || endStr,
+          finishDate: prev.finishDate || "",
           assignedTo: isMyTasksPage && defaultSelfId && prev.assignedTo.length === 0 ? [defaultSelfId] : prev.assignedTo,
           // Keep the current departmentId selection (defaults to "" which is "All Departments")
           departmentId: prev.departmentId !== undefined ? prev.departmentId : ""
@@ -419,11 +420,6 @@ export default function TaskCreateModal({
       alert("Please select an End Date & Time.");
       return;
     }
-
-    if (form.repeatEnabled && !form.finishDate) {
-      alert("Please select an End Date & Time for the recurring schedule.");
-      return;
-    }
     
     const finalDeptId = form.departmentId ? form.departmentId : null;
 
@@ -453,7 +449,9 @@ export default function TaskCreateModal({
       startDateTime: form.startDate,
       endDate: form.endDate,
       endDateTime: form.endDate,
+      finishDate: form.repeatEnabled && form.finishDate ? form.finishDate : null,
       deadlineTime: timeFromEnd,
+      deadlineDays: form.repeatEnabled ? (parseInt(form.deadlineDays, 10) || 1) : 1,
       departmentId: finalDeptId,
       assignedTo: assignedList,
       assignmentType: !canAssignOthers ? "self" : (assignedList.length > 1 ? "multiple_employees" : "employee")
@@ -847,19 +845,34 @@ export default function TaskCreateModal({
                     />
                   </div>
 
-                  {/* Finish Date / End Date & Time */}
+                  {/* Finish Date / End Date of Generating Task (Stop Recurring Date & Time) */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <Clock size={11} className="text-amber-500" />
-                      End Date &amp; Time <span className="text-rose-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                        <Clock size={11} className="text-amber-500" />
+                        End Date of Generating Task (Stop Recurring)
+                      </label>
+                      {form.finishDate && (
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, finishDate: "" }))}
+                          className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                        >
+                          Clear (Run Indefinitely)
+                        </button>
+                      )}
+                    </div>
                     <CustomDateTimeField
                       type="datetime-local"
                       name="finishDate"
-                      value={form.finishDate}
+                      value={form.finishDate || ""}
                       onChange={handleChange}
+                      placeholder="Stop Date & Time (Optional)"
                       className="w-full py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
+                    <span className="block text-[9.5px] text-slate-500 dark:text-slate-400 mt-1">
+                      {form.finishDate ? "Series stops creating tasks after this date & time." : "Optional: Leave empty to run indefinitely without stopping."}
+                    </span>
                   </div>
 
                   {/* Next Follow-up Date for Recurring */}
@@ -949,6 +962,72 @@ export default function TaskCreateModal({
                     </div>
                   </div>
                 )}
+
+                {/* Deadline Duration (Days to complete before Overdue) */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">
+                      Task Overdue After / Deadline (Days to Complete)
+                    </label>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Task moves to Overdue if not completed within selected days
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    {[
+                      { label: "1 Day (Same Day)", val: 1 },
+                      { label: "2 Days", val: 2 },
+                      { label: "3 Days", val: 3 },
+                      { label: "5 Days", val: 5 },
+                      { label: "7 Days", val: 7 },
+                    ].map(opt => {
+                      const isSel = Number(form.deadlineDays || 1) === opt.val;
+                      return (
+                        <button
+                          key={opt.val}
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, deadlineDays: opt.val }))}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            isSel
+                              ? "bg-amber-500 text-slate-950 border-amber-500 font-black shadow-2xs"
+                              : "bg-white dark:bg-[#080D14] border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                    <div className="flex items-center gap-1 ml-auto">
+                      <span className="text-[10px] text-slate-400 font-medium">Custom:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={form.deadlineDays || 1}
+                        onChange={(e) => setForm(p => ({ ...p, deadlineDays: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        className="w-14 px-2 py-0.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-slate-900 dark:text-white text-center focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400 font-medium">days</span>
+                    </div>
+                  </div>
+
+                  {/* Preview Banner */}
+                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl text-[11px] text-amber-900 dark:text-amber-300 font-medium leading-relaxed">
+                    {form.repeatType === "monthly" ? (
+                      <span>
+                        📅 <strong>Monthly Schedule:</strong> If task triggers on the 1st of the month with a <strong>{form.deadlineDays || 1}-day</strong> deadline, the deadline will be on the <strong>{Math.min(31, 1 + (Math.max(1, parseInt(form.deadlineDays || 1, 10)) - 1))}th</strong> at {form.deadlineTime || "18:00"}. After {form.deadlineDays || 1} day(s), it moves to <strong>Overdue</strong>.
+                      </span>
+                    ) : form.repeatType === "weekly" ? (
+                      <span>
+                        📅 <strong>Weekly Schedule:</strong> Each task will be due <strong>{form.deadlineDays || 1} day(s)</strong> after its assigned trigger day at {form.deadlineTime || "18:00"}. After {form.deadlineDays || 1} day(s), it moves to <strong>Overdue</strong>.
+                      </span>
+                    ) : (
+                      <span>
+                        📅 <strong>Daily Schedule:</strong> Each task will be due on that day at {form.deadlineTime || "18:00"}. If not completed by then, it moves to <strong>Overdue</strong>.
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

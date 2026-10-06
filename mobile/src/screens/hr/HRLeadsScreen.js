@@ -331,16 +331,22 @@ export default function HRLeadsScreen({ navigation, route }) {
     });
   }, [leads, searchQuery, selectedStatus, leadScope, selectedAssignee, selectedProduct, selectedSource, selectedTimeframe, currentUserId]);
 
-  // Metrics
+  // Metrics calculated dynamically from filteredLeads
   const metrics = useMemo(() => {
-    const total = leads.length;
-    const won = leads.filter((l) => (l.status?.name || "").toLowerCase().includes("won")).length;
-    const lost = leads.filter((l) => (l.status?.name || "").toLowerCase().includes("lost")).length;
+    const total = filteredLeads.length;
+    const wonLeads = filteredLeads.filter((l) => (l.status?.name || "").toLowerCase().includes("won"));
+    const lostLeads = filteredLeads.filter((l) => (l.status?.name || "").toLowerCase().includes("lost"));
+    const won = wonLeads.length;
+    const lost = lostLeads.length;
     const active = total - (won + lost);
-    const totalVal = leads.reduce((sum, l) => sum + (Number(l.estimatedValue) || 0), 0);
+    const totalVal = filteredLeads.reduce((sum, l) => sum + (Number(l.estimatedValue) || 0), 0);
+    const activeVal = filteredLeads
+      .filter((l) => !(l.status?.name || "").toLowerCase().includes("won") && !(l.status?.name || "").toLowerCase().includes("lost"))
+      .reduce((sum, l) => sum + (Number(l.estimatedValue) || 0), 0);
+    const wonVal = wonLeads.reduce((sum, l) => sum + (Number(l.estimatedValue) || 0), 0);
     const convRate = total > 0 ? Math.round((won / total) * 100) : 0;
-    return { total, active, won, totalVal, convRate };
-  }, [leads]);
+    return { total, active, activeVal, won, wonVal, totalVal, convRate };
+  }, [filteredLeads]);
 
   // Create Lead Handler
   const handleCreateLead = async () => {
@@ -598,27 +604,31 @@ export default function HRLeadsScreen({ navigation, route }) {
             activeOpacity={0.8}
           >
             <Text style={styles.kpiNumber}>{metrics.total}</Text>
-            <Text style={styles.kpiTitle}>TOTAL LEADS</Text>
+            <Text style={styles.kpiTitle}>{selectedStatus !== "all" ? "FILTERED" : "TOTAL LEADS"}</Text>
           </TouchableOpacity>
 
-          {/* Active Deals */}
+          {/* Deal Value */}
           <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#93C5FD" }]}>{metrics.active}</Text>
-            <Text style={styles.kpiTitle}>ACTIVE DEALS</Text>
+            <Text style={[styles.kpiNumber, { color: "#FDE047" }]}>
+              ₹{metrics.totalVal >= 10000000 ? `${(metrics.totalVal / 10000000).toFixed(2)}Cr` : metrics.totalVal >= 100000 ? `${(metrics.totalVal / 100000).toFixed(1)}L` : metrics.totalVal.toLocaleString()}
+            </Text>
+            <Text style={styles.kpiTitle}>DEAL VALUE</Text>
+          </View>
+
+          {/* Pending Deals */}
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiNumber, { color: "#93C5FD" }]}>
+              ₹{metrics.activeVal >= 10000000 ? `${(metrics.activeVal / 10000000).toFixed(2)}Cr` : metrics.activeVal >= 100000 ? `${(metrics.activeVal / 100000).toFixed(1)}L` : metrics.activeVal.toLocaleString()}
+            </Text>
+            <Text style={styles.kpiTitle}>PENDING ({metrics.active})</Text>
           </View>
 
           {/* Deals Won */}
           <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#6EE7B7" }]}>{metrics.won}</Text>
-            <Text style={styles.kpiTitle}>DEALS WON ({metrics.convRate}%)</Text>
-          </View>
-
-          {/*  Value */}
-          <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#FDE047" }]}>
-              ₹{metrics.totalVal >= 100000 ? `${(metrics.totalVal / 100000).toFixed(1)}L` : metrics.totalVal.toLocaleString()}
+            <Text style={[styles.kpiNumber, { color: "#6EE7B7" }]}>
+              ₹{metrics.wonVal >= 10000000 ? `${(metrics.wonVal / 10000000).toFixed(2)}Cr` : metrics.wonVal >= 100000 ? `${(metrics.wonVal / 100000).toFixed(1)}L` : metrics.wonVal.toLocaleString()}
             </Text>
-            <Text style={styles.kpiTitle}>VALUATION</Text>
+            <Text style={styles.kpiTitle}>WON ({metrics.won})</Text>
           </View>
         </View>
       </LinearGradient>

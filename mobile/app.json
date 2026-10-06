@@ -4,7 +4,7 @@
   "expo": {
     "name": "One Click",
     "slug": "one-click",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "icon": "./assets/one_clic.jpeg",
     "splash": {
       "image": "./assets/one_clic.jpeg",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.oneclick.hrms",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/one_clic.jpeg",
         "backgroundColor": "#000000"

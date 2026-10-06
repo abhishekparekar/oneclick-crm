@@ -37,108 +37,507 @@ const formatStoppageDuration = (minutes) => {
 };
 
 /**
- * Calculate true travel distance from GPS points, filtering out stationary jitter (odometer creep).
- * If all points remain within stationary radius (< 75m), returns 0 meters.
+/**
+ * Vector angle helper: computes bearing between 2 points in degrees (0-360)
  */
-const calculateTrueGpsDistanceMeters = (pts) => {
-  if (!Array.isArray(pts) || pts.length < 2) return 0;
+const getBearingDegrees = (lat1, lon1, lat2, lon2) => {
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+};
 
-  // 1. High-accuracy GPS filter (allows standard smartphone GPS fixes <= 70m)
-  const accuratePts = pts.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
-  const candidatePts = accuratePts.length >= 2 ? accuratePts : pts;
-  if (candidatePts.length < 2) return 0;
+/**
+ * Robust GPS Trail Processor & Metrics Engine:
+ * 1. High-accuracy & hardware GPS filtering
+ * 2. Glitch, teleport & excursion suppression
+ * 3. Robust 90th-percentile stationary premise detection (prevents 16+ km false indoor travel)
+ * 4. Halt cluster collapsing (prevents green spider-web lines criss-crossing inside buildings)
+ * 5. Vector angle anti-oscillation filter for true highway/street transit
+ */
+const processGpsTrailAndMetrics = (rawPoints) => {
+  if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
+    const base = rawPoints && rawPoints[0] ? rawPoints[0] : null;
+    return {
+      isStationaryAllDay: true,
+      cleanTrail: base ? [base] : [],
+      totalDistanceMeters: 0,
+      distanceKm: 0,
+      halts: base
+        ? [
+            {
+              latitude: base.latitude,
+              longitude: base.longitude,
+              startTime: base.timestamp,
+              endTime: base.timestamp,
+              durationMinutes: 1,
+              durationText: "0 mins",
+              address: base.address || "",
+            },
+          ]
+        : [],
+      haltCount: base ? 1 : 0,
+      totalHaltTimeMinutes: 0,
+      totalHaltTimeText: "0 mins",
+      totalMovingTimeMinutes: 0,
+      totalMovingTimeText: "0 mins",
+      maxSpeed: 0,
+      avgSpeed: 0,
+      startLocation: base,
+      endLocation: base,
+    };
+  }
 
-  // 2. Excursion / Teleportation Filter: Suppress points that jump out and snap back within 90s
+  // 1. Accuracy filter: phone hardware GPS gives <= 70m.
+  const accuratePts = rawPoints.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
+  let candidatePts = accuratePts.length >= 2 ? accuratePts : rawPoints;
+  if (candidatePts.length < 2) candidatePts = rawPoints;
+
+  // Sort chronologically
+  candidatePts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  // Discard cold-start and tail cell-tower jumps
+  if (candidatePts.length >= 3) {
+    const p0 = candidatePts[0];
+    const p1 = candidatePts[1];
+    const p2 = candidatePts[2];
+    const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
+    const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+    if (jump01 > 120 && cluster12 < 80) {
+      candidatePts = candidatePts.slice(1);
+    }
+  }
+  if (candidatePts.length >= 3) {
+    const pLast = candidatePts[candidatePts.length - 1];
+    const pPrev = candidatePts[candidatePts.length - 2];
+    const pPrev2 = candidatePts[candidatePts.length - 3];
+    const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
+    const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
+    if (jumpTail > 120 && clusterPrev < 80) {
+      candidatePts = candidatePts.slice(0, -1);
+    }
+  }
+
+  // Excursion & Teleport spike filter
   const cleaned = [candidatePts[0]];
   for (let i = 1; i < candidatePts.length; i++) {
     const prev = cleaned[cleaned.length - 1];
     const cur = candidatePts[i];
     const distFromPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
-    const dt = Math.max(1, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
+    const dt = Math.max(0.5, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
     const speed = (distFromPrev / dt) * 3.6;
 
+    if (distFromPrev > 250 && speed > 70) continue; // Teleport jump
+
     let isExcursion = false;
-    if (distFromPrev > 35) {
-      for (let look = 1; look <= 45 && i + look < candidatePts.length; look++) {
+    if (distFromPrev > 30) {
+      for (let look = 1; look <= 25 && i + look < candidatePts.length; look++) {
         const next = candidatePts[i + look];
         const dtNext = (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000;
         if (dtNext > 90) break;
         const distToPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
-        if (distToPrev < 35) {
+        if (distToPrev < 30) {
           isExcursion = true;
           break;
         }
       }
     }
+    if (isExcursion) continue;
 
-    if (isExcursion || speed > 100) continue;
     cleaned.push(cur);
   }
 
-  if (cleaned.length < 2) return 0;
+  if (cleaned.length < 2) {
+    const base = cleaned[0] || candidatePts[0];
+    return {
+      isStationaryAllDay: true,
+      cleanTrail: [base],
+      totalDistanceMeters: 0,
+      distanceKm: 0,
+      halts: [
+        {
+          latitude: base.latitude,
+          longitude: base.longitude,
+          startTime: base.timestamp,
+          endTime: base.timestamp,
+          durationMinutes: 1,
+          durationText: "0 mins",
+          address: base.address || "",
+        },
+      ],
+      haltCount: 1,
+      totalHaltTimeMinutes: 0,
+      totalHaltTimeText: "0 mins",
+      totalMovingTimeMinutes: 0,
+      totalMovingTimeText: "0 mins",
+      maxSpeed: 0,
+      avgSpeed: 0,
+      startLocation: base,
+      endLocation: base,
+    };
+  }
 
-  // 3. Spatial Displacement Check: If user stayed within premise radius (< 120m), return 0
-  const origin = cleaned[0];
-  let maxDisp = 0;
-  let minLat = origin.latitude;
-  let maxLat = origin.latitude;
-  let minLng = origin.longitude;
-  let maxLng = origin.longitude;
+  const firstTime = new Date(cleaned[0].timestamp);
+  const lastTime = new Date(cleaned[cleaned.length - 1].timestamp);
+  const totalDayMinutes = Math.max(1, Math.round((lastTime - firstTime) / 60000));
 
+  // 2. Global Centroid & Dispersion Analysis (Stationary Premises Check)
+  let sumLat = 0;
+  let sumLng = 0;
   for (const pt of cleaned) {
-    const d = getHaversineDistanceMeters(origin.latitude, origin.longitude, pt.latitude, pt.longitude);
-    if (d > maxDisp) maxDisp = d;
-    if (pt.latitude < minLat) minLat = pt.latitude;
-    if (pt.latitude > maxLat) maxLat = pt.latitude;
-    if (pt.longitude < minLng) minLng = pt.longitude;
-    if (pt.longitude > maxLng) maxLng = pt.longitude;
+    sumLat += Number(pt.latitude);
+    sumLng += Number(pt.longitude);
   }
+  const centerLat = sumLat / cleaned.length;
+  const centerLng = sumLng / cleaned.length;
 
-  const boundingDiag = getHaversineDistanceMeters(minLat, minLng, maxLat, maxLng);
+  const distsFromCenter = cleaned.map((pt) =>
+    getHaversineDistanceMeters(centerLat, centerLng, pt.latitude, pt.longitude)
+  );
+  const sortedDists = [...distsFromCenter].sort((a, b) => a - b);
+  const p90Dist = sortedDists[Math.floor(sortedDists.length * 0.9)] || 0;
+  const p95Dist = sortedDists[Math.floor(sortedDists.length * 0.95)] || 0;
 
-  // If user stayed at the same premises/office location (< 180m):
-  if (maxDisp < 180 && boundingDiag < 300) {
-    return 0;
-  }
-
-  // 4. True road travel calculation (Anchor-based stationary deadband = 90m)
-  let totalDistMeters = 0;
-  let anchor = cleaned[0];
-  let isMoving = false;
-  let lastMovingPt = anchor;
-
+  // Check if there is any true sustained transit trip (at least 3 consecutive points > 120m away from center moving at >= 4 km/h)
+  let hasSustainedTrip = false;
+  let consecutiveTripPoints = 0;
   for (let i = 1; i < cleaned.length; i++) {
-    const cur = cleaned[i];
-    const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, cur.latitude, cur.longitude);
-    const distFromLast = getHaversineDistanceMeters(lastMovingPt.latitude, lastMovingPt.longitude, cur.latitude, cur.longitude);
-    const dtSec = Math.max(1, (new Date(cur.timestamp) - new Date(lastMovingPt.timestamp)) / 1000);
-    const impliedSpeed = (distFromLast / dtSec) * 3.6;
-    const sensorSpeed = (Number(cur.speed) || 0) * 3.6;
-    const effSpeed = Math.max(sensorSpeed, impliedSpeed);
+    const pt = cleaned[i];
+    const prev = cleaned[i - 1];
+    const dCenter = distsFromCenter[i];
+    const dPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, pt.latitude, pt.longitude);
+    const dt = Math.max(0.5, (new Date(pt.timestamp) - new Date(prev.timestamp)) / 1000);
+    const speed = (dPrev / dt) * 3.6;
 
-    if (!isMoving) {
-      if (distFromAnchor >= 90 && effSpeed >= 6.0) {
-        isMoving = true;
-        if (impliedSpeed <= 100) {
-          totalDistMeters += distFromAnchor;
-          lastMovingPt = cur;
-        }
-        anchor = cur;
+    if (dCenter > 110 && speed >= 4.0 && dPrev >= 20) {
+      consecutiveTripPoints++;
+      if (consecutiveTripPoints >= 3) {
+        hasSustainedTrip = true;
+        break;
       }
     } else {
-      if (impliedSpeed > 100 && distFromLast > 150) continue;
-      if (distFromAnchor < 40 && effSpeed < 3.0) {
-        isMoving = false;
-        anchor = cur;
-      } else if (distFromLast >= 25) {
-        totalDistMeters += distFromLast;
-        lastMovingPt = cur;
-        anchor = cur;
+      consecutiveTripPoints = 0;
+    }
+  }
+
+  // If 90%+ points are within 95m of the centroid and no sustained trip occurred: employee was stationary all day!
+  if (!hasSustainedTrip && p90Dist <= 95 && p95Dist <= 140) {
+    const basePoint = {
+      latitude: Number(centerLat.toFixed(6)),
+      longitude: Number(centerLng.toFixed(6)),
+      timestamp: cleaned[0].timestamp,
+      address: cleaned[0].address || "",
+    };
+    return {
+      isStationaryAllDay: true,
+      cleanTrail: [basePoint],
+      totalDistanceMeters: 0,
+      distanceKm: 0,
+      halts: [
+        {
+          latitude: basePoint.latitude,
+          longitude: basePoint.longitude,
+          startTime: cleaned[0].timestamp,
+          endTime: cleaned[cleaned.length - 1].timestamp,
+          durationMinutes: totalDayMinutes,
+          durationText: formatStoppageDuration(totalDayMinutes),
+          address: basePoint.address || "",
+        },
+      ],
+      haltCount: 1,
+      totalHaltTimeMinutes: totalDayMinutes,
+      totalHaltTimeText: formatStoppageDuration(totalDayMinutes),
+      totalMovingTimeMinutes: 0,
+      totalMovingTimeText: "0 mins",
+      maxSpeed: 0,
+      avgSpeed: 0,
+      startLocation: basePoint,
+      endLocation: basePoint,
+    };
+  }
+
+  // 3. Multi-Stop State Machine: Halt Cluster Collapsing & Transit Road Generation
+  const HALT_MERGE_RADIUS_METERS = 50;
+  const BREAKOUT_MIN_METERS = 55;
+  const BREAKOUT_MIN_SPEED_KMH = 4.0;
+
+  let mode = "HALT"; // "HALT" | "TRANSIT"
+  let currentHalt = {
+    centerLat: cleaned[0].latitude,
+    centerLng: cleaned[0].longitude,
+    startTime: cleaned[0].timestamp,
+    endTime: cleaned[0].timestamp,
+    address: cleaned[0].address || "",
+    count: 1,
+  };
+
+  const cleanTrail = [];
+  const halts = [];
+  const movingSpeeds = [];
+  let totalDistanceMeters = 0;
+  let maxSpeed = 0;
+  let lastTransitPoint = null;
+
+  for (let i = 1; i < cleaned.length; i++) {
+    const pt = cleaned[i];
+
+    if (mode === "HALT") {
+      const dCenter = getHaversineDistanceMeters(
+        currentHalt.centerLat,
+        currentHalt.centerLng,
+        pt.latitude,
+        pt.longitude
+      );
+      const dtHaltSec = Math.max(1, (new Date(pt.timestamp) - new Date(currentHalt.endTime)) / 1000);
+      const impliedSpeed = (dCenter / dtHaltSec) * 3.6;
+      const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
+      const effSpeed = Math.max(sensorSpeed, impliedSpeed);
+
+      // Still stationary within halt radius
+      if (dCenter < HALT_MERGE_RADIUS_METERS || (dCenter < 80 && effSpeed < 3.5)) {
+        currentHalt.endTime = pt.timestamp;
+        currentHalt.centerLat =
+          (currentHalt.centerLat * currentHalt.count + pt.latitude) / (currentHalt.count + 1);
+        currentHalt.centerLng =
+          (currentHalt.centerLng * currentHalt.count + pt.longitude) / (currentHalt.count + 1);
+        currentHalt.count++;
+        if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
+        continue; // CRITICAL: Absorb jitter points into halt, ZERO criss-cross lines!
+      }
+
+      // Breakout check: user started moving away from the halt
+      if (dCenter >= BREAKOUT_MIN_METERS && effSpeed >= BREAKOUT_MIN_SPEED_KMH) {
+        // Lookahead verification: ensure it's not a single-point bounce
+        let isConfirmedBreakout = true;
+        if (i + 1 < cleaned.length) {
+          const nextPt = cleaned[i + 1];
+          const dNextToHalt = getHaversineDistanceMeters(
+            currentHalt.centerLat,
+            currentHalt.centerLng,
+            nextPt.latitude,
+            nextPt.longitude
+          );
+          if (dNextToHalt < 40) {
+            isConfirmedBreakout = false;
+          }
+        }
+
+        if (!isConfirmedBreakout) {
+          continue; // Temporary jitter bounce, reject
+        }
+
+        // Finalize completed halt
+        const haltMins = Math.round(
+          (new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000
+        );
+        if (haltMins >= 3) {
+          halts.push({
+            latitude: Number(currentHalt.centerLat.toFixed(6)),
+            longitude: Number(currentHalt.centerLng.toFixed(6)),
+            startTime: currentHalt.startTime,
+            endTime: currentHalt.endTime,
+            durationMinutes: haltMins,
+            durationText: formatStoppageDuration(haltMins),
+            address: currentHalt.address || "",
+          });
+        }
+
+        // Add single halt departure waypoint
+        const haltAnchor = {
+          latitude: Number(currentHalt.centerLat.toFixed(6)),
+          longitude: Number(currentHalt.centerLng.toFixed(6)),
+          timestamp: currentHalt.endTime,
+          address: currentHalt.address || "",
+        };
+        cleanTrail.push(haltAnchor);
+
+        // Switch to TRANSIT
+        mode = "TRANSIT";
+        cleanTrail.push(pt);
+        totalDistanceMeters += dCenter;
+        lastTransitPoint = pt;
+
+        if (effSpeed > 0 && effSpeed <= 120) {
+          movingSpeeds.push(effSpeed);
+          if (effSpeed > maxSpeed) maxSpeed = effSpeed;
+        }
+      }
+    } else {
+      // In TRANSIT mode
+      const distFromLast = getHaversineDistanceMeters(
+        lastTransitPoint.latitude,
+        lastTransitPoint.longitude,
+        pt.latitude,
+        pt.longitude
+      );
+      const dtSec = Math.max(0.5, (new Date(pt.timestamp) - new Date(lastTransitPoint.timestamp)) / 1000);
+      const impliedSpeed = (distFromLast / dtSec) * 3.6;
+      const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
+      const effSpeed = Math.max(sensorSpeed, impliedSpeed);
+
+      if (impliedSpeed > 120 && distFromLast > 250) continue; // Outlier jump
+
+      // Check if entering a new halt (slowed down and stopping)
+      let isStopping = false;
+      if (effSpeed < 3.0 && distFromLast < 45) {
+        // Look ahead 2 minutes to confirm stoppage
+        let stayNearCount = 0;
+        let lookMins = 0;
+        for (let look = 1; look <= 10 && i + look < cleaned.length; look++) {
+          const future = cleaned[i + look];
+          const dFut = getHaversineDistanceMeters(pt.latitude, pt.longitude, future.latitude, future.longitude);
+          const dtFut = (new Date(future.timestamp) - new Date(pt.timestamp)) / 60000;
+          if (dFut < 45) stayNearCount++;
+          lookMins = dtFut;
+          if (dtFut >= 2.0) break;
+        }
+        if (stayNearCount >= 2 || lookMins >= 2.0) {
+          isStopping = true;
+        }
+      }
+
+      if (isStopping) {
+        mode = "HALT";
+        currentHalt = {
+          centerLat: pt.latitude,
+          centerLng: pt.longitude,
+          startTime: pt.timestamp,
+          endTime: pt.timestamp,
+          address: pt.address || "",
+          count: 1,
+        };
+        cleanTrail.push(pt);
+        continue;
+      }
+
+      if (distFromLast < 20) continue; // Skip sub-20m micro-steps
+
+      // Anti-spiderweb oscillation filter: suppress rapid 180° back-and-forth ping-pong jumps
+      if (cleanTrail.length >= 2 && distFromLast < 55) {
+        const prevAnchor = cleanTrail[cleanTrail.length - 2];
+        const bearing1 = getBearingDegrees(
+          prevAnchor.latitude,
+          prevAnchor.longitude,
+          lastTransitPoint.latitude,
+          lastTransitPoint.longitude
+        );
+        const bearing2 = getBearingDegrees(
+          lastTransitPoint.latitude,
+          lastTransitPoint.longitude,
+          pt.latitude,
+          pt.longitude
+        );
+        let angleDiff = Math.abs(bearing2 - bearing1);
+        if (angleDiff > 180) angleDiff = 360 - angleDiff;
+        if (angleDiff > 135) {
+          // Reversing back on itself within 55m: bounce, skip
+          continue;
+        }
+      }
+
+      totalDistanceMeters += distFromLast;
+      cleanTrail.push(pt);
+      lastTransitPoint = pt;
+
+      if (effSpeed > 0 && effSpeed <= 120) {
+        movingSpeeds.push(effSpeed);
+        if (effSpeed > maxSpeed) maxSpeed = effSpeed;
       }
     }
   }
 
-  return totalDistMeters < 150 ? 0 : Math.round(totalDistMeters);
+  // Finalize final halt if day ended in halt
+  if (mode === "HALT") {
+    const finalHaltMins = Math.round(
+      (new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000
+    );
+    if (finalHaltMins >= 3 || cleanTrail.length <= 1) {
+      halts.push({
+        latitude: Number(currentHalt.centerLat.toFixed(6)),
+        longitude: Number(currentHalt.centerLng.toFixed(6)),
+        startTime: currentHalt.startTime,
+        endTime: currentHalt.endTime,
+        durationMinutes: Math.max(1, finalHaltMins),
+        durationText: formatStoppageDuration(Math.max(1, finalHaltMins)),
+        address: currentHalt.address || "",
+      });
+    }
+    if (cleanTrail.length > 0) {
+      cleanTrail.push({
+        latitude: Number(currentHalt.centerLat.toFixed(6)),
+        longitude: Number(currentHalt.centerLng.toFixed(6)),
+        timestamp: currentHalt.endTime,
+        address: currentHalt.address || "",
+      });
+    }
+  }
+
+  // If total travel is negligible (< 150m), return clean stationary response
+  if (totalDistanceMeters < 150 || cleanTrail.length <= 1) {
+    const basePoint = cleanTrail[0] || cleaned[0];
+    return {
+      isStationaryAllDay: true,
+      cleanTrail: [basePoint],
+      totalDistanceMeters: 0,
+      distanceKm: 0,
+      halts: [
+        {
+          latitude: basePoint.latitude,
+          longitude: basePoint.longitude,
+          startTime: cleaned[0].timestamp,
+          endTime: cleaned[cleaned.length - 1].timestamp,
+          durationMinutes: totalDayMinutes,
+          durationText: formatStoppageDuration(totalDayMinutes),
+          address: basePoint.address || "",
+        },
+      ],
+      haltCount: 1,
+      totalHaltTimeMinutes: totalDayMinutes,
+      totalHaltTimeText: formatStoppageDuration(totalDayMinutes),
+      totalMovingTimeMinutes: 0,
+      totalMovingTimeText: "0 mins",
+      maxSpeed: 0,
+      avgSpeed: 0,
+      startLocation: basePoint,
+      endLocation: basePoint,
+    };
+  }
+
+  const totalHaltMinutes = halts.reduce((sum, h) => sum + h.durationMinutes, 0);
+  const movingMinutes = Math.max(0, totalDayMinutes - totalHaltMinutes);
+  const avgMovingSpeed =
+    movingSpeeds.length > 0
+      ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)
+      : 0;
+  const distanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
+
+  return {
+    isStationaryAllDay: false,
+    cleanTrail: cleanTrail,
+    totalDistanceMeters: Math.round(totalDistanceMeters),
+    distanceKm: distanceKm,
+    halts: halts,
+    haltCount: halts.length,
+    totalHaltTimeMinutes: totalHaltMinutes,
+    totalHaltTimeText: formatStoppageDuration(totalHaltMinutes),
+    totalMovingTimeMinutes: movingMinutes,
+    totalMovingTimeText: formatStoppageDuration(movingMinutes),
+    maxSpeed: Math.round(maxSpeed),
+    avgSpeed: avgMovingSpeed,
+    startLocation: cleanTrail[0] || null,
+    endLocation: cleanTrail[cleanTrail.length - 1] || null,
+  };
+};
+
+/**
+ * Calculate true travel distance from GPS points, filtering out stationary jitter (odometer creep).
+ * If all points remain within stationary radius (< 95m), returns 0 meters.
+ */
+const calculateTrueGpsDistanceMeters = (pts) => {
+  const result = processGpsTrailAndMetrics(pts);
+  return result.isStationaryAllDay ? 0 : result.totalDistanceMeters;
 };
 
 /**
@@ -908,22 +1307,23 @@ const getEmployeeLocationTrail = async (req, res) => {
       targetEmployeeId = ownEmp._id;
     }
 
-    // Calculate exact IST day window (UTC + 5:30)
-    let startOfDay, endOfDay;
-    if (date && typeof date === "string" && date.includes("-")) {
-      const [y, m, d] = date.split("-").map(Number);
-      const istOffsetMs = 5.5 * 60 * 60 * 1000;
-      startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
-      endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
+    // Calculate exact IST day window (UTC + 5:30) supporting "today", "yesterday", and YYYY-MM-DD
+    let targetDateStr;
+    const now = new Date();
+    const todayIstStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+    if (date === "yesterday") {
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      targetDateStr = yesterday.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } else if (date && typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      targetDateStr = date;
     } else {
-      const now = new Date();
-      // Get IST date string for today
-      const istStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
-      const [y, m, d] = istStr.split("-").map(Number);
-      const istOffsetMs = 5.5 * 60 * 60 * 1000;
-      startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
-      endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
+      targetDateStr = todayIstStr;
     }
+
+    const [y, m, d] = targetDateStr.split("-").map(Number);
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
+    const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
 
     const rawTrail = await EmployeeLocation.find({
       employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
@@ -971,7 +1371,6 @@ const getEmployeeLocationTrail = async (req, res) => {
           cleanTrail: [],
           isStationaryAllDay: true,
           totalPoints: 0,
-
           distanceKm: 0,
           maxSpeed: 0,
           avgSpeed: 0,
@@ -989,144 +1388,11 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. GPS filter: hardware GPS provides accuracy <= 70m.
-    const validPoints = rawTrail.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
-    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
-    if (candidatePoints.length < 2) candidatePoints = rawTrail;
+    // Process GPS points through robust filtering & anti-spiderweb state machine
+    const metrics = processGpsTrailAndMetrics(rawTrail);
 
-    // 1b. Discard cold-start cell-tower glitch at point[0]:
-    // When an employee opens the app indoors, Android often returns a stale cell-tower position (200m-800m away)
-    // before true GPS locks on at the actual starting location.
-    if (candidatePoints.length >= 3) {
-      const p0 = candidatePoints[0];
-      const p1 = candidatePoints[1];
-      const p2 = candidatePoints[2];
-      const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
-      const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
-
-      if (jump01 > 120 && cluster12 < 80) {
-        candidatePoints = candidatePoints.slice(1);
-      }
-    }
-
-    // 1c. Discard tail cell-tower glitch at the last point
-    if (candidatePoints.length >= 3) {
-      const pLast = candidatePoints[candidatePoints.length - 1];
-      const pPrev = candidatePoints[candidatePoints.length - 2];
-      const pPrev2 = candidatePoints[candidatePoints.length - 3];
-      const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
-      const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
-
-      if (jumpTail > 120 && clusterPrev < 80) {
-        candidatePoints = candidatePoints.slice(0, -1);
-      }
-    }
-
-    // 1d. Multi-point Outlier, Teleport Jump & Excursion Filter:
-    // Discards points that jump off-road into buildings, impossible speed jumps, or temporary excursions
-    if (candidatePoints.length >= 3) {
-      const filtered = [candidatePoints[0]];
-      for (let i = 1; i < candidatePoints.length; i++) {
-        const prev = filtered[filtered.length - 1];
-        const cur = candidatePoints[i];
-
-        const dist = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
-        const dt = Math.max(0.5, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
-        const speed = (dist / dt) * 3.6;
-
-        // Reject impossible speed jumps (> 75 km/h for city street travel if jump > 35m)
-        if (speed > 75 && dist > 35) {
-          if (i + 1 < candidatePoints.length) {
-            const next = candidatePoints[i + 1];
-            const distPrevNext = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
-            const dtNext = Math.max(0.5, (new Date(next.timestamp) - new Date(prev.timestamp)) / 1000);
-            const speedPrevNext = (distPrevNext / dtNext) * 3.6;
-            if (speedPrevNext <= 70) {
-              console.log(`[TrailFilter] Suppressed impossible speed jump: ${dist.toFixed(1)}m in ${dt.toFixed(1)}s (${speed.toFixed(0)} km/h)`);
-              continue;
-            }
-          }
-        }
-
-        // Teleport jump filter (> 200m jump where speed > 70 km/h)
-        if (dist > 200 && speed > 70) {
-          console.log(`[TrailFilter] Suppressed teleport jump: ${dist.toFixed(1)}m in ${dt.toFixed(1)}s (${speed.toFixed(0)} km/h)`);
-          continue;
-        }
-
-        // Excursion loop filter: look ahead up to 45 points or 90s to see if path jumps away and returns
-        let isExcursion = false;
-        if (dist > 35) {
-          for (let look = 1; look <= 45 && i + look < candidatePoints.length; look++) {
-            const future = candidatePoints[i + look];
-            const dtFuture = Math.max(1, (new Date(future.timestamp) - new Date(cur.timestamp)) / 1000);
-            if (dtFuture > 90) break;
-            const distFuture = getHaversineDistanceMeters(prev.latitude, prev.longitude, future.latitude, future.longitude);
-
-            if (dist > 35 && distFuture < 35) {
-              isExcursion = true;
-              break;
-            }
-          }
-        }
-        if (isExcursion) {
-          console.log(`[TrailFilter] Suppressed building excursion point: ${cur.latitude}, ${cur.longitude}`);
-          continue;
-        }
-
-        filtered.push(cur);
-      }
-      if (filtered.length >= 2) {
-        candidatePoints = filtered;
-      }
-    }
-
-    // Fetch Attendance record to check punchInLocation
-    const targetDateStr = date && typeof date === "string" && date.includes("-")
-      ? date
-      : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-
-    const attendanceRecord = await Attendance.findOne({
-      employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
-      companyId: new mongoose.Types.ObjectId(companyId.toString()),
-      date: targetDateStr,
-    }).select("punchInTime punchOutTime punchInLocation").lean().catch(() => null);
-
-    let punchInCoord = candidatePoints[0];
-    if (attendanceRecord?.punchInLocation?.latitude && attendanceRecord?.punchInLocation?.longitude) {
-      const punchLat = Number(attendanceRecord.punchInLocation.latitude);
-      const punchLng = Number(attendanceRecord.punchInLocation.longitude);
-      // Only trust punchInLocation if it is in the same vicinity (<= 1000m) of recorded GPS
-      if (getHaversineDistanceMeters(punchLat, punchLng, candidatePoints[0].latitude, candidatePoints[0].longitude) <= 1000) {
-        punchInCoord = { latitude: punchLat, longitude: punchLng };
-      }
-    }
-
-    const firstTime = new Date(candidatePoints[0].timestamp);
-    const lastTime = new Date(candidatePoints[candidatePoints.length - 1].timestamp);
-    const totalDayMinutes = Math.max(1, Math.round((lastTime - firstTime) / 60000));
-
-    // 2. Spatial Displacement Check: Detect if employee stayed at the same location after Punch In
-    let maxDisplacementFromStart = 0;
-    let minLat = candidatePoints[0].latitude;
-    let maxLat = candidatePoints[0].latitude;
-    let minLng = candidatePoints[0].longitude;
-    let maxLng = candidatePoints[0].longitude;
-
-    for (const pt of candidatePoints) {
-      const d = getHaversineDistanceMeters(punchInCoord.latitude, punchInCoord.longitude, pt.latitude, pt.longitude);
-      if (d > maxDisplacementFromStart) maxDisplacementFromStart = d;
-      if (pt.latitude < minLat) minLat = pt.latitude;
-      if (pt.latitude > maxLat) maxLat = pt.latitude;
-      if (pt.longitude < minLng) minLng = pt.longitude;
-      if (pt.longitude > maxLng) maxLng = pt.longitude;
-    }
-
-    const boundingDiagonalMeters = getHaversineDistanceMeters(minLat, minLng, maxLat, maxLng);
-
-    // If employee stayed at the same location (all points within stationary/premise radius):
-    if (maxDisplacementFromStart < 180 && boundingDiagonalMeters < 300) {
-      const basePoint = candidatePoints[0];
+    if (metrics.isStationaryAllDay || metrics.cleanTrail.length <= 1) {
+      const basePoint = metrics.cleanTrail[0] || rawTrail[0];
       return res.status(200).json({
         success: true,
         data: {
@@ -1146,199 +1412,26 @@ const getEmployeeLocationTrail = async (req, res) => {
           todayDistanceText: "0 km",
           maxSpeed: 0,
           avgSpeed: 0,
-          halts: [
-            {
-              latitude: basePoint.latitude,
-              longitude: basePoint.longitude,
-              startTime: candidatePoints[0].timestamp,
-              endTime: candidatePoints[candidatePoints.length - 1].timestamp,
-              durationMinutes: totalDayMinutes,
-              durationText: formatStoppageDuration(totalDayMinutes),
-              address: basePoint.address || "",
-            },
-          ],
-          haltCount: 1,
-          totalHaltTimeMinutes: totalDayMinutes,
-          totalHaltTimeText: formatStoppageDuration(totalDayMinutes),
+          halts: metrics.halts,
+          haltCount: metrics.halts.length,
+          totalHaltTimeMinutes: metrics.totalHaltTimeMinutes,
+          totalHaltTimeText: metrics.totalHaltTimeText,
           totalMovingTimeMinutes: 0,
           totalMovingTimeText: "0 mins",
           startLocation: basePoint,
-          endLocation: candidatePoints[candidatePoints.length - 1],
-          startTime: candidatePoints[0].timestamp,
-          endTime: candidatePoints[candidatePoints.length - 1].timestamp,
+          endLocation: basePoint,
+          startTime: rawTrail[0]?.timestamp || null,
+          endTime: rawTrail[rawTrail.length - 1]?.timestamp || null,
         },
       });
     }
 
-    // ── Build Clean Trail & Detect Real Halts (Anchor-Based Deadband) ──
-    const ANCHOR_STATIONARY_RADIUS = 90;
-    let anchor = candidatePoints[0];
-    const cleanTrail = [anchor];
-    const halts = [];
-    const movingSpeeds = [];
-    let totalDistanceMeters = 0;
-    let isMoving = false;
-    let lastAcceptedMovingPoint = anchor;
-    let maxSpeed = 0;
+    // Align transit trail segments to actual street network so lines run cleanly along roads
+    let finalTrail = metrics.cleanTrail;
+    let actualRoadDistanceMeters = metrics.totalDistanceMeters;
 
-    let currentHalt = {
-      latitude: anchor.latitude,
-      longitude: anchor.longitude,
-      startTime: anchor.timestamp,
-      endTime: anchor.timestamp,
-      address: anchor.address || "",
-    };
-
-    for (let i = 1; i < candidatePoints.length; i++) {
-      const pt = candidatePoints[i];
-      const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, pt.latitude, pt.longitude);
-      const distFromLast = getHaversineDistanceMeters(lastAcceptedMovingPoint.latitude, lastAcceptedMovingPoint.longitude, pt.latitude, pt.longitude);
-      const dtSeconds = Math.max(1, (new Date(pt.timestamp) - new Date(lastAcceptedMovingPoint.timestamp)) / 1000);
-      const impliedSpeed = (distFromLast / dtSeconds) * 3.6;
-      const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
-      const effectiveSpeed = Math.max(sensorSpeed, impliedSpeed);
-
-      if (!isMoving) {
-        if (distFromAnchor < ANCHOR_STATIONARY_RADIUS && effectiveSpeed < 4.0) {
-          currentHalt.endTime = pt.timestamp;
-          if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
-          continue; // Zero distance added during stationary halt
-        }
-
-        // Breakout detected: actual GPS movement initiated
-        if (distFromAnchor >= ANCHOR_STATIONARY_RADIUS && effectiveSpeed >= 6.0) {
-          isMoving = true;
-          const haltMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
-          if (haltMins >= 3) {
-            halts.push({
-              latitude: currentHalt.latitude,
-              longitude: currentHalt.longitude,
-              startTime: currentHalt.startTime,
-              endTime: currentHalt.endTime,
-              durationMinutes: haltMins,
-              durationText: formatStoppageDuration(haltMins),
-              address: currentHalt.address || "",
-            });
-          }
-
-          if (impliedSpeed <= 120) {
-            totalDistanceMeters += distFromAnchor;
-            cleanTrail.push(pt);
-            lastAcceptedMovingPoint = pt;
-            const validSpeed = sensorSpeed > 0 ? sensorSpeed : impliedSpeed;
-            if (validSpeed > 0 && validSpeed <= 120) {
-              movingSpeeds.push(validSpeed);
-              if (validSpeed > maxSpeed) maxSpeed = validSpeed;
-            }
-          }
-          anchor = pt;
-          currentHalt = {
-            latitude: pt.latitude,
-            longitude: pt.longitude,
-            startTime: pt.timestamp,
-            endTime: pt.timestamp,
-            address: pt.address || "",
-          };
-        }
-      } else {
-        // In transit
-        if (impliedSpeed > 120 && distFromLast > 250) continue;
-
-        if (distFromAnchor < 45 && effectiveSpeed < 2.5) {
-          currentHalt.endTime = pt.timestamp;
-          const stopMins = Math.round((new Date(pt.timestamp) - new Date(currentHalt.startTime)) / 60000);
-          if (stopMins >= 3) {
-            isMoving = false;
-            continue;
-          }
-        } else {
-          if (distFromLast >= 15) {
-            totalDistanceMeters += distFromLast;
-            cleanTrail.push(pt);
-            lastAcceptedMovingPoint = pt;
-            const validSpeed = sensorSpeed > 0 ? sensorSpeed : (impliedSpeed <= 120 ? impliedSpeed : 0);
-            if (validSpeed > 0 && validSpeed <= 120) {
-              movingSpeeds.push(validSpeed);
-              if (validSpeed > maxSpeed) maxSpeed = validSpeed;
-            }
-            anchor = pt;
-            currentHalt = {
-              latitude: pt.latitude,
-              longitude: pt.longitude,
-              startTime: pt.timestamp,
-              endTime: pt.timestamp,
-              address: pt.address || "",
-            };
-          }
-        }
-      }
-    }
-
-    // Check final halt at destination
-    const finalHaltMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
-    if (finalHaltMins >= 3 || cleanTrail.length <= 1) {
-      halts.push({
-        latitude: currentHalt.latitude,
-        longitude: currentHalt.longitude,
-        startTime: currentHalt.startTime,
-        endTime: currentHalt.endTime,
-        durationMinutes: Math.max(1, finalHaltMins),
-        durationText: formatStoppageDuration(Math.max(1, finalHaltMins)),
-        address: currentHalt.address || "",
-      });
-    }
-
-    if (totalDistanceMeters < 150 || cleanTrail.length <= 1) {
-      const basePoint = candidatePoints[0];
-      return res.status(200).json({
-        success: true,
-        data: {
-          trail: [basePoint],
-          cleanTrail: [basePoint],
-          roadTrail: [basePoint],
-          rawSensorPoints: [basePoint],
-          isStationaryAllDay: true,
-          rawCount: rawTrail.length,
-          cleanCount: 1,
-          totalPoints: rawTrail.length,
-          distanceKm: 0,
-          pureDistanceKm: 0,
-          roadDistanceKm: 0,
-          distanceMeters: 0,
-          distanceText: "0 km",
-          todayDistanceText: "0 km",
-          maxSpeed: 0,
-          avgSpeed: 0,
-          halts: [
-            {
-              latitude: basePoint.latitude,
-              longitude: basePoint.longitude,
-              startTime: candidatePoints[0].timestamp,
-              endTime: candidatePoints[candidatePoints.length - 1].timestamp,
-              durationMinutes: totalDayMinutes,
-              durationText: formatStoppageDuration(totalDayMinutes),
-              address: basePoint.address || "",
-            },
-          ],
-          haltCount: 1,
-          totalHaltTimeMinutes: totalDayMinutes,
-          totalHaltTimeText: formatStoppageDuration(totalDayMinutes),
-          totalMovingTimeMinutes: 0,
-          totalMovingTimeText: "0 mins",
-          startLocation: basePoint,
-          endLocation: candidatePoints[candidatePoints.length - 1],
-          startTime: candidatePoints[0].timestamp,
-          endTime: candidatePoints[candidatePoints.length - 1].timestamp,
-        },
-      });
-    }
-
-    // Align trail segments to actual streets so the route runs on the road and never through buildings
-    let finalTrail = cleanTrail;
-    let actualRoadDistanceMeters = totalDistanceMeters;
-
-    if (cleanTrail.length >= 2) {
-      const roadAligned = await alignTrailToRoadNetwork(cleanTrail);
+    if (metrics.cleanTrail.length >= 2) {
+      const roadAligned = await alignTrailToRoadNetwork(metrics.cleanTrail);
       if (roadAligned && Array.isArray(roadAligned.trail) && roadAligned.trail.length >= 2) {
         finalTrail = roadAligned.trail;
         if (roadAligned.distanceMeters > actualRoadDistanceMeters) {
@@ -1347,29 +1440,22 @@ const getEmployeeLocationTrail = async (req, res) => {
       }
     }
 
-    const pureDistanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
+    const pureDistanceKm = metrics.distanceKm;
     const finalDistance = Number((actualRoadDistanceMeters / 1000).toFixed(2));
     let distanceText = "0 km";
     if (pureDistanceKm >= 1.0) {
       distanceText = `${pureDistanceKm.toFixed(2)} km`;
-    } else if (totalDistanceMeters > 0) {
-      distanceText = `${Math.round(totalDistanceMeters)} m`;
+    } else if (metrics.totalDistanceMeters > 0) {
+      distanceText = `${Math.round(metrics.totalDistanceMeters)} m`;
     }
-
-    const avgMovingSpeed = movingSpeeds.length > 0
-      ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)
-      : 0;
-
-    const totalHaltMinutes = halts.reduce((sum, h) => sum + h.durationMinutes, 0);
-    const movingMinutes = Math.max(0, totalDayMinutes - totalHaltMinutes);
 
     return res.status(200).json({
       success: true,
       data: {
         trail: finalTrail,
-        cleanTrail: cleanTrail, // Pure filtered GPS trail without OSRM artificial detours
+        cleanTrail: metrics.cleanTrail, // Filtered GPS trail without spider-webs
         roadTrail: finalTrail,
-        rawSensorPoints: cleanTrail,
+        rawSensorPoints: metrics.cleanTrail,
         isStationaryAllDay: false,
         rawCount: rawTrail.length,
         cleanCount: finalTrail.length,
@@ -1377,21 +1463,21 @@ const getEmployeeLocationTrail = async (req, res) => {
         distanceKm: pureDistanceKm,
         pureDistanceKm: pureDistanceKm,
         roadDistanceKm: finalDistance,
-        distanceMeters: Math.round(totalDistanceMeters),
+        distanceMeters: metrics.totalDistanceMeters,
         distanceText: distanceText,
         todayDistanceText: distanceText,
-        maxSpeed: Math.round(maxSpeed),
-        avgSpeed: avgMovingSpeed,
-        halts: halts,
-        haltCount: halts.length,
-        totalHaltTimeMinutes: totalHaltMinutes,
-        totalHaltTimeText: formatStoppageDuration(totalHaltMinutes),
-        totalMovingTimeMinutes: movingMinutes,
-        totalMovingTimeText: formatStoppageDuration(movingMinutes),
-        startLocation: cleanTrail[0] || null,
-        endLocation: cleanTrail[cleanTrail.length - 1] || null,
-        startTime: candidatePoints[0]?.timestamp || null,
-        endTime: candidatePoints[candidatePoints.length - 1]?.timestamp || null,
+        maxSpeed: metrics.maxSpeed,
+        avgSpeed: metrics.avgSpeed,
+        halts: metrics.halts,
+        haltCount: metrics.halts.length,
+        totalHaltTimeMinutes: metrics.totalHaltTimeMinutes,
+        totalHaltTimeText: metrics.totalHaltTimeText,
+        totalMovingTimeMinutes: metrics.totalMovingTimeMinutes,
+        totalMovingTimeText: metrics.totalMovingTimeText,
+        startLocation: metrics.startLocation,
+        endLocation: metrics.endLocation,
+        startTime: rawTrail[0]?.timestamp || null,
+        endTime: rawTrail[rawTrail.length - 1]?.timestamp || null,
       },
     });
   } catch (error) {
