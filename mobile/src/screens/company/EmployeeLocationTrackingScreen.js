@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Modal,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
@@ -66,6 +67,38 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
     totalPoints: 0,
   });
   const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // today, yesterday, or YYYY-MM-DD
+  const [statusTab, setStatusTab] = useState("all"); // "all" | "active" | "inactive"
+  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
+  const [serverStats, setServerStats] = useState({ total: 0, activeTracked: 0, inactive: 0 });
+
+  const activeTrackedCount = employees.filter((e) => e.isTrackingActive).length;
+  const inactiveCount = employees.filter((e) => !e.isTrackingActive).length;
+
+  const filteredEmployees = employees.filter((emp) => {
+    if (statusTab === "active") return Boolean(emp.isTrackingActive);
+    if (statusTab === "inactive") return !emp.isTrackingActive;
+    return true;
+  });
+
+  const pastDaysList = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      let label = "";
+      if (i === 0) label = "Today";
+      else if (i === 1) label = "Yesterday";
+      else label = `${i} days ago`;
+      const formatted = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      days.push({ key: i === 0 ? "today" : i === 1 ? "yesterday" : dateStr, dateStr, label, formatted });
+    }
+    return days;
+  }, []);
 
   // Helper to post messages into the Leaflet WebView
   const postToMap = (data) => {
@@ -110,17 +143,19 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   }, [mapReady, employees, selectedEmployee, viewMode, trailData, officeLocation]);
 
 
-  // Fetch live employee locations
-  const fetchLiveLocations = async (silent = false) => {
+  // Fetch live employee locations with date awareness
+  const fetchLiveLocations = async (silent = false, customDate = null) => {
     try {
       if (!silent) setLoadingLive(true);
       else setRefreshing(true);
 
-      const res = await getLiveEmployeeLocationsApi();
+      const targetDate = customDate || getDateValue(selectedDateFilter);
+      const res = await getLiveEmployeeLocationsApi({ date: targetDate });
       const list = res.data?.data || res.data || [];
       let validList = Array.isArray(list) ? list : [];
       const office = res.data?.officeLocation || list?.[0]?.officeLocation || null;
       if (office) setOfficeLocation(office);
+      if (res.data?.stats) setServerStats(res.data.stats);
 
       // Strict self-only handling for Employee role
       if (isEmployee) {
@@ -128,7 +163,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           const myEmp = validList[0];
           setSelectedEmployee(myEmp);
           setEmployees([myEmp]);
-          fetchTrailHistory(myEmp._id, getDateValue(selectedDateFilter));
+          fetchTrailHistory(myEmp._id, targetDate);
 
           if (mapReady) {
             postToMap({
@@ -163,7 +198,8 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             designation: user.designationName || user.employee?.designation || "Staff",
             avatar: user.photo || user.avatar || user.profileImage || "",
             isOnline: false,
-            trackingStatus: "no_signal",
+            isTrackingActive: false,
+            trackingStatus: "inactive",
             latitude: null,
             longitude: null,
           };
@@ -175,11 +211,37 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
       if (!selectedEmployee && validList.length > 0) {
         const bestEmp =
+          validList.find((e) => e.isTrackingActive && e.latitude && e.longitude) ||
+          validList.find((e) => e.isTrackingActive) ||
           validList.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
           validList.find((e) => e.latitude && e.longitude) ||
           validList[0];
         if (bestEmp) {
           setSelectedEmployee(bestEmp);
+          if (viewMode === "trail" || selectedDateFilter !== "today") {
+            fetchTrailHistory(bestEmp._id, targetDate);
+          }
+        }
+      } else if (selectedEmployee && validList.length > 0) {
+        const updated = validList.find((e) => String(e._id) === String(selectedEmployee._id));
+        if (updated) {
+          const isTargetPastDate = targetDate !== getDateValue("today");
+          if (isTargetPastDate && !updated.isTrackingActive && !isEmployee) {
+            const firstActive =
+              validList.find((e) => e.isTrackingActive && e.latitude && e.longitude) ||
+              validList.find((e) => e.isTrackingActive);
+            if (firstActive) {
+              setSelectedEmployee(firstActive);
+              if (viewMode === "trail" || isTargetPastDate) {
+                fetchTrailHistory(firstActive._id, targetDate);
+              }
+              return;
+            }
+          }
+          setSelectedEmployee(updated);
+          if (viewMode === "trail" || isTargetPastDate) {
+            fetchTrailHistory(updated._id, targetDate);
+          }
         }
       }
 
@@ -211,6 +273,55 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+  };
+
+  const getDisplayDateTitle = () => {
+    const val = getDateValue(selectedDateFilter);
+    const todayStr = getDateValue("today");
+    if (selectedDateFilter === "today" || val === todayStr) return "Today";
+
+    const yDate = new Date();
+    yDate.setDate(yDate.getDate() - 1);
+    const yStr = `${yDate.getFullYear()}-${String(yDate.getMonth() + 1).padStart(2, "0")}-${String(yDate.getDate()).padStart(2, "0")}`;
+    if (selectedDateFilter === "yesterday" || val === yStr) return "Yesterday";
+
+    const [y, m, d] = val.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const now = new Date();
+    const diffDays = Math.round(
+      (new Date(now.getFullYear(), now.getMonth(), now.getDate()) - dateObj) / (24 * 60 * 60 * 1000)
+    );
+    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+    return diffDays > 0 ? `${dayName} (${diffDays}d ago)` : dayName;
+  };
+
+  const stepDate = (dayOffset) => {
+    const curVal = getDateValue(selectedDateFilter);
+    const [y, m, d] = curVal.split("-").map(Number);
+    const curDate = new Date(y, m - 1, d);
+    curDate.setDate(curDate.getDate() + dayOffset);
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (curDate > today) return;
+
+    const nextY = curDate.getFullYear();
+    const nextM = String(curDate.getMonth() + 1).padStart(2, "0");
+    const nextD = String(curDate.getDate()).padStart(2, "0");
+    const nextStr = `${nextY}-${nextM}-${nextD}`;
+
+    const todayStr = getDateValue("today");
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, "0")}-${String(yesterdayDate.getDate()).padStart(2, "0")}`;
+
+    if (nextStr === todayStr) {
+      handleDateChange("today");
+    } else if (nextStr === yesterdayStr) {
+      handleDateChange("yesterday");
+    } else {
+      handleDateChange(nextStr);
+    }
   };
 
   // Fetch route trail when employee & date selected
@@ -249,16 +360,14 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
   // Manual refresh only - no auto interval polling
   const handleManualRefresh = () => {
+    const targetDate = getDateValue(selectedDateFilter);
+    fetchLiveLocations(true, targetDate);
     if (isEmployee) {
-      if (viewMode === "trail") {
-        fetchTrailHistory(myEmployeeId, getDateValue(selectedDateFilter));
-      } else {
-        fetchLiveLocations(true);
+      if (viewMode === "trail" || selectedDateFilter !== "today") {
+        fetchTrailHistory(myEmployeeId, targetDate);
       }
-    } else if (viewMode === "trail" && selectedEmployee?._id) {
-      fetchTrailHistory(selectedEmployee._id, getDateValue(selectedDateFilter));
-    } else {
-      fetchLiveLocations(true);
+    } else if ((viewMode === "trail" || selectedDateFilter !== "today") && selectedEmployee?._id) {
+      fetchTrailHistory(selectedEmployee._id, targetDate);
     }
   };
 
@@ -267,7 +376,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       if (isEmployee) {
         const targetDate = route?.params?.date || "today";
         setSelectedDateFilter(targetDate);
-        fetchLiveLocations(true);
+        fetchLiveLocations(true, getDateValue(targetDate));
       } else {
         const params = route?.params;
         if (params?.employeeId) {
@@ -277,9 +386,10 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           setSelectedDateFilter(targetDate);
           const empName = params.employeeName || "Employee";
           setSelectedEmployee({ _id: empId, name: empName });
+          fetchLiveLocations(true, getDateValue(targetDate));
           fetchTrailHistory(empId, getDateValue(targetDate));
         } else {
-          fetchLiveLocations();
+          fetchLiveLocations(false, getDateValue(selectedDateFilter));
         }
       }
       // Manual refresh only: NO setInterval auto-refresh
@@ -289,6 +399,13 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   const handleSelectEmployee = (emp) => {
     if (isEmployee && String(emp._id) !== String(myEmployeeId)) return;
     setSelectedEmployee(emp);
+    const targetDate = getDateValue(selectedDateFilter);
+    if (selectedDateFilter !== "today" && viewMode !== "trail") {
+      setViewMode("trail");
+    }
+    if (viewMode === "trail" || selectedDateFilter !== "today") {
+      fetchTrailHistory(emp._id, targetDate);
+    }
     if (emp.latitude && emp.longitude) {
       postToMap({
         type: "CENTER_COORDS",
@@ -304,39 +421,42 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         zoom: 16,
       });
     }
-    if (viewMode === "trail") {
-      fetchTrailHistory(emp._id, getDateValue(selectedDateFilter));
-    }
   };
-
 
   const handleModeSwitch = (mode) => {
     setViewMode(mode);
+    const targetDate = getDateValue(selectedDateFilter);
     if (mode === "trail") {
       if (isEmployee) {
-        fetchTrailHistory(myEmployeeId, getDateValue(selectedDateFilter));
+        fetchTrailHistory(myEmployeeId, targetDate);
       } else {
         const target =
           selectedEmployee?.latitude
             ? selectedEmployee
-            : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+            : employees.find((e) => (e.isOnline || e.isTrackingActive) && e.latitude && e.longitude) ||
               employees.find((e) => e.latitude && e.longitude) ||
               employees[0];
         if (target) {
           setSelectedEmployee(target);
-          fetchTrailHistory(target._id, getDateValue(selectedDateFilter));
+          fetchTrailHistory(target._id, targetDate);
         }
       }
     } else if (mode === "live") {
-      fetchLiveLocations();
+      fetchLiveLocations(false, targetDate);
     }
   };
 
   const handleDateChange = (filter) => {
     setSelectedDateFilter(filter);
+    const targetDate = getDateValue(filter);
+    const isToday = filter === "today" || targetDate === getDateValue("today");
+    if (!isToday && viewMode !== "trail") {
+      setViewMode("trail");
+    }
+    fetchLiveLocations(false, targetDate);
     const targetId = isEmployee ? myEmployeeId : selectedEmployee?._id;
     if (targetId) {
-      fetchTrailHistory(targetId, getDateValue(filter));
+      fetchTrailHistory(targetId, targetDate);
     }
   };
 
@@ -572,7 +692,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           }
 
           function createAvatarIcon(emp, isSelected) {
-            var isOnline = emp.isOnline;
+            var isOnline = Boolean(emp.isOnline || emp.isTrackingActive);
             var initials = (emp.name || 'E').slice(0, 2).toUpperCase();
             var avatarHtml = emp.avatar 
               ? '<img src="' + emp.avatar + '" class="avatar-img" />'
@@ -884,7 +1004,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         )}
       />
 
-      {/* ── Top Floating Navigation & Mode Bar ──────────────────────────── */}
+      {/* ── Top Floating Navigation & Date Stepper ─────────────────────── */}
       <View style={[styles.topFloatHeader, { top: topInset }]}>
         <View style={styles.topHeaderRow}>
           <TouchableOpacity
@@ -897,7 +1017,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
           <View style={styles.headerTitleBox}>
             <Text style={styles.headerTitle}>
-              {isEmployee ? "My Live Location" : "Live Location Radar"}
+              {isEmployee ? "My Location Trail" : "Field Location Radar"}
             </Text>
             <View style={styles.liveIndicatorRow}>
               <View
@@ -905,8 +1025,8 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                   styles.livePulseDot,
                   {
                     backgroundColor: isEmployee
-                      ? (selectedEmployee?.isOnline ? "#10B981" : "#94A3B8")
-                      : (liveTrackedCount > 0 ? "#10B981" : "#94A3B8"),
+                      ? (selectedEmployee?.isTrackingActive ? "#10B981" : "#94A3B8")
+                      : (activeTrackedCount > 0 ? "#10B981" : "#94A3B8"),
                   },
                 ]}
               />
@@ -915,16 +1035,14 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                   styles.liveIndicatorText,
                   {
                     color: isEmployee
-                      ? (selectedEmployee?.isOnline ? "#10B981" : "#64748B")
-                      : (liveTrackedCount > 0 ? "#10B981" : "#64748B"),
+                      ? (selectedEmployee?.isTrackingActive ? "#10B981" : "#64748B")
+                      : (activeTrackedCount > 0 ? "#10B981" : "#64748B"),
                   },
                 ]}
               >
                 {isEmployee
-                  ? (selectedEmployee?.isOnline ? "Tracking Active (चालू)" : "GPS Standby")
-                  : liveTrackedCount > 0
-                  ? `${liveTrackedCount} Staff Online`
-                  : `${employees.length} Staff Monitored`}
+                  ? (selectedEmployee?.isTrackingActive ? "Tracking Active" : "No GPS Record")
+                  : `${activeTrackedCount} Active • ${inactiveCount} Standby`}
               </Text>
             </View>
           </View>
@@ -942,6 +1060,43 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Date Stepper Row */}
+        <View style={styles.topDateStepperRow}>
+          <TouchableOpacity
+            style={styles.dateStepBtn}
+            onPress={() => stepDate(-1)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={17} color="#2563EB" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.dateSelectorCenterBtn}
+            onPress={() => setShowDatePickerModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar-outline" size={14} color="#2563EB" style={{ marginRight: 6 }} />
+            <Text style={styles.dateSelectorCenterText}>{getDisplayDateTitle()}</Text>
+            <Ionicons name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 5 }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.dateStepBtn,
+              (selectedDateFilter === "today" || getDateValue(selectedDateFilter) === getDateValue("today")) && styles.dateStepBtnDisabled,
+            ]}
+            onPress={() => stepDate(1)}
+            disabled={selectedDateFilter === "today" || getDateValue(selectedDateFilter) === getDateValue("today")}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={17}
+              color={(selectedDateFilter === "today" || getDateValue(selectedDateFilter) === getDateValue("today")) ? "#CBD5E1" : "#2563EB"}
+            />
+          </TouchableOpacity>
+        </View>
+
         {/* Mode Segment Switch */}
         <View style={styles.modeSegment}>
           <TouchableOpacity
@@ -951,9 +1106,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           >
             <Ionicons
               name="navigate"
-              size={14}
+              size={13}
               color={viewMode === "live" ? "#FFFFFF" : "#64748B"}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 5 }}
             />
             <Text
               style={[
@@ -961,7 +1116,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 viewMode === "live" && styles.segmentTextActive,
               ]}
             >
-              {isEmployee ? "Live Position" : "Live Fleet View"}
+              {isEmployee ? "Live Radar" : "Live Fleet"}
             </Text>
           </TouchableOpacity>
 
@@ -972,9 +1127,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           >
             <Ionicons
               name="footsteps"
-              size={14}
+              size={13}
               color={viewMode === "trail" ? "#FFFFFF" : "#64748B"}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 5 }}
             />
             <Text
               style={[
@@ -982,14 +1137,14 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 viewMode === "trail" && styles.segmentTextActive,
               ]}
             >
-              {isEmployee ? "Today's Route" : "Route Trail History"}
+              Route Trail ({getDisplayDateTitle()})
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Floating Action Buttons (Recenter & Satellite Toggle) ────────── */}
-      <View style={[styles.mapFloatingActions, { top: topInset + 120 }]}>
+      <View style={[styles.mapFloatingActions, { top: topInset + 160 }]}>
         <TouchableOpacity
           style={styles.floatActionBtn}
           onPress={toggleMapType}
@@ -997,7 +1152,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         >
           <Ionicons
             name={mapType === "satellite" ? "map-outline" : "globe-outline"}
-            size={21}
+            size={20}
             color="#2563EB"
           />
         </TouchableOpacity>
@@ -1007,80 +1162,13 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           onPress={handleRecenter}
           activeOpacity={0.8}
         >
-          <Ionicons name="locate" size={21} color="#2563EB" />
+          <Ionicons name="locate" size={20} color="#2563EB" />
         </TouchableOpacity>
       </View>
 
-      {/* ── Bottom Floating Card / Carousel ─────────────────────────────── */}
+      {/* ── Compact Bottom Sheet Panel ─────────────────────────────────── */}
       <View style={styles.bottomSheetCard}>
         <View style={styles.sheetHandle} />
-
-        {viewMode === "trail" && (
-          <View style={styles.trailControlRow}>
-            <View style={styles.trailDateChips}>
-              <TouchableOpacity
-                style={[
-                  styles.dateChip,
-                  selectedDateFilter === "today" && styles.dateChipActive,
-                ]}
-                onPress={() => handleDateChange("today")}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.dateChipText,
-                    selectedDateFilter === "today" && styles.dateChipTextActive,
-                  ]}
-                >
-                  Today
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.dateChip,
-                  selectedDateFilter === "yesterday" && styles.dateChipActive,
-                ]}
-                onPress={() => handleDateChange("yesterday")}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.dateChipText,
-                    selectedDateFilter === "yesterday" && styles.dateChipTextActive,
-                  ]}
-                >
-                  Yesterday
-                </Text>
-              </TouchableOpacity>
-
-              {selectedDateFilter !== "today" && selectedDateFilter !== "yesterday" && (
-                <TouchableOpacity
-                  style={[styles.dateChip, styles.dateChipActive]}
-                  onPress={() => handleDateChange(selectedDateFilter)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.dateChipText, styles.dateChipTextActive]}>
-                    {selectedDateFilter}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Trail Metrics */}
-            <View style={styles.trailMetricsBox}>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricVal}>{trailData.distanceText || `${trailData.distanceKm} km`}</Text>
-                <Text style={styles.metricLbl}>Distance</Text>
-              </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metricItem}>
-                <Text style={styles.metricVal}>{trailData.totalPoints}</Text>
-                <Text style={styles.metricLbl}>Pings</Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {isEmployee ? (
           <View style={styles.personalTrackingCard}>
@@ -1097,12 +1185,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                   style={[
                     styles.onlineDotBadge,
                     {
-                      backgroundColor:
-                        selectedEmployee?.motionStatus === "moving"
-                          ? "#3B82F6"
-                          : selectedEmployee?.isOnline
-                          ? "#10B981"
-                          : "#94A3B8",
+                      backgroundColor: selectedEmployee?.isTrackingActive
+                        ? "#10B981"
+                        : "#94A3B8",
                     },
                   ]}
                 />
@@ -1121,14 +1206,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 style={[
                   styles.statusPill,
                   {
-                    backgroundColor:
-                      selectedEmployee?.motionStatus === "moving"
-                        ? "rgba(59, 130, 246, 0.12)"
-                        : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
-                        ? "rgba(245, 158, 11, 0.12)"
-                        : selectedEmployee?.isOnline
-                        ? "rgba(16, 185, 129, 0.12)"
-                        : "rgba(100, 116, 139, 0.1)",
+                    backgroundColor: selectedEmployee?.isTrackingActive
+                      ? "rgba(16, 185, 129, 0.12)"
+                      : "rgba(100, 116, 139, 0.1)",
                   },
                 ]}
               >
@@ -1136,14 +1216,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                   style={[
                     styles.statusDotSmall,
                     {
-                      backgroundColor:
-                        selectedEmployee?.motionStatus === "moving"
-                          ? "#3B82F6"
-                          : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
-                          ? "#F59E0B"
-                          : selectedEmployee?.isOnline
-                          ? "#10B981"
-                          : "#94A3B8",
+                      backgroundColor: selectedEmployee?.isTrackingActive ? "#10B981" : "#94A3B8",
                     },
                   ]}
                 />
@@ -1151,32 +1224,18 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                   style={[
                     styles.statusPillText,
                     {
-                      color:
-                        selectedEmployee?.motionStatus === "moving"
-                          ? "#2563EB"
-                          : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
-                          ? "#D97706"
-                          : selectedEmployee?.isOnline
-                          ? "#059669"
-                          : "#64748B",
+                      color: selectedEmployee?.isTrackingActive ? "#059669" : "#64748B",
                     },
                   ]}
                 >
-                  {selectedEmployee?.motionStatus === "moving"
-                    ? `Moving ${Math.round(selectedEmployee.speed || 0)}km/h`
-                    : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
-                    ? `Halt ${selectedEmployee?.stoppageText || ""}`
-                    : selectedEmployee?.isOnline
-                    ? "Active"
-                    : "NA - Tracking Stopped"}
+                  {selectedEmployee?.isTrackingActive ? "Tracking Active" : "No GPS Record"}
                 </Text>
               </View>
             </View>
 
-
             <View style={styles.personalMetaGrid}>
               <View style={styles.personalMetaItem}>
-                <Ionicons name="speedometer-outline" size={15} color="#3B82F6" />
+                <Ionicons name="speedometer-outline" size={14} color="#3B82F6" />
                 <Text style={styles.personalMetaLabel}>Distance</Text>
                 <Text style={styles.personalMetaValue}>
                   {trailData.distanceKm ? `${trailData.distanceKm} km` : selectedEmployee?.todayDistanceText || "0 km"}
@@ -1184,7 +1243,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
               </View>
 
               <View style={styles.personalMetaItem}>
-                <Ionicons name="pause-circle-outline" size={15} color="#F59E0B" />
+                <Ionicons name="pause-circle-outline" size={14} color="#F59E0B" />
                 <Text style={styles.personalMetaLabel}>Halts</Text>
                 <Text style={styles.personalMetaValue}>
                   {trailData.halts?.length || 0} stops
@@ -1192,7 +1251,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
               </View>
 
               <View style={styles.personalMetaItem}>
-                <Ionicons name="pin-outline" size={15} color="#10B981" />
+                <Ionicons name="pin-outline" size={14} color="#10B981" />
                 <Text style={styles.personalMetaLabel}>GPS Points</Text>
                 <Text style={styles.personalMetaValue}>
                   {trailData.totalPoints || 0} pings
@@ -1200,197 +1259,251 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
               </View>
 
               <View style={styles.personalMetaItem}>
-                <Ionicons name="navigate-circle-outline" size={15} color="#8B5CF6" />
-                <Text style={styles.personalMetaLabel}>Accuracy</Text>
+                <Ionicons name="navigate-circle-outline" size={14} color="#8B5CF6" />
+                <Text style={styles.personalMetaLabel}>Status</Text>
                 <Text style={styles.personalMetaValue}>
-                  {selectedEmployee?.accuracy ? `±${Math.round(selectedEmployee.accuracy)}m` : "GPS High"}
+                  {selectedEmployee?.isTrackingActive ? "Recorded" : "Standby"}
                 </Text>
               </View>
             </View>
           </View>
         ) : (
           <>
-            {/* Employee Carousel Header */}
-            <View style={styles.sheetHeaderRow}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="people-outline" size={16} color="#2563EB" />
-                <Text style={styles.carouselSectionTitle}>
-                  {viewMode === "live"
-                    ? "ACTIVE FIELD STAFF"
-                    : `TRAIL: ${selectedEmployee ? formatName(selectedEmployee.name) : "SELECT STAFF"}`}
-                </Text>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{employees.length}</Text>
+            {/* Selected Employee Quick HUD */}
+            {selectedEmployee && (
+              <View style={styles.selectedEmpStrip}>
+                <View style={styles.stripLeft}>
+                  <View style={styles.stripAvatarBox}>
+                    {selectedEmployee.avatar ? (
+                      <Image source={{ uri: selectedEmployee.avatar }} style={styles.stripAvatar} />
+                    ) : (
+                      <Text style={styles.stripInitials}>
+                        {(selectedEmployee.name || "E").slice(0, 2).toUpperCase()}
+                      </Text>
+                    )}
+                    <View
+                      style={[
+                        styles.stripDot,
+                        {
+                          backgroundColor: selectedEmployee.isTrackingActive
+                            ? "#10B981"
+                            : "#94A3B8",
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 9 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Text style={styles.stripName} numberOfLines={1}>
+                        {formatName(selectedEmployee.name)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.stripTrackingBadge,
+                          selectedEmployee.isTrackingActive
+                            ? styles.stripTrackingActive
+                            : styles.stripTrackingInactive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.stripTrackingBadgeText,
+                            selectedEmployee.isTrackingActive
+                              ? styles.stripTrackingActiveText
+                              : styles.stripTrackingInactiveText,
+                          ]}
+                        >
+                          {selectedEmployee.isTrackingActive ? "Tracked" : "Standby"}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.stripSub} numberOfLines={1}>
+                      {selectedEmployee.designation || selectedEmployee.department || "Field Staff"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Metrics on Right */}
+                <View style={styles.stripMetricsRow}>
+                  <View style={styles.stripMetricPill}>
+                    <Text style={styles.stripMetricVal}>
+                      {viewMode === "trail" && trailData?.distanceKm
+                        ? `${trailData.distanceKm} km`
+                        : selectedEmployee.todayDistanceText || "0 km"}
+                    </Text>
+                    <Text style={styles.stripMetricLbl}>Route</Text>
+                  </View>
+
+                  <View style={styles.stripMetricPill}>
+                    <Text style={styles.stripMetricVal}>
+                      {viewMode === "trail"
+                        ? `${trailData?.halts?.length || 0}`
+                        : selectedEmployee.motionStatus === "moving"
+                        ? `${Math.round(selectedEmployee.speed || 0)}`
+                        : selectedEmployee.motionStatus === "stationary" && selectedEmployee.stoppageDurationMinutes > 2
+                        ? `${selectedEmployee.stoppageDurationMinutes}m`
+                        : "0"}
+                    </Text>
+                    <Text style={styles.stripMetricLbl}>
+                      {viewMode === "trail" ? "Halts" : "Speed"}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.stripFocusBtn}
+                    onPress={() => {
+                      if (selectedEmployee.latitude && selectedEmployee.longitude) {
+                        postToMap({
+                          type: "CENTER_COORDS",
+                          latitude: selectedEmployee.latitude,
+                          longitude: selectedEmployee.longitude,
+                          zoom: 17,
+                        });
+                      } else if (trailData?.trail?.length > 0) {
+                        postToMap({ type: "FIT_TRAIL" });
+                      } else {
+                        handleRecenter();
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="locate" size={15} color="#2563EB" />
+                  </TouchableOpacity>
                 </View>
               </View>
-              {viewMode === "live" && (
-                <Text style={styles.sheetHeaderSub}>Tap to focus map</Text>
-              )}
+            )}
+
+            {/* Filter Tabs Row */}
+            <View style={styles.filterTabsRow}>
+              <TouchableOpacity
+                style={[styles.filterTabBtn, statusTab === "all" && styles.filterTabBtnActive]}
+                onPress={() => setStatusTab("all")}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.filterTabText, statusTab === "all" && styles.filterTabTextActive]}
+                >
+                  All ({employees.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterTabBtn, statusTab === "active" && styles.filterTabBtnActive]}
+                onPress={() => setStatusTab("active")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.filterTabDot, { backgroundColor: "#10B981" }]} />
+                <Text
+                  style={[styles.filterTabText, statusTab === "active" && styles.filterTabTextActive]}
+                >
+                  Active ({activeTrackedCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterTabBtn, statusTab === "inactive" && styles.filterTabBtnActive]}
+                onPress={() => setStatusTab("inactive")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.filterTabDot, { backgroundColor: "#94A3B8" }]} />
+                <Text
+                  style={[styles.filterTabText, statusTab === "inactive" && styles.filterTabTextActive]}
+                >
+                  Inactive ({inactiveCount})
+                </Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Compact Staff Carousel */}
             {loadingLive && employees.length === 0 ? (
               <View style={styles.loadingCarousel}>
                 <ActivityIndicator size="small" color="#2563EB" />
-                <Text style={styles.loadingCarouselText}>Detecting field locations...</Text>
+                <Text style={styles.loadingCarouselText}>Loading employee GPS records...</Text>
               </View>
-            ) : employees.length === 0 ? (
+            ) : filteredEmployees.length === 0 ? (
               <View style={styles.emptyCarousel}>
-                <Ionicons name="location-outline" size={24} color="#94A3B8" />
-                <Text style={styles.emptyCarouselText}>No staff location tracked today yet.</Text>
+                <Ionicons name="location-outline" size={22} color="#94A3B8" />
+                <Text style={styles.emptyCarouselText}>
+                  No {statusTab !== "all" ? statusTab : ""} staff records for {getDisplayDateTitle()}.
+                </Text>
               </View>
             ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselScroll}
+                contentContainerStyle={styles.compactCarouselScroll}
               >
-                {employees.map((emp) => {
+                {filteredEmployees.map((emp) => {
                   const isSelected = selectedEmployee?._id === emp._id;
-                  const isOnline = emp.isOnline;
-                  const isHrOrMgr =
-                    ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("hr") ||
-                    ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("manager");
+                  const isTracked = Boolean(emp.isTrackingActive);
 
                   return (
                     <TouchableOpacity
                       key={emp._id}
                       style={[
-                        styles.employeeCard,
-                        isSelected && styles.employeeCardSelected,
+                        styles.compactEmpCard,
+                        isSelected && styles.compactEmpCardSelected,
+                        isTracked ? styles.compactEmpCardTracked : styles.compactEmpCardUntracked,
                       ]}
                       onPress={() => handleSelectEmployee(emp)}
                       activeOpacity={0.85}
                     >
-                      <View style={styles.empCardTop}>
-                        <View style={styles.empAvatarBox}>
+                      <View style={styles.compactCardTop}>
+                        <View style={styles.compactAvatarBox}>
                           {emp.avatar ? (
-                            <Image source={{ uri: emp.avatar }} style={styles.empAvatar} />
+                            <Image source={{ uri: emp.avatar }} style={styles.compactAvatar} />
                           ) : (
-                            <Text style={styles.empInitials}>
+                            <Text style={styles.compactInitials}>
                               {(emp.name || "E").slice(0, 2).toUpperCase()}
                             </Text>
                           )}
                           <View
                             style={[
-                              styles.onlineDotBadge,
+                              styles.compactStatusDot,
                               {
-                                backgroundColor:
-                                  emp.motionStatus === "moving"
+                                backgroundColor: isTracked
+                                  ? emp.motionStatus === "moving"
                                     ? "#3B82F6"
-                                    : isOnline
-                                    ? "#10B981"
-                                    : "#94A3B8",
+                                    : "#10B981"
+                                  : "#94A3B8",
                               },
                             ]}
                           />
                         </View>
 
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={styles.empName} numberOfLines={1}>
+                        <View style={{ flex: 1, marginLeft: 7 }}>
+                          <Text style={styles.compactEmpName} numberOfLines={1}>
                             {formatName(emp.name)}
                           </Text>
-                          <View
-                            style={[
-                              styles.roleTag,
-                              isHrOrMgr && {
-                                backgroundColor: "rgba(99, 102, 241, 0.15)",
-                                borderColor: "rgba(99, 102, 241, 0.3)",
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.empRole,
-                                isHrOrMgr && { color: "#6366F1", fontWeight: "800" },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {isHrOrMgr
-                                ? `👔 ${emp.designation || "HR/Manager"}`
-                                : emp.designation || emp.department || "Staff"}
-                            </Text>
-                          </View>
+                          <Text style={styles.compactEmpRole} numberOfLines={1}>
+                            {emp.designation || emp.department || "Staff"}
+                          </Text>
                         </View>
                       </View>
 
-                      <View style={styles.empCardBottom}>
+                      <View style={styles.compactCardBottom}>
                         <View
                           style={[
-                            styles.statusPill,
-                            {
-                              backgroundColor:
-                                emp.motionStatus === "moving"
-                                  ? "rgba(59, 130, 246, 0.12)"
-                                  : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                                  ? "rgba(245, 158, 11, 0.12)"
-                                  : isOnline
-                                  ? "rgba(16, 185, 129, 0.12)"
-                                  : "rgba(100, 116, 139, 0.1)",
-                            },
+                            styles.compactStatusBadge,
+                            isTracked ? styles.compactStatusBadgeActive : styles.compactStatusBadgeInactive,
                           ]}
                         >
-                          <View
-                            style={[
-                              styles.statusDotSmall,
-                              {
-                                backgroundColor:
-                                  emp.motionStatus === "moving"
-                                    ? "#3B82F6"
-                                    : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                                    ? "#F59E0B"
-                                    : isOnline
-                                    ? "#10B981"
-                                    : "#94A3B8",
-                              },
-                            ]}
-                          />
                           <Text
                             style={[
-                              styles.statusPillText,
-                              {
-                                color:
-                                  emp.motionStatus === "moving"
-                                    ? "#2563EB"
-                                    : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                                    ? "#D97706"
-                                    : isOnline
-                                    ? "#059669"
-                                    : "#64748B",
-                              },
+                              styles.compactStatusBadgeText,
+                              isTracked ? styles.compactStatusBadgeTextActive : styles.compactStatusBadgeTextInactive,
                             ]}
+                            numberOfLines={1}
                           >
-                            {emp.motionStatus === "moving"
-                              ? `Moving ${Math.round(emp.speed || 0)}km/h`
-                              : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                              ? `Halt ${emp.stoppageText}`
-                              : isOnline
-                              ? "Active"
-                              : "NA (Off-Duty)"}
+                            {isTracked
+                              ? emp.motionStatus === "moving"
+                                ? `🚗 ${Math.round(emp.speed || 0)}km/h`
+                                : emp.todayDistanceText
+                                ? `📍 ${emp.todayDistanceText}`
+                                : "🟢 Active"
+                              : "⚪ Standby"}
                           </Text>
-                        </View>
-
-                        {!emp.latitude && (
-                          <View style={{ backgroundColor: "rgba(100, 116, 139, 0.12)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: "rgba(100, 116, 139, 0.2)" }}>
-                            <Text style={{ fontSize: 9.5, fontWeight: "800", color: "#64748B" }}>
-                              {officeLocation ? `🏢 ${officeLocation.name}` : "NA"}
-                            </Text>
-                          </View>
-                        )}
-
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-
-                          {emp.todayDistanceText ? (
-                            <View style={[styles.todayDistanceBadge, { flexDirection: "row", alignItems: "center" }]}>
-                              <Text style={styles.todayDistanceText}>
-                                🛣️ {emp.todayDistanceText}
-                              </Text>
-                              {parseFloat(emp.todayDistanceKm) > 0 ? (
-                                <Text style={styles.todayAllowanceText}>
-                                  • ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)} TA
-                                </Text>
-                              ) : null}
-                            </View>
-                          ) : null}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -1401,6 +1514,66 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           </>
         )}
       </View>
+
+      {/* ── 14-Day Date Picker Modal ────────────────────────────────────── */}
+      <Modal
+        visible={showDatePickerModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDatePickerModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowDatePickerModal(false)}
+        >
+          <View style={styles.modalContentCard} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="calendar" size={18} color="#2563EB" />
+                <Text style={styles.modalTitle}>Select Tracking Date</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowDatePickerModal(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {pastDaysList.map((item) => {
+                const isSelected =
+                  (item.key === "today" && (selectedDateFilter === "today" || getDateValue(selectedDateFilter) === getDateValue("today"))) ||
+                  (item.key === "yesterday" && (selectedDateFilter === "yesterday" || getDateValue(selectedDateFilter) === getDateValue("yesterday"))) ||
+                  selectedDateFilter === item.dateStr;
+
+                return (
+                  <TouchableOpacity
+                    key={item.dateStr}
+                    style={[styles.modalDateItem, isSelected && styles.modalDateItemSelected]}
+                    onPress={() => {
+                      handleDateChange(item.key);
+                      setShowDatePickerModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View>
+                      <Text style={[styles.modalDateLabel, isSelected && styles.modalDateTextActive]}>
+                        {item.label}
+                      </Text>
+                      <Text style={styles.modalDateSub}>{item.formatted}</Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#2563EB" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -1485,12 +1658,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  topDateStepperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 9,
+    gap: 8,
+  },
+  dateStepBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dateStepBtnDisabled: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
+  },
+  dateSelectorCenterBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  dateSelectorCenterText: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
   modeSegment: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
     borderRadius: 14,
     padding: 3.5,
-    marginTop: 12,
+    marginTop: 9,
   },
   segmentBtn: {
     flex: 1,
@@ -1563,208 +1774,326 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 10,
   },
-  sheetHeaderRow: {
+  // Selected Employee Quick Strip HUD
+  selectedEmpStrip: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
-    paddingHorizontal: 2,
-  },
-  carouselSectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: 0.6,
-  },
-  countBadge: {
-    backgroundColor: "#EFF6FF",
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#DBEAFE",
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#2563EB",
-  },
-  sheetHeaderSub: {
-    fontSize: 10.5,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  trailControlRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  trailDateChips: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  dateChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5.5,
-    borderRadius: 10,
-    backgroundColor: "#F1F5F9",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  dateChipActive: {
-    backgroundColor: "rgba(37, 99, 235, 0.12)",
-    borderColor: "rgba(37, 99, 235, 0.4)",
-  },
-  dateChipText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  dateChipTextActive: {
-    color: "#2563EB",
-  },
-  trailMetricsBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  metricItem: {
-    alignItems: "center",
-  },
-  metricVal: {
-    fontSize: 13,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  metricLbl: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#64748B",
-    textTransform: "uppercase",
-  },
-  metricDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: "#E2E8F0",
-  },
-  carouselScroll: {
-    gap: 12,
-    paddingRight: 10,
-  },
-  employeeCard: {
-    width: 220,
     backgroundColor: "#F8FAFC",
-    borderRadius: 16,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
     borderColor: "#E2E8F0",
-    padding: 12,
-    gap: 10,
   },
-  employeeCardSelected: {
-    borderColor: "#2563EB",
-    backgroundColor: "#EFF6FF",
-    shadowColor: "#2563EB",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  empCardTop: {
+  stripLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    marginRight: 6,
   },
-  empAvatarBox: {
+  stripAvatarBox: {
     position: "relative",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
   },
-  empAvatar: {
+  stripAvatar: {
     width: "100%",
     height: "100%",
-    borderRadius: 18,
+    borderRadius: 17,
   },
-  empInitials: {
+  stripInitials: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "800",
   },
-  onlineDotBadge: {
+  stripDot: {
     position: "absolute",
     bottom: -1,
     right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     borderWidth: 1.5,
     borderColor: "#FFFFFF",
   },
-  empName: {
-    fontSize: 13.5,
+  stripName: {
+    fontSize: 13,
     fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 2,
+    maxWidth: 110,
   },
-  roleTag: {
-    alignSelf: "flex-start",
-  },
-  empRole: {
-    fontSize: 10.5,
+  stripSub: {
+    fontSize: 10,
     fontWeight: "600",
     color: "#64748B",
+    marginTop: 1,
   },
-  empCardBottom: {
+  stripTrackingBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+  },
+  stripTrackingActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+  },
+  stripTrackingInactive: {
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+  },
+  stripTrackingBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  stripTrackingActiveText: {
+    color: "#059669",
+  },
+  stripTrackingInactiveText: {
+    color: "#64748B",
+  },
+  stripMetricsRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
-  statusPill: {
-    flexDirection: "row",
+  stripMetricPill: {
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    backgroundColor: "#FFFFFF",
     borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    minWidth: 42,
   },
-  statusDotSmall: {
+  stripMetricVal: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  stripMetricLbl: {
+    fontSize: 8.5,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+  },
+  stripFocusBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Filter Tabs
+  filterTabsRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 8,
+  },
+  filterTabBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 9,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  filterTabBtnActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#93C5FD",
+  },
+  filterTabDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  statusPillText: {
+  filterTabText: {
     fontSize: 10.5,
     fontWeight: "700",
+    color: "#64748B",
   },
-  empSpeedText: {
+  filterTabTextActive: {
+    color: "#2563EB",
+    fontWeight: "800",
+  },
+
+  // Compact Employee Carousel Cards
+  compactCarouselScroll: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  compactEmpCard: {
+    width: 150,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#E2E8F0",
+    padding: 8,
+    gap: 6,
+  },
+  compactEmpCardSelected: {
+    borderColor: "#2563EB",
+    backgroundColor: "#EFF6FF",
+  },
+  compactEmpCardTracked: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+  compactEmpCardUntracked: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#CBD5E1",
+  },
+  compactCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  compactAvatarBox: {
+    position: "relative",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactAvatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
+  },
+  compactInitials: {
+    color: "#FFFFFF",
     fontSize: 10.5,
     fontWeight: "800",
-    color: "#2563EB",
   },
-  todayDistanceBadge: {
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
-    paddingHorizontal: 6,
-    paddingVertical: 2.5,
-    borderRadius: 6,
+  compactStatusDot: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.2)",
+    borderColor: "#FFFFFF",
   },
-  todayDistanceText: {
-    fontSize: 10,
+  compactEmpName: {
+    fontSize: 11.5,
     fontWeight: "800",
+    color: "#0F172A",
+  },
+  compactEmpRole: {
+    fontSize: 9.5,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  compactCardBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  compactStatusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "center",
+  },
+  compactStatusBadgeActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+  },
+  compactStatusBadgeInactive: {
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+  },
+  compactStatusBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+  compactStatusBadgeTextActive: {
+    color: "#059669",
+  },
+  compactStatusBadgeTextInactive: {
+    color: "#64748B",
+  },
+
+  // 14-Day Date Picker Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "flex-end",
+  },
+  modalContentCard: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    maxHeight: 480,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalDateItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  modalDateItemSelected: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#2563EB",
+  },
+  modalDateLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  modalDateTextActive: {
     color: "#2563EB",
   },
-  todayAllowanceText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#059669",
-    marginLeft: 3,
+  modalDateSub: {
+    fontSize: 11.5,
+    color: "#64748B",
+    marginTop: 2,
+    fontWeight: "600",
   },
   loadingCarousel: {
     paddingVertical: 22,

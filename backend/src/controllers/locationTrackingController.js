@@ -861,18 +861,25 @@ const getLiveEmployeeLocations = async (req, res) => {
       .lean();
 
     const employeeIds = employees.map((e) => e._id);
-    const todayIst = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const todayUtc = new Date().toISOString().slice(0, 10);
-    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const yesterdayIst = yesterdayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const yesterdayUtc = yesterdayDate.toISOString().slice(0, 10);
+    const { date } = req.query;
+    const now = new Date();
+    const todayIstStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+    let targetDateStr = todayIstStr;
+    if (date === "yesterday") {
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      targetDateStr = yesterday.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } else if (date && typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      targetDateStr = date;
+    }
+    const isToday = targetDateStr === todayIstStr;
 
-    // 1. Fetch today's attendance records to know punch status (In/Out)
-    // Also fetch Company Attendance Settings, Branches and Company info to resolve office location
+    // 1. Fetch attendance records for target date
+    const targetDateUtc = new Date(targetDateStr).toISOString().slice(0, 10);
     const [attendances, attSettings, branches, companyDoc] = await Promise.all([
       Attendance.find({
+        companyId: new mongoose.Types.ObjectId(companyId.toString()),
         employeeId: { $in: employeeIds },
-        date: { $in: [todayIst, todayUtc] },
+        date: { $in: [targetDateStr, targetDateUtc] },
       }).sort({ createdAt: 1 }).lean(),
       CompanyAttendanceSettings.findOne({ companyId }).lean().catch(() => null),
       Branch.find({ companyId, status: "active" }).lean().catch(() => []),
@@ -906,19 +913,19 @@ const getLiveEmployeeLocations = async (req, res) => {
       attendanceMap.set(att.employeeId.toString(), att);
     });
 
-
-    // 2. Fetch today's continuous GPS trail history from EmployeeLocation for stoppage duration calculation
-    // Calculate exact start of today in IST (UTC+5:30) to NEVER leak yesterday's points into today's travel!
-    const [y, m, d] = todayIst.split("-").map(Number);
+    // 2. Fetch target date's continuous GPS trail history from EmployeeLocation
+    // Calculate exact start and end of target date in IST (UTC+5:30)
+    const [y, m, d] = targetDateStr.split("-").map(Number);
     const istOffsetMs = 5.5 * 60 * 60 * 1000;
-    const startOfTodayIst = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
-    const endOfTodayIst = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
+    const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
+    const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
 
     const recentLocationAgg = await EmployeeLocation.aggregate([
       {
         $match: {
+          companyId: new mongoose.Types.ObjectId(companyId.toString()),
           employeeId: { $in: employeeIds },
-          timestamp: { $gte: startOfTodayIst, $lte: endOfTodayIst },
+          timestamp: { $gte: startOfDay, $lte: endOfDay },
         },
       },
       { $sort: { timestamp: 1 } },
@@ -926,6 +933,9 @@ const getLiveEmployeeLocations = async (req, res) => {
         $group: {
           _id: "$employeeId",
           latestPoint: { $last: "$$ROOT" },
+          firstPoint: { $first: "$$ROOT" },
+          totalPoints: { $sum: 1 },
+          maxSpeed: { $max: "$speed" },
           allPoints: {
             $push: {
               latitude: "$latitude",
@@ -947,48 +957,54 @@ const getLiveEmployeeLocations = async (req, res) => {
       const allPts = Array.isArray(item.allPoints) ? item.allPoints : [];
       const att = attendanceMap.get(empIdStr);
 
-      let todayDistanceMeters = 0;
-      // Duty distance must ONLY be calculated if employee has punched in today
-      // and only on points recorded on or after punchInTime!
-      if (att && att.punchInTime) {
-        const punchInMs = new Date(att.punchInTime).getTime();
-        let dutyPts = allPts.filter((p) => new Date(p.timestamp).getTime() >= punchInMs);
-        if (att.punchOutTime) {
-          const punchOutMs = new Date(att.punchOutTime).getTime();
-          dutyPts = dutyPts.filter((p) => new Date(p.timestamp).getTime() <= punchOutMs);
+      let targetDistanceMeters = 0;
+      if (isToday) {
+        // Today's duty distance: calculated if punched in
+        if (att && att.punchInTime) {
+          const punchInMs = new Date(att.punchInTime).getTime();
+          let dutyPts = allPts.filter((p) => new Date(p.timestamp).getTime() >= punchInMs);
+          if (att.punchOutTime) {
+            const punchOutMs = new Date(att.punchOutTime).getTime();
+            dutyPts = dutyPts.filter((p) => new Date(p.timestamp).getTime() <= punchOutMs);
+          }
+          targetDistanceMeters = calculateTrueGpsDistanceMeters(dutyPts);
+        } else {
+          targetDistanceMeters = calculateTrueGpsDistanceMeters(allPts);
         }
-        todayDistanceMeters = calculateTrueGpsDistanceMeters(dutyPts);
       } else {
-        todayDistanceMeters = 0;
+        // Historical date: calculate full GPS distance of that day
+        targetDistanceMeters = calculateTrueGpsDistanceMeters(allPts);
       }
 
-      const todayDistanceKm = Number((todayDistanceMeters / 1000).toFixed(2));
-      let todayDistanceText = "0 km";
-      if (todayDistanceKm >= 1.0) {
-        todayDistanceText = `${todayDistanceKm.toFixed(2)} km`;
-      } else if (todayDistanceMeters > 0) {
-        todayDistanceText = `${Math.round(todayDistanceMeters)} m`;
+      const targetDistanceKm = Number((targetDistanceMeters / 1000).toFixed(2));
+      let targetDistanceText = "0 km";
+      if (targetDistanceKm >= 1.0) {
+        targetDistanceText = `${targetDistanceKm.toFixed(2)} km`;
+      } else if (targetDistanceMeters > 0) {
+        targetDistanceText = `${Math.round(targetDistanceMeters)} m`;
       }
 
       locHistoryMap.set(empIdStr, {
         latest: item.latestPoint,
-        trail: allPts.slice(-30).reverse(),
-        todayDistanceMeters: Math.round(todayDistanceMeters),
-        todayDistanceKm: todayDistanceKm,
-        todayDistanceText: todayDistanceText,
+        first: item.firstPoint,
+        totalPoints: item.totalPoints || allPts.length,
+        maxSpeed: item.maxSpeed || 0,
+        trail: allPts.slice(-25).reverse(),
+        todayDistanceMeters: Math.round(targetDistanceMeters),
+        todayDistanceKm: targetDistanceKm,
+        todayDistanceText: targetDistanceText,
       });
     });
 
-    const now = new Date();
-
-    // 3. Map each employee with tracking status and stoppage duration
+    // 3. Map each employee with tracking status, coordinates, and metrics
     const liveTrackList = employees.map((emp) => {
       const empIdStr = emp._id.toString();
       const lastLoc = emp.lastLocation || {};
       const locData = locHistoryMap.get(empIdStr);
-      const todayAtt = attendanceMap.get(empIdStr);
+      const dayAtt = attendanceMap.get(empIdStr);
 
-      // Determine best location point (EmployeeLocation table latest > lastLocation > punch coords)
+      const hasTrackingData = Boolean(locData && (locData.totalPoints > 0 || locData.latest));
+
       let latitude = null;
       let longitude = null;
       let lastUpdated = null;
@@ -1007,7 +1023,7 @@ const getLiveEmployeeLocations = async (req, res) => {
         heading = locData.latest.heading || 0;
         batteryLevel = locData.latest.batteryLevel !== undefined ? locData.latest.batteryLevel : null;
         address = locData.latest.address || "";
-      } else if (lastLoc.latitude && lastLoc.longitude) {
+      } else if (isToday && lastLoc.latitude && lastLoc.longitude) {
         latitude = lastLoc.latitude;
         longitude = lastLoc.longitude;
         lastUpdated = lastLoc.updatedAt;
@@ -1016,128 +1032,134 @@ const getLiveEmployeeLocations = async (req, res) => {
         heading = lastLoc.heading || 0;
         batteryLevel = lastLoc.batteryLevel !== undefined ? lastLoc.batteryLevel : null;
         address = lastLoc.address || "";
-      } else if (todayAtt) {
-        const punchLoc = todayAtt.punchInLocation || todayAtt.punchOutLocation;
+      } else if (dayAtt) {
+        const punchLoc = dayAtt.punchInLocation || dayAtt.punchOutLocation;
         if (punchLoc && punchLoc.latitude && punchLoc.longitude) {
           latitude = punchLoc.latitude;
           longitude = punchLoc.longitude;
-          lastUpdated = todayAtt.punchInTime || todayAtt.createdAt;
+          lastUpdated = dayAtt.punchInTime || dayAtt.createdAt;
           address = punchLoc.address || "";
         }
       }
 
-      // Check if user is currently on duty today (must have punched in and not punched out)
       let hasPunchedIn = false;
       let isPunchedOut = false;
       let isOnDuty = false;
 
-      if (todayAtt) {
-        if (Array.isArray(todayAtt.punchLog) && todayAtt.punchLog.length > 0) {
-          const lastSession = todayAtt.punchLog[todayAtt.punchLog.length - 1];
+      if (dayAtt) {
+        if (Array.isArray(dayAtt.punchLog) && dayAtt.punchLog.length > 0) {
+          const lastSession = dayAtt.punchLog[dayAtt.punchLog.length - 1];
           hasPunchedIn = Boolean(lastSession.punchInTime);
           isPunchedOut = Boolean(lastSession.punchOutTime);
           isOnDuty = hasPunchedIn && !isPunchedOut;
         } else {
-          hasPunchedIn = Boolean(todayAtt.punchInTime);
-          isPunchedOut = Boolean(todayAtt.punchOutTime);
+          hasPunchedIn = Boolean(dayAtt.punchInTime);
+          isPunchedOut = Boolean(dayAtt.punchOutTime);
           isOnDuty = hasPunchedIn && !isPunchedOut;
         }
       }
 
-      // Calculate time elapsed since last GPS transmission
       const minutesSinceLastPing = lastUpdated ? Math.max(0, Math.round((now - new Date(lastUpdated)) / 60000)) : null;
 
-      // ── Determine Tracking Status: "active" (चालू) | "stopped" (बंद) | "no_signal" ──
-      // Rules:
-      // 1. Employee tracking stays ACTIVE (चालू) as long as they are punched in and haven't punched out.
-      // 2. Automatically stops when employee punches out.
-      let trackingStatus = "no_signal"; // "active" | "stopped" | "no_signal" | "disabled"
-      let trackingStatusLabel = "No GPS Signal";
-      let trackingStatusColor = "slate"; // "emerald" | "amber" | "rose" | "slate"
+      let trackingStatus = "inactive";
+      let trackingStatusLabel = "No GPS Tracked";
+      let trackingStatusColor = "slate";
       let isOnline = false;
-
-      if (!emp.isLocationTrackingEnabled) {
-        // Location tracking is not enabled for this employee (e.g. Office Staff)
-        trackingStatus = "disabled";
-        trackingStatusLabel = "Tracking Not Assigned (Office Staff)";
-        trackingStatusColor = "slate";
-        isOnline = false;
-        latitude = null;
-        longitude = null;
-      } else if (!hasPunchedIn) {
-        // Employee has NOT punched in today: Tracking MUST be OFF / STOPPED!
-        trackingStatus = "stopped";
-        trackingStatusLabel = "Not Punched In (Off Duty)";
-        trackingStatusColor = "rose";
-        isOnline = false;
-        latitude = null;
-        longitude = null;
-      } else if (isPunchedOut) {
-        // Employee has punched out for the day: Tracking MUST be OFF / STOPPED!
-        trackingStatus = "stopped";
-        trackingStatusLabel = "Tracking Stopped (Punched Out)";
-        trackingStatusColor = "rose";
-        isOnline = false;
-      } else if (!latitude || !lastUpdated) {
-        trackingStatus = "no_signal";
-        trackingStatusLabel = "Waiting for GPS Signal";
-        trackingStatusColor = "slate";
-        isOnline = false;
-      } else {
-        // Employee is on duty (punched in & not punched out):
-        // Tracking stays ACTIVE (चालू)!
-        trackingStatus = "active";
-        trackingStatusLabel = "Live Tracking Active (चालू)";
-        trackingStatusColor = "emerald";
-        isOnline = true;
-      }
-
-      // ── Calculate Stoppage / Halt Duration (तो स्टाफ किती वेळ झाला तिथे थांबलाय) ──
-      let motionStatus = "off_duty"; // "moving" | "stationary" | "off_duty"
+      let isTrackingActive = false;
+      let motionStatus = "off_duty";
       let stoppageDurationMinutes = 0;
       let stoppageText = "";
       let stoppedSince = null;
 
-      if (trackingStatus === "active" && latitude && longitude) {
-        const isMoving = speed > 3.0;
-
-        if (isMoving) {
-          motionStatus = "moving";
-          stoppageDurationMinutes = 0;
-          stoppageText = `Moving (${Math.round(speed)} km/h)`;
-          stoppedSince = null;
+      if (isToday) {
+        // Today's Live Tracking Rules
+        if (!emp.isLocationTrackingEnabled) {
+          trackingStatus = "disabled";
+          trackingStatusLabel = "Tracking Not Assigned";
+          trackingStatusColor = "slate";
+          isOnline = false;
+          latitude = null;
+          longitude = null;
+        } else if (!hasPunchedIn) {
+          trackingStatus = "stopped";
+          trackingStatusLabel = "Not Punched In (Off Duty)";
+          trackingStatusColor = "rose";
+          isOnline = false;
+          latitude = null;
+          longitude = null;
+        } else if (isPunchedOut) {
+          trackingStatus = "stopped";
+          trackingStatusLabel = "Tracking Stopped (Punched Out)";
+          trackingStatusColor = "rose";
+          isOnline = false;
+        } else if (!latitude || !lastUpdated) {
+          trackingStatus = "no_signal";
+          trackingStatusLabel = "Waiting for GPS Signal";
+          trackingStatusColor = "slate";
+          isOnline = false;
         } else {
-          motionStatus = "stationary";
-          let stoppageStartTime = new Date(lastUpdated || now);
+          trackingStatus = "active";
+          trackingStatusLabel = "Live Tracking Active (चालू)";
+          trackingStatusColor = "emerald";
+          isOnline = true;
+          isTrackingActive = true;
+        }
 
-          // Stoppage duration can never exceed today's punchIn duration
-          if (todayAtt && todayAtt.punchInTime) {
-            const punchInMs = new Date(todayAtt.punchInTime).getTime();
-            if (stoppageStartTime.getTime() < punchInMs) {
-              stoppageStartTime = new Date(punchInMs);
-            }
-          }
-
-          // Trace backward through recent GPS trail to find exact arrival time at this spot
-          const trail = locData?.trail || [];
-          if (trail.length > 1) {
-            for (let i = 1; i < trail.length; i++) {
-              const pt = trail[i];
-              const dist = getHaversineDistanceMeters(latitude, longitude, pt.latitude, pt.longitude);
-              // Within 65m GPS jitter and walking/stopped speed <= 3.5 km/h
-              if (dist <= 65 && (pt.speed || 0) <= 3.5) {
-                stoppageStartTime = new Date(pt.timestamp);
-              } else {
-                break; // previous point was on the move
+        if (trackingStatus === "active" && latitude && longitude) {
+          const isMoving = speed > 3.0;
+          if (isMoving) {
+            motionStatus = "moving";
+            stoppageDurationMinutes = 0;
+            stoppageText = `Moving (${Math.round(speed)} km/h)`;
+            stoppedSince = null;
+          } else {
+            motionStatus = "stationary";
+            let stoppageStartTime = new Date(lastUpdated || now);
+            if (dayAtt && dayAtt.punchInTime) {
+              const punchInMs = new Date(dayAtt.punchInTime).getTime();
+              if (stoppageStartTime.getTime() < punchInMs) {
+                stoppageStartTime = new Date(punchInMs);
               }
             }
-          } else if (lastLoc.stationarySince) {
-            stoppageStartTime = new Date(lastLoc.stationarySince);
+            const trail = locData?.trail || [];
+            if (trail.length > 1) {
+              for (let i = 1; i < trail.length; i++) {
+                const pt = trail[i];
+                const dist = getHaversineDistanceMeters(latitude, longitude, pt.latitude, pt.longitude);
+                if (dist <= 65 && (pt.speed || 0) <= 3.5) {
+                  stoppageStartTime = new Date(pt.timestamp);
+                } else {
+                  break;
+                }
+              }
+            } else if (lastLoc.stationarySince) {
+              stoppageStartTime = new Date(lastLoc.stationarySince);
+            }
+            stoppageDurationMinutes = Math.max(1, Math.round((now - stoppageStartTime) / 60000));
+            stoppageText = formatStoppageDuration(stoppageDurationMinutes);
+            stoppedSince = stoppageStartTime.toISOString();
           }
-
-          stoppageDurationMinutes = Math.max(1, Math.round((now - stoppageStartTime) / 60000));
-          stoppageText = formatStoppageDuration(stoppageDurationMinutes);
-          stoppedSince = stoppageStartTime.toISOString();
+        }
+      } else {
+        // Historical Past Date (3 days, 5 days ago, etc.)
+        if (hasTrackingData) {
+          isTrackingActive = true;
+          trackingStatus = "active";
+          trackingStatusLabel = `Tracked (${locData.totalPoints} GPS points)`;
+          trackingStatusColor = "emerald";
+          motionStatus = "completed";
+          stoppageText = "Day Trip Completed";
+          isOnline = true; // Mark true so counts and active flags recognize past tracked employees
+        } else {
+          isTrackingActive = false;
+          trackingStatus = "inactive";
+          trackingStatusLabel = hasPunchedIn ? "Punched In (No GPS Trail)" : "No Tracking Recorded";
+          trackingStatusColor = "slate";
+          motionStatus = "off_duty";
+          stoppageText = "No GPS Data";
+          isOnline = false;
+          latitude = null;
+          longitude = null;
         }
       }
 
@@ -1164,22 +1186,28 @@ const getLiveEmployeeLocations = async (req, res) => {
         lastUpdated: lastUpdated,
         minutesSinceLastPing: minutesSinceLastPing,
         isOnline: isOnline,
-        isTrackingActive: trackingStatus === "active",
-        trackingStatus: trackingStatus, // "active" | "idle" | "stopped" | "no_signal"
+        isTrackingActive: isTrackingActive,
+        trackingStatus: trackingStatus,
         trackingStatusLabel: trackingStatusLabel,
         trackingStatusColor: trackingStatusColor,
-        motionStatus: motionStatus, // "moving" | "stationary"
+        motionStatus: motionStatus,
         stoppageDurationMinutes: stoppageDurationMinutes,
         stoppageText: stoppageText,
         stoppedSince: stoppedSince,
-        todayDistanceKm: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceKm || 0 : 0,
-        todayDistanceMeters: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceMeters || 0 : 0,
-        todayDistanceText: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceText || "0 km" : "0 km",
-        attendanceStatus: todayAtt ? todayAtt.status : "absent",
-        punchInTime: todayAtt ? todayAtt.punchInTime : null,
-        punchOutTime: todayAtt ? todayAtt.punchOutTime : null,
+        todayDistanceKm: locData?.todayDistanceKm || 0,
+        todayDistanceMeters: locData?.todayDistanceMeters || 0,
+        todayDistanceText: locData?.todayDistanceText || "0 km",
+        totalPoints: locData?.totalPoints || 0,
+        attendanceStatus: dayAtt ? dayAtt.status : "absent",
+        punchInTime: dayAtt ? dayAtt.punchInTime : null,
+        punchOutTime: dayAtt ? dayAtt.punchOutTime : null,
         isLocationTrackingEnabled: Boolean(emp.isLocationTrackingEnabled),
-        displayLocation: latitude && longitude ? address || "Current Location" : (officeLocation ? `${officeLocation.name} (Office)` : "NA"),
+        displayLocation:
+          latitude && longitude
+            ? address || "Recorded Location"
+            : officeLocation
+            ? `${officeLocation.name} (Office)`
+            : "NA",
         displayAddress: address || (officeLocation ? officeLocation.address : "NA"),
         officeLocation: officeLocation,
       };
@@ -1187,7 +1215,14 @@ const getLiveEmployeeLocations = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      selectedDate: targetDateStr,
+      isToday: isToday,
       officeLocation: officeLocation,
+      stats: {
+        total: liveTrackList.length,
+        activeTracked: liveTrackList.filter((e) => e.isTrackingActive).length,
+        inactive: liveTrackList.filter((e) => !e.isTrackingActive).length,
+      },
       data: liveTrackList,
     });
 
@@ -1325,7 +1360,7 @@ const getEmployeeLocationTrail = async (req, res) => {
     const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
     const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
 
-    const rawTrail = await EmployeeLocation.find({
+    let rawTrail = await EmployeeLocation.find({
       employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
       companyId: new mongoose.Types.ObjectId(companyId.toString()),
       timestamp: { $gte: startOfDay, $lte: endOfDay },
@@ -1333,6 +1368,16 @@ const getEmployeeLocationTrail = async (req, res) => {
       .sort({ timestamp: 1 })
       .select("latitude longitude accuracy speed heading batteryLevel timestamp address")
       .lean();
+
+    if (rawTrail.length === 0) {
+      rawTrail = await EmployeeLocation.find({
+        employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
+        timestamp: { $gte: startOfDay, $lte: endOfDay },
+      })
+        .sort({ timestamp: 1 })
+        .select("latitude longitude accuracy speed heading batteryLevel timestamp address")
+        .lean();
+    }
 
     if (rawTrail.length === 0) {
       const [attSettings, branches, companyDoc] = await Promise.all([
@@ -1426,19 +1471,21 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // Align transit trail segments to actual street network so lines run cleanly along roads
+    // Ultra-fast in-memory trail: cleanTrail has already passed hardware accuracy,
+    // stationary cluster collapsing, teleport spike removal, and anti-oscillation filtering.
+    // If trail is huge (> 800 points), downsample while preserving all halts, start, and end
     let finalTrail = metrics.cleanTrail;
-    let actualRoadDistanceMeters = metrics.totalDistanceMeters;
-
-    if (metrics.cleanTrail.length >= 2) {
-      const roadAligned = await alignTrailToRoadNetwork(metrics.cleanTrail);
-      if (roadAligned && Array.isArray(roadAligned.trail) && roadAligned.trail.length >= 2) {
-        finalTrail = roadAligned.trail;
-        if (roadAligned.distanceMeters > actualRoadDistanceMeters) {
-          actualRoadDistanceMeters = roadAligned.distanceMeters;
+    if (finalTrail.length > 800) {
+      const step = Math.ceil(finalTrail.length / 600);
+      const sampled = [];
+      for (let i = 0; i < finalTrail.length; i++) {
+        if (i === 0 || i === finalTrail.length - 1 || i % step === 0) {
+          sampled.push(finalTrail[i]);
         }
       }
+      finalTrail = sampled;
     }
+    const actualRoadDistanceMeters = metrics.totalDistanceMeters;
 
     const pureDistanceKm = metrics.distanceKm;
     const finalDistance = Number((actualRoadDistanceMeters / 1000).toFixed(2));

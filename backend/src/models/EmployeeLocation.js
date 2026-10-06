@@ -65,7 +65,11 @@ const employeeLocationSchema = new mongoose.Schema(
 
 // Compound indexes for fast historical trail lookups & live tracking queries
 employeeLocationSchema.index({ companyId: 1, employeeId: 1, timestamp: -1 });
+employeeLocationSchema.index({ companyId: 1, employeeId: 1, timestamp: 1 });
+employeeLocationSchema.index({ companyId: 1, timestamp: 1 });
+employeeLocationSchema.index({ companyId: 1, timestamp: -1 });
 employeeLocationSchema.index({ employeeId: 1, timestamp: -1 });
+employeeLocationSchema.index({ employeeId: 1, timestamp: 1 });
 
 const EmployeeLocation = mongoose.model("EmployeeLocation", employeeLocationSchema);
 

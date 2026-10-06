@@ -8,7 +8,7 @@ export const syncLocationsApi = (locations) => api.post("/locations/sync", { loc
 /**
  * Fetch live locations of all active team members/employees
  */
-export const getLiveEmployeeLocationsApi = () => api.get("/locations/live");
+export const getLiveEmployeeLocationsApi = (params) => api.get("/locations/live", { params });
 
 /**
  * Fetch historical movement trail for a specific employee on a date

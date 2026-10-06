@@ -74,12 +74,12 @@ const EmployeeLocationTracking = () => {
     refetch: refetchLive,
     isFetching: isFetchingLive,
   } = useQuery({
-    queryKey: ["liveEmployeeLocations"],
+    queryKey: ["liveEmployeeLocations", selectedDate],
     queryFn: async () => {
-      const res = await getLiveEmployeeLocationsApi();
+      const res = await getLiveEmployeeLocationsApi({ date: selectedDate });
       return res.data || {};
     },
-    refetchInterval: 4000, // 4s ultra-fast live polling for real-time tracking
+    refetchInterval: selectedDate === todayStr ? 4000 : false, // 4s live polling only for today
   });
 
   const employees = useMemo(() => {
@@ -92,18 +92,40 @@ const EmployeeLocationTracking = () => {
     return liveResponse?.officeLocation || employees[0]?.officeLocation || null;
   }, [liveResponse, employees]);
 
-  // Auto-select employee with active GPS coordinates so map opens focused immediately
+  // Auto-select employee with active GPS coordinates and dynamically re-focus on date changes
   useEffect(() => {
-    if (!selectedEmployee && employees.length > 0) {
-      const bestEmp =
-        employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
-        employees.find((e) => e.latitude && e.longitude) ||
-        employees[0];
-      if (bestEmp) {
-        setSelectedEmployee(bestEmp);
+    if (employees.length === 0) return;
+
+    // Check if currently selected employee is present in this date's fetched employee list
+    const existing = selectedEmployee
+      ? employees.find((e) => String(e._id) === String(selectedEmployee._id))
+      : null;
+
+    if (existing) {
+      // If current selected employee has tracking on this selected date, preserve selection
+      if (existing.isTrackingActive || existing.latitude) {
+        setSelectedEmployee(existing);
+        return;
+      }
+      // On today, keep selected employee even if stationary or pending punch
+      if (selectedDate === todayStr) {
+        setSelectedEmployee(existing);
+        return;
       }
     }
-  }, [employees, selectedEmployee]);
+
+    // On past dates (or if current employee has no tracking on this date), auto-select first active employee
+    const bestEmp =
+      employees.find((e) => e.isTrackingActive && e.latitude && e.longitude) ||
+      employees.find((e) => e.isTrackingActive) ||
+      employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude) ||
+      employees.find((e) => e.latitude && e.longitude) ||
+      employees[0];
+
+    if (bestEmp) {
+      setSelectedEmployee(bestEmp);
+    }
+  }, [employees, selectedDate, todayStr]);
 
 
   // Fetch Trail Query (when an employee and date are selected in trail mode)
@@ -118,7 +140,7 @@ const EmployeeLocationTracking = () => {
       const res = await getEmployeeLocationTrailApi(selectedEmployee._id, selectedDate);
       return res.data?.data || { trail: [], distanceKm: 0, totalPoints: 0 };
     },
-    enabled: Boolean(selectedEmployee?._id && viewMode === "trail"),
+    enabled: Boolean(selectedEmployee?._id && (viewMode === "trail" || selectedDate !== todayStr)),
   });
 
   // Filtered employees list based on search and fine-grained tracking/halt status
@@ -136,13 +158,14 @@ const EmployeeLocationTracking = () => {
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "hr_mgr" && isHrOrMgr) ||
-        (statusFilter === "active" && emp.trackingStatus === "active") ||
+        (statusFilter === "active" && Boolean(emp.isTrackingActive)) ||
+        (statusFilter === "inactive" && !emp.isTrackingActive) ||
         (statusFilter === "field" && Boolean(emp.isLocationTrackingEnabled)) ||
         (statusFilter === "office" && !emp.isLocationTrackingEnabled) ||
-        (statusFilter === "halt" && emp.trackingStatus === "active" && emp.motionStatus === "stationary" && emp.latitude) ||
-        (statusFilter === "moving" && emp.trackingStatus === "active" && emp.motionStatus === "moving") ||
+        (statusFilter === "halt" && emp.motionStatus === "stationary" && emp.latitude) ||
+        (statusFilter === "moving" && emp.motionStatus === "moving") ||
         (statusFilter === "low_bat" && emp.batteryLevel !== null && emp.batteryLevel !== undefined && emp.batteryLevel < 20) ||
-        (statusFilter === "stopped" && (emp.trackingStatus === "stopped" || emp.trackingStatus === "no_signal" || emp.trackingStatus === "disabled"));
+        (statusFilter === "stopped" && (!emp.isTrackingActive || emp.trackingStatus === "stopped" || emp.trackingStatus === "no_signal" || emp.trackingStatus === "disabled"));
 
       return matchesSearch && matchesStatus;
     });
@@ -150,7 +173,15 @@ const EmployeeLocationTracking = () => {
 
   // Tracking & Motion Metrics
   const activeTrackingCount = useMemo(
-    () => employees.filter((e) => e.trackingStatus === "active" && e.latitude).length,
+    () => employees.filter((e) => e.isTrackingActive && e.latitude).length,
+    [employees]
+  );
+  const activeTrackedCount = useMemo(
+    () => employees.filter((e) => e.isTrackingActive).length,
+    [employees]
+  );
+  const inactiveCount = useMemo(
+    () => employees.filter((e) => !e.isTrackingActive).length,
     [employees]
   );
   const hrManagerCount = useMemo(
@@ -185,7 +216,13 @@ const EmployeeLocationTracking = () => {
     () => employees.filter((e) => e.batteryLevel !== null && e.batteryLevel !== undefined && e.batteryLevel < 20).length,
     [employees]
   );
-  const onlineCount = useMemo(() => employees.filter((e) => e.isOnline && e.latitude).length, [employees]);
+  const onlineCount = useMemo(
+    () =>
+      employees.filter((e) =>
+        selectedDate === todayStr ? e.isOnline && e.latitude : (e.isTrackingActive || e.isOnline) && e.latitude
+      ).length,
+    [employees, selectedDate, todayStr]
+  );
 
   const totalFleetDistanceKm = useMemo(() => {
     const total = employees.reduce((acc, e) => acc + (parseFloat(e.todayDistanceKm) || 0), 0);
@@ -373,7 +410,7 @@ const EmployeeLocationTracking = () => {
         if (!emp.latitude || !emp.longitude) return;
 
         const isSelected = selectedEmployee?._id === emp._id;
-        const isTrackingActive = emp.trackingStatus === "active";
+        const isTrackingActive = Boolean(emp.isTrackingActive || emp.trackingStatus === "active");
         const isIdle = emp.trackingStatus === "idle";
         const isMoving = emp.motionStatus === "moving";
 
@@ -453,7 +490,17 @@ const EmployeeLocationTracking = () => {
                 font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 6px; text-transform: uppercase;
                 background: ${isTrackingActive ? "#DCFCE7; color: #166534;" : isIdle ? "#FEF3C7; color: #92400E;" : "#FEE2E2; color: #991B1B;"}
               ">
-                ${isTrackingActive ? "🟢 चालू (Active)" : isIdle ? "🟡 सुस्त (Idle)" : "🔴 बंद (Stopped)"}
+                ${
+                  selectedDate !== todayStr
+                    ? isTrackingActive
+                      ? `🟢 Tracked (${emp.totalPoints || 0} pts)`
+                      : "⚪ Not Tracked"
+                    : isTrackingActive
+                    ? "🟢 चालू (Active)"
+                    : isIdle
+                    ? "🟡 सुस्त (Idle)"
+                    : "🔴 बंद (Stopped)"
+                }
               </span>
             </div>
 
@@ -463,14 +510,14 @@ const EmployeeLocationTracking = () => {
                 ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;">
                      <div style="display: flex; align-items: center; justify-content: space-between;">
                        <span style="font-size: 11px; font-weight: 700; color: #475569;">
-                         ${isMoving ? "🚗 Movement Status:" : "🛑 Stoppage Duration:"}
+                         ${selectedDate !== todayStr ? "📍 Day Route Distance:" : isMoving ? "🚗 Movement Status:" : "🛑 Stoppage Duration:"}
                        </span>
-                       <span style="font-size: 12px; font-weight: 900; color: ${isMoving ? "#2563EB" : "#DC2626"};">
-                         ${isMoving ? `Moving (${Math.round(emp.speed)} km/h)` : `${emp.stoppageText || "0 mins"} थांबले`}
+                       <span style="font-size: 12px; font-weight: 900; color: ${isMoving ? "#2563EB" : "#10B981"};">
+                         ${selectedDate !== todayStr ? (emp.todayDistanceText || `${emp.todayDistanceKm || 0} km`) : isMoving ? `Moving (${Math.round(emp.speed)} km/h)` : `${emp.stoppageText || "0 mins"} थांबले`}
                        </span>
                      </div>
                      ${
-                       !isMoving && emp.stoppedSince
+                       selectedDate === todayStr && !isMoving && emp.stoppedSince
                          ? `<div style="font-size: 10px; color: #64748B; margin-top: 3px;">
                               📍 Stopped here since: <b>${new Date(emp.stoppedSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b>
                             </div>`
@@ -479,7 +526,7 @@ const EmployeeLocationTracking = () => {
                    </div>`
                 : `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;">
                      <span style="font-size: 11px; font-weight: 700; color: #64748B;">
-                       🛑 ${emp.trackingStatus === "stopped" ? "Duty Inactive / Punched Out" : "Duty Inactive (Off-Duty)"}
+                       🛑 ${selectedDate !== todayStr ? "No GPS Tracking on this Date" : emp.trackingStatus === "stopped" ? "Duty Inactive / Punched Out" : "Duty Inactive (Off-Duty)"}
                      </span>
                    </div>`
             }
@@ -791,6 +838,9 @@ const EmployeeLocationTracking = () => {
   // Center on employee when clicked in list
   const handleSelectStaff = (emp) => {
     setSelectedEmployee(emp);
+    if (selectedDate !== todayStr && viewMode !== "trail") {
+      setViewMode("trail");
+    }
     if (emp.latitude && emp.longitude && mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([emp.latitude, emp.longitude], 16, {
         duration: 1.2,
@@ -843,7 +893,7 @@ const EmployeeLocationTracking = () => {
   };
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4 flex flex-col overflow-hidden" : "space-y-4 w-full pb-10 min-h-screen"}>
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4 flex flex-col overflow-hidden" : "space-y-2.5 w-full pb-6"}>
       {/* ── Scoped Keyframe Animations & Enterprise Fleet Styling ───────── */}
       <style>{`
         @keyframes radarSweep {
@@ -881,16 +931,16 @@ const EmployeeLocationTracking = () => {
           animation: radarPingRing 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
         }
         .hud-glass-panel {
-          background: rgba(255, 255, 255, 0.92);
+          background: rgba(255, 255, 255, 0.94);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(0, 0, 0, 0.1);
-          box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.16);
         }
         .dark .hud-glass-panel {
-          background: rgba(10, 16, 32, 0.92);
+          background: rgba(10, 16, 32, 0.94);
           border: 1px solid rgba(56, 189, 248, 0.25);
-          box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 0 24px -4px rgba(56, 189, 248, 0.15);
+          box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
         }
         .no-scrollbar::-webkit-scrollbar {
           display: none;
@@ -901,51 +951,49 @@ const EmployeeLocationTracking = () => {
         }
       `}</style>
 
-      {/* ── Top Header Bar (Modern Fleet Command Center) ──────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-border">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <Navigation size={20} className="animate-pulse" />
+      {/* ── Top Header Bar (Compact & Professional) ────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-2.5 border-b border-border">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+            <Navigation size={18} />
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-foreground tracking-tight">
-                {isEmployee ? "My Live Location & Route" : "Live Employee Tracking"}
-              </h1>
-              {!isEmployee && (
-                <>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
-                    <span>{onlineCount} Live on Field</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg font-black text-foreground tracking-tight">
+              {isEmployee ? "My Live Location & Route" : "Live Employee Tracking"}
+            </h1>
+            {!isEmployee && (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
+                  <span>
+                    {selectedDate === todayStr
+                      ? `${onlineCount} Live on Field`
+                      : `${activeTrackedCount} Active Tracked`}
                   </span>
-                  {hrManagerCount > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
-                      👔 {hrManagerCount} HR/Managers
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-              <Radio size={12} className="text-cyan-500 animate-pulse" />
-              <span>Real-time Field Telemetry • 4s Sync • Live GPS Tracking</span>
-            </p>
+                </span>
+                {hrManagerCount > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
+                    👔 {hrManagerCount} HR/Managers
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* View Mode Switcher + Action Controls */}
-        <div className="flex items-center space-x-2 self-start md:self-auto">
-          <div className="flex items-center bg-muted/70 p-1 rounded-xl border border-border">
+        {/* View Mode Switcher + Date Selector + Action Controls */}
+        <div className="flex items-center space-x-1.5 self-start md:self-auto flex-wrap gap-y-1.5">
+          <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border">
             <button
               type="button"
               onClick={() => setViewMode("live")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                 viewMode === "live"
                   ? "bg-background text-foreground shadow-xs font-black"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Navigation size={13} className={viewMode === "live" ? "text-blue-500" : ""} />
+              <Navigation size={12} className={viewMode === "live" ? "text-blue-500" : ""} />
               <span>Live Map</span>
             </button>
 
@@ -962,54 +1010,76 @@ const EmployeeLocationTracking = () => {
                 if (bestEmp) setSelectedEmployee(bestEmp);
                 setTimeout(() => mapInstanceRef.current?.invalidateSize({ pan: false }), 150);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                 viewMode === "trail"
                   ? "bg-background text-foreground shadow-xs font-black"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Footprints size={13} className={viewMode === "trail" ? "text-indigo-500" : ""} />
+              <Footprints size={12} className={viewMode === "trail" ? "text-indigo-500" : ""} />
               <span>Route Trail</span>
             </button>
           </div>
 
-          {/* Trail Date Selector (Today / Yesterday / Date Picker) */}
-          {viewMode === "trail" && (
-            <div className="flex items-center bg-muted/70 p-1 rounded-xl border border-border gap-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setSelectedDate(todayStr)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                  selectedDate === todayStr
-                    ? "bg-background text-foreground shadow-xs font-black text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                आज (Today)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedDate(yesterdayStr)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                  selectedDate === yesterdayStr
-                    ? "bg-background text-foreground shadow-xs font-black text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                काल (Yesterday)
-              </button>
-              <div className="flex items-center gap-1 bg-background/80 px-2 py-0.5 rounded-lg border border-border/80">
-                <Calendar size={12} className="text-muted-foreground" />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  max={todayStr}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="bg-transparent text-foreground text-xs font-semibold focus:outline-none cursor-pointer"
-                />
-              </div>
+          {/* Global Date Selector */}
+          <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDate(todayStr);
+                setViewMode("live");
+              }}
+              className={`px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
+                selectedDate === todayStr
+                  ? "bg-background text-foreground shadow-xs font-black text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDate(yesterdayStr);
+                setViewMode("trail");
+              }}
+              className={`px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
+                selectedDate === yesterdayStr
+                  ? "bg-background text-foreground shadow-xs font-black text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Yesterday
+            </button>
+            <div className="flex items-center gap-1 bg-background/90 px-1.5 py-0.5 rounded-md border border-border">
+              <Calendar size={11} className="text-muted-foreground" />
+              <input
+                type="date"
+                value={selectedDate}
+                max={todayStr}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDate(val);
+                  if (val && val !== todayStr) {
+                    setViewMode("trail");
+                  }
+                }}
+                className="bg-transparent text-foreground text-xs font-bold focus:outline-none cursor-pointer"
+              />
             </div>
-          )}
+          </div>
+
+          {/* Active / Inactive Tracked Summary Pill */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/60 border border-border text-xs font-bold">
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {activeTrackedCount} Active
+            </span>
+            <span className="text-muted-foreground/40">|</span>
+            <span className="text-muted-foreground font-semibold">
+              {inactiveCount} Inactive
+            </span>
+          </div>
 
           <Link
             to={
@@ -1019,183 +1089,174 @@ const EmployeeLocationTracking = () => {
                 ? "/manager/tracking-allowance"
                 : "/company/tracking-allowance"
             }
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black shadow-2xs transition-all hover:scale-[1.02] cursor-pointer"
-            title="Tracking Allowance / प्रवास भत्ता (KM Based)"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black shadow-2xs transition-all cursor-pointer"
+            title="Travel Allowance"
           >
-            <Wallet size={14} />
-            <span className="hidden sm:inline">प्रवास भत्ता (TA)</span>
+            <Wallet size={13} />
+            <span className="hidden sm:inline">TA Allowance</span>
           </Link>
 
           <button
             type="button"
             onClick={() => refetchLive()}
             title="Refresh GPS Locations"
-            className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
+            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
           >
-            <RefreshCw size={15} className={isFetchingLive ? "animate-spin text-primary" : ""} />
+            <RefreshCw size={14} className={isFetchingLive ? "animate-spin text-primary" : ""} />
           </button>
 
           <button
             type="button"
             onClick={handleToggleFullscreen}
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Command Center"}
-            className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
+            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
           >
-            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
         </div>
       </div>
 
-      {/* ── 4 Executive KPI Telemetry Cards (Compact & Professional) ──── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3" style={{ minHeight: 'auto' }}>
+      {/* ── 4 Executive KPI Telemetry Cards (Compact & Clean) ─────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
         {viewMode === "trail" ? (
           <>
             {/* Trail Metric 1: Distance */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-blue-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-blue-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  एकूण प्रवास (Travel)
+                  Distance
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
+                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
                   {trailData?.pureDistanceKm
                     ? `${trailData.pureDistanceKm} km`
                     : trailData?.distanceText || `${trailData?.distanceKm || 0} km`}
                 </h3>
-                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
-                  🎯 Pure GPS Telemetry
-                </p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Navigation size={16} />
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
+                <Navigation size={14} />
               </div>
             </div>
 
             {/* Trail Metric 2: Halts */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-rose-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-rose-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  थांबलेला वेळ (Halts)
+                  Halt Duration
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5 tracking-tight truncate">
-                  {trailData?.totalHaltTimeText || "0 mins"}
-                </h3>
-                <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
-                  {trailData?.haltCount || 0} थांबे (Stoppages)
-                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <h3 className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 tracking-tight truncate">
+                    {trailData?.totalHaltTimeText || "0 mins"}
+                  </h3>
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    ({trailData?.haltCount || 0} stops)
+                  </span>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Timer size={16} />
+              <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20 flex-shrink-0">
+                <Timer size={14} />
               </div>
             </div>
 
             {/* Trail Metric 3: In-Motion */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-emerald-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  चलनात (In-Motion)
+                  In-Motion Time
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
+                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
                   {trailData?.totalMovingTimeText || "0 mins"}
                 </h3>
-                <p className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate">
-                  Active driving & transit
-                </p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Clock size={16} />
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0">
+                <Clock size={14} />
               </div>
             </div>
 
             {/* Trail Metric 4: Max Speed */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-amber-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-amber-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  कमाल गती (Max Speed)
+                  Max Speed
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5 tracking-tight truncate">
-                  {trailData?.maxSpeed || 0} <span className="text-xs font-bold text-muted-foreground">km/h</span>
-                </h3>
-                <p className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate">
-                  Avg: {trailData?.avgSpeed || 0} km/h
-                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <h3 className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tracking-tight truncate">
+                    {trailData?.maxSpeed || 0} <span className="text-xs font-bold text-muted-foreground">km/h</span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    Avg {trailData?.avgSpeed || 0} km/h
+                  </span>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Activity size={16} />
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0">
+                <Activity size={14} />
               </div>
             </div>
           </>
         ) : (
           <>
             {/* Live Metric 1: Active Tracking */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-emerald-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  ट्रॅकिंग चालू (Active Tracking)
+                  {selectedDate === todayStr ? "Active Tracking" : "Tracked on Date"}
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
-                  {activeTrackingCount} <span className="text-xs font-bold text-muted-foreground">/ {employees.length}</span>
+                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
+                  {selectedDate === todayStr ? activeTrackingCount : activeTrackedCount}{" "}
+                  <span className="text-xs font-bold text-muted-foreground">/ {employees.length}</span>
                 </h3>
-                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1 truncate">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                  <span>{onlineCount} सॅटेलाइट कनेक्टेड</span>
-                </p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Navigation size={16} />
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0">
+                <Navigation size={14} />
               </div>
             </div>
 
             {/* Live Metric 2: Halts */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-amber-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-amber-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  थांबलेले (Halts)
+                  Stationary Halts
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5 tracking-tight truncate">
-                  {haltingCount}
-                </h3>
-                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
-                  Stationary &gt; 2 mins
-                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <h3 className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tracking-tight truncate">
+                    {haltingCount}
+                  </h3>
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    (&gt; 2 mins)
+                  </span>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Timer size={16} />
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0">
+                <Timer size={14} />
               </div>
             </div>
 
             {/* Live Metric 3: Moving */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-blue-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-blue-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  रस्त्यावर चलनात (In-Motion)
+                  In-Motion Fleet
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 tracking-tight truncate">
+                <h3 className="text-base sm:text-lg font-black text-blue-600 dark:text-blue-400 tracking-tight truncate">
                   {movingCount}
                 </h3>
-                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-0.5 truncate">
-                  Driving & transit routes
-                </p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Car size={16} />
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
+                <Car size={14} />
               </div>
             </div>
 
             {/* Live Metric 4: Total Distance */}
-            <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-indigo-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
+            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-indigo-500 shadow-2xs flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  आजचा एकूण प्रवास (Distance)
+                  Fleet Distance
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5 tracking-tight truncate">
+                <h3 className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 tracking-tight truncate">
                   {totalFleetDistanceKm} <span className="text-xs font-bold text-muted-foreground">km</span>
                 </h3>
-                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 truncate">
-                  🎯 Pure GPS Verified
-                </p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Compass size={16} />
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 flex-shrink-0">
+                <Compass size={14} />
               </div>
             </div>
           </>
@@ -1203,18 +1264,20 @@ const EmployeeLocationTracking = () => {
       </div>
 
       {/* ── Full-Width Interactive Radar Map ────────────────────────── */}
-      <div className={`w-full bg-card rounded-2xl border border-border overflow-hidden relative shadow-sm flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[500px] sm:h-[560px] lg:h-[620px]"}`}>
-          {/* ── Unified Floating Command Bar (Zero Overlap Guaranteed) ──── */}
-          <div className="absolute top-3 left-3 right-14 z-20 flex items-center justify-between gap-2 pointer-events-none">
+      <div className={`w-full bg-card rounded-2xl border border-border overflow-hidden relative shadow-sm flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[450px] sm:h-[490px] lg:h-[530px]"}`}>
+          {/* ── Unified Floating Command Bar ──── */}
+          <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between gap-2 pointer-events-none">
             {/* Left: Telemetry Status Badge */}
-            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border/80 px-3 py-1.5 rounded-xl shadow-md flex items-center gap-2">
+            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span className="text-xs font-extrabold text-foreground tracking-tight whitespace-nowrap">
                 {viewMode === "live"
-                  ? `Live Map (${onlineCount} Active)`
+                  ? selectedDate === todayStr
+                    ? `Live Fleet (${onlineCount} Active)`
+                    : `Fleet Map (${activeTrackedCount} Active Tracked)`
                   : selectedEmployee?.name || "Route Trail"}
               </span>
               <span className="hidden sm:inline-block text-[10px] text-muted-foreground font-semibold border-l border-border pl-2">
@@ -1223,13 +1286,12 @@ const EmployeeLocationTracking = () => {
             </div>
 
             {/* Right: Map Layers & Quick Actions */}
-            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-md flex items-center gap-1">
-              {/* Map Layer Segmented Control */}
-              <div className="flex items-center bg-muted/60 p-0.5 rounded-lg text-[11px]">
+            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border p-0.5 rounded-lg shadow-sm flex items-center gap-1">
+              <div className="flex items-center bg-muted/60 p-0.5 rounded-md text-[11px]">
                 <button
                   type="button"
                   onClick={() => handleMapTypeChange("satellite")}
-                  className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                     mapType === "satellite"
                       ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
                       : "text-muted-foreground hover:text-foreground font-semibold"
@@ -1240,7 +1302,7 @@ const EmployeeLocationTracking = () => {
                 <button
                   type="button"
                   onClick={() => handleMapTypeChange("dark_radar")}
-                  className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                     mapType === "dark_radar"
                       ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
                       : "text-muted-foreground hover:text-foreground font-semibold"
@@ -1251,7 +1313,7 @@ const EmployeeLocationTracking = () => {
                 <button
                   type="button"
                   onClick={() => handleMapTypeChange("street")}
-                  className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                     mapType === "street"
                       ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
                       : "text-muted-foreground hover:text-foreground font-semibold"
@@ -1265,36 +1327,28 @@ const EmployeeLocationTracking = () => {
               <button
                 type="button"
                 onClick={handleCenterFleet}
-                title="Fit all fleet members on map"
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/80 transition-all cursor-pointer"
+                title="Fit fleet on map"
+                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted/80 transition-all cursor-pointer"
               >
-                <Crosshair size={14} />
+                <Crosshair size={13} />
               </button>
             </div>
           </div>
 
-          {/* Pure GPS Telemetry Indicator */}
-          {viewMode === "trail" && (
-            <div className="absolute top-14 right-14 z-20 bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>🎯 Pure GPS Telemetry</span>
-            </div>
-          )}
-
-          {/* Selected Employee Floating Cockpit HUD */}
+          {/* Selected Employee Floating Cockpit HUD (Compact & Non-Intrusive) */}
           {selectedEmployee && (
-            <div className="absolute bottom-4 left-4 right-4 md:right-auto md:w-[420px] z-20 hud-glass-panel p-4 rounded-2xl shadow-xl flex flex-col gap-3 transition-all animate-in fade-in slide-in-from-bottom-3">
+            <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:right-auto sm:w-[350px] z-20 hud-glass-panel p-3 rounded-xl shadow-lg flex flex-col gap-2 transition-all animate-in fade-in slide-in-from-bottom-2">
               {/* Header: Avatar, Name, Designation, Close Button */}
-              <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
-                <div className="flex items-center space-x-3 min-w-0">
-                  <div className="relative w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-md">
+              <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="relative w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-sm">
                     {selectedEmployee.avatar ? (
                       <img src={selectedEmployee.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                     ) : (
                       <span>{(selectedEmployee.name || "E").slice(0, 2).toUpperCase()}</span>
                     )}
                     <span
-                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                      className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-background ${
                         selectedEmployee.trackingStatus === "active"
                           ? "bg-emerald-500 animate-pulse"
                           : selectedEmployee.trackingStatus === "idle"
@@ -1305,15 +1359,15 @@ const EmployeeLocationTracking = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-sm font-black text-foreground truncate">{selectedEmployee.name}</h4>
+                      <h4 className="text-xs font-black text-foreground truncate">{selectedEmployee.name}</h4>
                       {((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("hr") ||
                       ((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("manager") ? (
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                        <span className="text-[8.5px] font-black uppercase px-1 py-0.2 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
                           👔 HR/Mgr
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate font-medium">
+                    <p className="text-[10px] text-muted-foreground truncate font-medium">
                       {selectedEmployee.designation || "Staff"} • {selectedEmployee.department || "General"}
                     </p>
                   </div>
@@ -1321,7 +1375,7 @@ const EmployeeLocationTracking = () => {
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                    className={`px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider ${
                       selectedEmployee.trackingStatus === "active"
                         ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                         : selectedEmployee.trackingStatus === "idle"
@@ -1333,114 +1387,87 @@ const EmployeeLocationTracking = () => {
                       ? "Active"
                       : selectedEmployee.trackingStatus === "idle"
                       ? "Idle"
-                      : "Off-Duty (NA)"}
+                      : "Standby"}
                   </span>
 
                   <button
                     type="button"
                     onClick={() => setSelectedEmployee(null)}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-all cursor-pointer"
+                    className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-all cursor-pointer"
                     title="Close"
                   >
-                    <X size={15} />
+                    <X size={14} />
                   </button>
                 </div>
               </div>
 
-              {/* Location Bar: Live Location OR Office OR NA */}
-              <div className="bg-muted/40 px-2.5 py-1.5 rounded-xl border border-border/70 flex items-center justify-between text-xs">
+              {/* Location Bar */}
+              <div className="bg-muted/50 px-2 py-1 rounded-lg border border-border/70 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <MapPin size={13} className={selectedEmployee.latitude ? "text-emerald-500 flex-shrink-0" : "text-amber-500 flex-shrink-0"} />
-                  <span className="text-[11px] font-bold text-foreground truncate">
+                  <MapPin size={12} className={selectedEmployee.latitude ? "text-emerald-500 flex-shrink-0" : "text-amber-500 flex-shrink-0"} />
+                  <span className="text-[10.5px] font-bold text-foreground truncate">
                     {selectedEmployee.latitude && selectedEmployee.longitude
                       ? selectedEmployee.address || `${Number(selectedEmployee.latitude).toFixed(4)}, ${Number(selectedEmployee.longitude).toFixed(4)}`
                       : officeLocation
-                      ? `🏢 ${officeLocation.name} (Office Location)`
-                      : "Location: NA (Tracking Inactive)"}
+                      ? `🏢 ${officeLocation.name} (Office)`
+                      : "Location: Standby / No GPS"}
                   </span>
                 </div>
-                {!selectedEmployee.latitude && (
-                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/25 flex-shrink-0">
-                    NA
-                  </span>
-                )}
               </div>
 
-              {/* Telemetry Pods */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Telemetry Pods (Compact Row) */}
+              <div className="grid grid-cols-2 gap-1.5">
                 {/* Pod 1: Motion / Halt */}
-                <div className="bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs flex flex-col justify-between">
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                <div className="bg-muted/40 p-1.5 rounded-lg border border-border/70 text-xs flex flex-col justify-between">
+                  <p className="text-[9.5px] text-muted-foreground font-bold uppercase tracking-wider">
                     {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving"
-                      ? "Motion Speed"
-                      : selectedEmployee.trackingStatus === "active"
-                      ? "हॉल्ट वेळ (Stoppage)"
-                      : "ड्यूटी स्थिती (Status)"}
+                      ? "Speed"
+                      : "Status"}
                   </p>
-                  <p className="font-black text-sm text-foreground mt-1 flex items-center gap-1.5">
+                  <p className="font-black text-xs text-foreground mt-0.5 flex items-center gap-1">
                     {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving" ? (
                       <>
-                        <Car size={14} className="text-blue-500" />
+                        <Car size={12} className="text-blue-500" />
                         <span className="text-blue-600 dark:text-blue-400">{Math.round(selectedEmployee.speed)} km/h</span>
                       </>
                     ) : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude ? (
                       <>
-                        <Timer size={14} className="text-rose-500" />
-                        <span className="text-rose-600 dark:text-rose-400">{selectedEmployee.stoppageText || "0 mins"} थांबले</span>
+                        <Timer size={12} className="text-rose-500" />
+                        <span className="text-rose-600 dark:text-rose-400">{selectedEmployee.stoppageText || "0m"} stop</span>
                       </>
                     ) : (
                       <>
-                        <Timer size={14} className="text-slate-400" />
-                        <span className="text-muted-foreground text-xs font-bold">
-                          {selectedEmployee.trackingStatus === "stopped" ? "Punched Out" : "NA (Off-Duty)"}
+                        <Timer size={12} className="text-slate-400" />
+                        <span className="text-muted-foreground text-[10.5px] font-bold">
+                          {selectedEmployee.trackingStatus === "stopped" ? "Punched Out" : "Standby"}
                         </span>
                       </>
                     )}
                   </p>
-                  {selectedEmployee.trackingStatus === "active" && selectedEmployee.stoppedSince && selectedEmployee.motionStatus !== "moving" && selectedEmployee.latitude && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
-                      पोहोचले: <b>{new Date(selectedEmployee.stoppedSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b>
-                    </p>
-                  )}
                 </div>
 
                 {/* Pod 2: Distance */}
-                <div className="bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs flex flex-col justify-between">
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                    {viewMode === "trail"
-                      ? selectedDate === todayStr
-                        ? "आजचा प्रवास (Travel)"
-                        : selectedDate === yesterdayStr
-                        ? "कालचा प्रवास (Yesterday)"
-                        : `प्रवास (${selectedDate})`
-                      : "आजचा प्रवास (Travel)"}
+                <div className="bg-muted/40 p-1.5 rounded-lg border border-border/70 text-xs flex flex-col justify-between">
+                  <p className="text-[9.5px] text-muted-foreground font-bold uppercase tracking-wider">
+                    Route Distance
                   </p>
-                  <p className="font-black text-sm text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1.5">
-                    <Navigation size={14} />
+                  <p className="font-black text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 flex items-center gap-1">
+                    <Navigation size={12} />
                     <span>
                       {viewMode === "trail" && trailData
                         ? `${trailData.distanceKm || 0} km`
                         : selectedEmployee.todayDistanceText || "0 km"}
                     </span>
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                    {viewMode === "trail" && trailData
-                      ? trailData.isStationaryAllDay || trailData.distanceKm === 0
-                        ? "🏢 एकाच ठिकाणी उपस्थित (Stationary)"
-                        : "🎯 Pure GPS Verified"
-                      : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude
-                      ? "🎯 Pure GPS Verified"
-                      : "Standby (NA)"}
-                  </p>
                 </div>
               </div>
 
               {/* Bottom Row: Battery, Lat/Lng Copy, and Route Trail CTA */}
-              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/60 flex-wrap gap-2">
-                <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between text-[10.5px] pt-1 border-t border-border/60 flex-wrap gap-1.5">
+                <div className="flex items-center gap-1">
                   {selectedEmployee.batteryLevel !== null && selectedEmployee.batteryLevel !== undefined && (
-                    <span className="bg-muted px-2 py-0.5 rounded-md border border-border font-bold flex items-center gap-1">
-                      <Battery size={12} className={selectedEmployee.batteryLevel < 20 ? "text-rose-500" : "text-emerald-500"} />
+                    <span className="bg-muted px-1.5 py-0.5 rounded border border-border font-bold flex items-center gap-1">
+                      <Battery size={11} className={selectedEmployee.batteryLevel < 20 ? "text-rose-500" : "text-emerald-500"} />
                       <span>{selectedEmployee.batteryLevel}%</span>
                     </span>
                   )}
@@ -1454,37 +1481,28 @@ const EmployeeLocationTracking = () => {
                         handleCopyCoordinates(officeLocation.latitude, officeLocation.longitude);
                       }
                     }}
-                    className="bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-md border border-border font-bold flex items-center gap-1 transition-all cursor-pointer"
-                    title={selectedEmployee.latitude ? "Copy GPS Coordinates" : officeLocation ? "Copy Office Coordinates" : "No GPS Coordinates Available"}
+                    className="bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    title="Copy GPS Coordinates"
                   >
-                    {copiedCoord ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                    <span>
-                      {copiedCoord
-                        ? "Copied!"
-                        : selectedEmployee.latitude
-                        ? "GPS Pos"
-                        : officeLocation
-                        ? "Office GPS"
-                        : "NA"}
-                    </span>
+                    {copiedCoord ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                    <span>{copiedCoord ? "Copied" : "GPS"}</span>
                   </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setViewMode("trail")}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-black px-3 py-1.5 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-all hover:scale-[1.02]"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10.5px] font-black px-2.5 py-1 rounded-lg shadow-xs cursor-pointer flex items-center gap-1 transition-all"
                 >
-                  <Footprints size={13} />
-                  <span>Route Trail पहा →</span>
+                  <Footprints size={11} />
+                  <span>View Trail →</span>
                 </button>
               </div>
             </div>
           )}
 
-
           {/* Leaflet Map Canvas */}
-          <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '420px' }} />
+          <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '380px' }} />
         </div>
 
       {/* ── Compact Fleet Radar Roster (Relocated Below Map) ──────────────── */}
@@ -1498,7 +1516,7 @@ const EmployeeLocationTracking = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-extrabold text-foreground tracking-tight">
-                  कर्मचारी यादी (Fleet Directory)
+                  Fleet Directory
                 </h3>
                 <p className="text-[10.5px] text-muted-foreground font-medium">
                   {filteredEmployees.length} of {employees.length} Staff • Click card to focus pin on map
@@ -1524,11 +1542,11 @@ const EmployeeLocationTracking = () => {
               <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
                 {[
                   { id: "all", label: "All", count: employees.length },
-                  { id: "active", label: "Active", count: activeTrackingCount },
+                  { id: "active", label: selectedDate === todayStr ? "Active" : "Tracked", count: activeTrackedCount },
+                  { id: "inactive", label: "Not Tracked", count: inactiveCount },
                   { id: "moving", label: "Moving", count: movingCount },
                   { id: "halt", label: "Halts", count: haltingCount },
                   { id: "hr_mgr", label: "HR/Mgrs", count: hrManagerCount },
-                  { id: "low_bat", label: "Low Bat", count: lowBatteryCount },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1576,8 +1594,8 @@ const EmployeeLocationTracking = () => {
                     <span className="font-black text-foreground">{selectedEmployee.name}:</span>
                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 text-[11px]">
                       {trailData?.pureDistanceKm
-                        ? `${trailData.pureDistanceKm} km (Pure GPS)`
-                        : trailData?.distanceText || `${trailData?.distanceKm || 0} km`} प्रवास
+                        ? `${trailData.pureDistanceKm} km`
+                        : trailData?.distanceText || `${trailData?.distanceKm || 0} km`} Route
                     </span>
                   </div>
                 )}
@@ -1587,7 +1605,7 @@ const EmployeeLocationTracking = () => {
               {Array.isArray(trailData?.halts) && trailData.halts.length > 0 && (
                 <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-0.5 no-scrollbar">
                   <span className="text-[10px] font-black uppercase text-muted-foreground whitespace-nowrap">
-                    थांबे ({trailData.haltCount}):
+                    Halts ({trailData.haltCount}):
                   </span>
                   {trailData.halts.map((h, idx) => (
                     <button
@@ -1627,7 +1645,7 @@ const EmployeeLocationTracking = () => {
             ) : (
               filteredEmployees.map((emp) => {
                 const isSelected = selectedEmployee?._id === emp._id;
-                const isTrackingActive = emp.trackingStatus === "active";
+                const isTrackingActive = Boolean(emp.isTrackingActive || emp.trackingStatus === "active");
                 const isIdle = emp.trackingStatus === "idle";
                 const isFieldStaff = Boolean(emp.isLocationTrackingEnabled);
                 const isMoving = emp.motionStatus === "moving";
@@ -1688,7 +1706,18 @@ const EmployeeLocationTracking = () => {
 
                       {/* Status Tag */}
                       <div className="flex-shrink-0">
-                        {isTrackingActive ? (
+                        {selectedDate !== todayStr ? (
+                          emp.isTrackingActive ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
+                              Tracked
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border">
+                              Not Tracked
+                            </span>
+                          )
+                        ) : isTrackingActive ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
                             Active
@@ -1708,7 +1737,17 @@ const EmployeeLocationTracking = () => {
                     {/* Bottom Row: Motion / Distance / Battery / Ping */}
                     <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[10px]">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {isTrackingActive && isMoving ? (
+                        {selectedDate !== todayStr ? (
+                          emp.isTrackingActive ? (
+                            <div className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 text-[9.5px]">
+                              <span>📍 {emp.totalPoints || 0} GPS Pings</span>
+                            </div>
+                          ) : (
+                            <span className="text-[9.5px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
+                              No Route Recorded
+                            </span>
+                          )
+                        ) : isTrackingActive && isMoving ? (
                           <div className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-[9.5px]">
                             <Car size={10} />
                             <span>{Math.round(emp.speed)} km/h</span>
@@ -1716,7 +1755,7 @@ const EmployeeLocationTracking = () => {
                         ) : isTrackingActive && emp.latitude ? (
                           <div className="flex items-center gap-0.5 text-amber-700 dark:text-amber-400 font-extrabold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[9.5px]">
                             <Timer size={10} />
-                            <span>थांबून: {emp.stoppageText || "0m"}</span>
+                            <span>Halt: {emp.stoppageText || "0m"}</span>
                           </div>
                         ) : (
                           <span className="text-[9.5px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
