@@ -112,9 +112,12 @@ const getRequests = async (req, res) => {
       const accList = (employee?.accessibleDepartments || []).map((id) => (id?._id || id).toString());
       const allMyDeptIds = Array.from(new Set([userDeptId?.toString(), ...deptList, ...accList].filter(Boolean)));
 
+      const targetEmpMatch = [userId];
+      if (employee?._id) targetEmpMatch.push(employee._id);
+
       query.$or = [
         { targetType: "ALL_EMPLOYEES" },
-        { targetEmployeeIds: userId },
+        { targetEmployeeIds: { $in: targetEmpMatch } },
         ...(allMyDeptIds.length > 0 ? [{ targetDepartmentId: { $in: allMyDeptIds } }] : []),
       ];
     } else if (tab === "resolved") {
@@ -130,10 +133,13 @@ const getRequests = async (req, res) => {
       const accList = (employee?.accessibleDepartments || []).map((id) => (id?._id || id).toString());
       const allMyDeptIds = Array.from(new Set([userDeptId?.toString(), ...deptList, ...accList].filter(Boolean)));
 
+      const targetEmpMatch = [userId];
+      if (employee?._id) targetEmpMatch.push(employee._id);
+
       const visibilityClause = [
         { requesterId: userId },
         { targetType: "ALL_EMPLOYEES" },
-        { targetEmployeeIds: userId },
+        { targetEmployeeIds: { $in: targetEmpMatch } },
       ];
       if (allMyDeptIds.length > 0) {
         visibilityClause.push({ targetDepartmentId: { $in: allMyDeptIds } });
@@ -276,6 +282,9 @@ const createRequest = async (req, res) => {
     let cleanTargetUserIds = [];
     if (targetType === "SPECIFIC_EMPLOYEES" && Array.isArray(targetEmployeeIds) && targetEmployeeIds.length > 0) {
       cleanTargetUserIds = await resolveToUserIds(targetEmployeeIds, companyId);
+      if (cleanTargetUserIds.length === 0) {
+        cleanTargetUserIds = await resolveToUserIds(targetEmployeeIds);
+      }
     }
 
     const requestCode = await generateRequestCode(companyId);
@@ -315,23 +324,61 @@ const createRequest = async (req, res) => {
         notifTitle = `📁 Dept Request (${targetDepartmentName || "Department"}): ${newRequest.title}`;
         notifBody = `${req.user?.name || "A team member"} requested data/feedback (${newRequest.requestCode}) for the ${targetDepartmentName || "department"}.`;
 
+        const mongoose = require("mongoose");
+        const deptObjIds = [];
+        if (mongoose.Types.ObjectId.isValid(targetDepartmentId)) {
+          deptObjIds.push(new mongoose.Types.ObjectId(targetDepartmentId));
+        }
+        deptObjIds.push(targetDepartmentId.toString());
+
+        const deptQueryOr = [
+          { departmentId: { $in: deptObjIds } },
+          { departmentIds: { $in: deptObjIds } },
+          { accessibleDepartments: { $in: deptObjIds } },
+        ];
+        if (targetDepartmentName && targetDepartmentName.trim()) {
+          deptQueryOr.push({ departmentName: new RegExp(`^${targetDepartmentName.trim()}$`, "i") });
+        }
+
         const deptEmployees = await Employee.find({
           companyId,
-          $or: [
-            { departmentId: targetDepartmentId },
-            { departmentIds: targetDepartmentId },
-            { accessibleDepartments: targetDepartmentId },
-          ],
-          status: { $regex: /^active$/i },
-        }).select("userId").lean();
+          $or: deptQueryOr,
+          status: { $nin: ["inactive", "terminated"] },
+        }).select("_id userId").lean();
 
-        recipientUserIds = deptEmployees
-          .map((e) => (e.userId ? (e.userId._id || e.userId).toString() : null))
-          .filter((uid) => uid && uid !== userId.toString());
-      } else if (targetType === "SPECIFIC_EMPLOYEES" && cleanTargetUserIds.length > 0) {
+        const rawUserIds = [];
+        const empIds = [];
+        deptEmployees.forEach((e) => {
+          if (e.userId) {
+            rawUserIds.push((e.userId._id || e.userId).toString());
+          }
+          if (e._id) {
+            empIds.push(e._id);
+          }
+        });
+
+        // Also resolve users whose employeeId points to these employees
+        if (empIds.length > 0) {
+          const usersByEmp = await User.find({
+            companyId,
+            employeeId: { $in: empIds },
+            isActive: { $ne: false },
+          }).select("_id").lean();
+          usersByEmp.forEach((u) => rawUserIds.push(u._id.toString()));
+        }
+
+        recipientUserIds = Array.from(new Set(rawUserIds)).filter(
+          (uid) => uid && uid !== userId.toString()
+        );
+      } else if (targetType === "SPECIFIC_EMPLOYEES") {
         notifTitle = `👤 Direct Request: ${newRequest.title}`;
         notifBody = `${req.user?.name || "A team member"} assigned a company request (${newRequest.requestCode}) directly to you.`;
-        recipientUserIds = cleanTargetUserIds.filter((uid) => uid !== userId.toString());
+
+        let targetUids = cleanTargetUserIds;
+        if (!targetUids || targetUids.length === 0) {
+          targetUids = await resolveToUserIds(targetEmployeeIds, companyId);
+        }
+        recipientUserIds = (targetUids || []).filter((uid) => uid && uid.toString() !== userId.toString());
       }
 
       recipientUserIds = Array.from(new Set(recipientUserIds.filter(Boolean)));
@@ -480,6 +527,27 @@ const updateRequestStatus = async (req, res) => {
       .populate("targetDepartmentId", "name")
       .populate("targetEmployeeIds", "name email role profileImage")
       .populate("resolvedBy", "name role");
+
+    // ── Dispatch Status Change Notification to Requester ──
+    try {
+      if (updated && updated.requesterId && (updated.requesterId._id || updated.requesterId).toString() !== req.user?._id?.toString()) {
+        await Notification.createDeduplicated({
+          companyId: updated.companyId,
+          userId: updated.requesterId._id || updated.requesterId,
+          title: `🔄 Request Status Updated (${status}): ${updated.title}`,
+          body: `${req.user?.name || "A team member"} updated the status of request (${updated.requestCode}) to "${status}".`,
+          type: "company_request",
+          data: {
+            requestId: updated._id.toString(),
+            requestCode: updated.requestCode,
+            status,
+          },
+          idempotencyKey: `req_status_${updated._id}_${status}_${Date.now()}`,
+        });
+      }
+    } catch (notifErr) {
+      console.error("[InternalRequest] Status update notification error:", notifErr);
+    }
 
     return res.json({
       success: true,

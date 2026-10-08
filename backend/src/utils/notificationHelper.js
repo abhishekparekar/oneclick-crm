@@ -27,12 +27,28 @@ const resolveToUserIds = async (ids, companyId = null) => {
   };
   if (companyId) employeeQuery.companyId = companyId;
 
-  const employees = await Employee.find(employeeQuery).select("userId").lean();
+  const employees = await Employee.find(employeeQuery).select("_id userId").lean();
+  const foundEmpIds = [];
   employees.forEach(emp => {
     if (emp && emp.userId) {
       targetUserIds.add((emp.userId._id || emp.userId).toString());
     }
+    if (emp && emp._id) {
+      foundEmpIds.push(emp._id.toString());
+    }
   });
+
+  // 3. Check User records where employeeId points to these Employee IDs
+  const allEmpIdsToCheck = Array.from(new Set([...cleanIds, ...foundEmpIds]));
+  const userByEmpQuery = { employeeId: { $in: allEmpIdsToCheck } };
+  if (companyId) userByEmpQuery.companyId = companyId;
+  const usersByEmployeeId = await User.find(userByEmpQuery).select("_id").lean();
+  usersByEmployeeId.forEach(u => targetUserIds.add(u._id.toString()));
+
+  // Fallback: If companyId filter yielded 0 users, retry without companyId constraint
+  if (targetUserIds.size === 0 && companyId) {
+    return resolveToUserIds(ids, null);
+  }
 
   return [...targetUserIds];
 };

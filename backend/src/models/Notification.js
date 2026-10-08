@@ -39,6 +39,7 @@ const notificationSchema = new mongoose.Schema(
                 "project",
                 "system",
                 "request",
+                "company_request",
                 "lead",
                 "lead_assigned",
                 "lead_status",
@@ -105,7 +106,7 @@ notificationSchema.statics.createDeduplicated = async function ({
 
     // 2. Debounce window check for identical recipient + type + title + target entity
     const targetEntityId = String(
-        data?.taskId || data?.leadId || data?.attendanceId || data?.templateId || data?.id || ""
+        data?.requestId || data?.taskId || data?.leadId || data?.attendanceId || data?.templateId || data?.id || ""
     );
     const cutoffTime = new Date(Date.now() - dedupWindowSeconds * 1000);
 
@@ -118,6 +119,7 @@ notificationSchema.statics.createDeduplicated = async function ({
 
     if (targetEntityId) {
         dupQuery.$or = [
+            { "data.requestId": targetEntityId },
             { "data.taskId": targetEntityId },
             { "data.leadId": targetEntityId },
             { "data.attendanceId": targetEntityId },

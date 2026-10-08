@@ -213,7 +213,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
 
   const toggleSelectAllEmployees = () => {
     setForm((prev) => {
-      const allIds = filteredEmployees.map((e) => e.userId?._id || e._id);
+      const allIds = filteredEmployees.map((e) => e.userId?._id || e.userId || e._id);
       const isAllSelected = allIds.length > 0 && allIds.every((id) => prev.targetEmployeeIds.includes(id));
       return {
         ...prev,
@@ -392,6 +392,12 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) {
       return toast.error("Title and description are required");
+    }
+    if (form.targetType === "DEPARTMENT" && !form.targetDepartmentId) {
+      return toast.error("Please select a target department");
+    }
+    if (form.targetType === "SPECIFIC_EMPLOYEES" && (!form.targetEmployeeIds || form.targetEmployeeIds.length === 0)) {
+      return toast.error("Please select at least one staff member");
     }
     createMutation.mutate(form);
   };
@@ -982,7 +988,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                         >
                           <UserCheck size={12} />
                           <span>
-                            {filteredEmployees.every(e => form.targetEmployeeIds.includes(e.userId?._id || e._id))
+                            {filteredEmployees.length > 0 && filteredEmployees.every(e => form.targetEmployeeIds.includes(e.userId?._id || e.userId || e._id))
                               ? "Deselect All"
                               : "Select All"}
                           </span>
@@ -1002,7 +1008,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                     {form.targetEmployeeIds.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto p-1.5 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl">
                         {form.targetEmployeeIds.map((id) => {
-                          const emp = allEmployeesList.find(e => (e.userId?._id || e._id) === id);
+                          const emp = allEmployeesList.find(e => (e.userId?._id || e.userId || e._id) === id || e._id === id || e.userId === id);
                           const name = emp ? (emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}` || emp.name || emp.userId?.name || "Staff") : "Staff";
                           return (
                             <span
@@ -1027,7 +1033,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                     <div className="max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 shadow-2xs">
                       {filteredEmployees.length > 0 ? (
                         filteredEmployees.map((emp) => {
-                          const empId = emp.userId?._id || emp._id;
+                          const empId = emp.userId?._id || emp.userId || emp._id;
                           const isSelected = form.targetEmployeeIds.includes(empId);
                           const name = emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}` || emp.name || emp.userId?.name || "Employee";
                           const initial = (name.charAt(0) || "E").toUpperCase();
