@@ -547,6 +547,7 @@ export default function ManagerMyTasks() {
     const due = t.dueDate || t.endDateTime ? new Date(t.dueDate || t.endDateTime) : null;
     return !done && due && due < new Date();
   }).length;
+  const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const recurringTasksList = useMemo(() => {
     return allTasks.filter(t => {
       if (!t.isTemplate && !t.isRecurring && !t.isGeneratedFromTemplate && !t.parentTemplateId) return false;
