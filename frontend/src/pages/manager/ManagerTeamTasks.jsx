@@ -311,6 +311,73 @@ export default function ManagerTeamTasks() {
     });
   }, [_raw, managerEmpId, managerUserId]);
 
+  const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
+  const employees = rawMembers
+    .filter((m) => {
+      const mId = (m?._id || m?.id || "").toString();
+      return mId !== managerEmpId?.toString() && mId !== managerUserId?.toString();
+    })
+    .map((m) => ({
+      ...m,
+      _id: m._id,
+      name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
+      firstName: m.firstName || m.name,
+      lastName: m.lastName || "",
+      departmentId: m.departmentId?._id || m.departmentId,
+    }))
+    .sort((a, b) => {
+      const nameA = (a.name || a.fullName || `${a.firstName || ""} ${a.lastName || ""}`).trim();
+      const nameB = (b.name || b.fullName || `${b.firstName || ""} ${b.lastName || ""}`).trim();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+
+  const allowedDepts = useMemo(() => [
+    managerProfile.departmentId,
+    ...(managerProfile.departmentIds || []),
+    ...(managerProfile.accessibleDepartments || []),
+  ].filter(Boolean), [managerProfile.departmentId, managerProfile.departmentIds, managerProfile.accessibleDepartments]);
+
+  const taskDepts = useMemo(() => {
+    const map = new Map();
+    // 1. Process manager's departments
+    allowedDepts.forEach(d => {
+      if (!d) return;
+      const id = typeof d === "object" ? String(d._id || d.id || "") : String(d);
+      const name = (typeof d === "object" && d.name ? d.name : "").trim();
+      const displayName = name || "Manager Department";
+      const normKey = displayName.toLowerCase();
+      if (!map.has(normKey)) {
+        map.set(normKey, { _id: id || normKey, name: displayName });
+      }
+    });
+
+    // 2. Also incorporate any departments from allTasks if not yet present
+    allTasks.forEach(t => {
+      const d = t.departmentId || t.department;
+      let id = "";
+      let name = "";
+      if (d && typeof d === "object") {
+        id = String(d._id || d.id || "");
+        name = (d.name || "").trim();
+      } else if (typeof d === "string") {
+        name = d.trim();
+      }
+      if (!name && t.departmentName) {
+        name = t.departmentName.trim();
+      }
+      if (name) {
+        const normKey = name.toLowerCase();
+        if (!map.has(normKey)) {
+          map.set(normKey, { _id: id || normKey, name });
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allowedDepts, allTasks]);
+
+  const departments = taskDepts;
+
   const isTaskInDateRange = (task, startStr, endStr) => {
     if (!startStr || !endStr) return true;
     const startD = new Date(startStr);
@@ -443,7 +510,7 @@ export default function ManagerTeamTasks() {
     }
 
     return true;
-  }), [allTasks, activeTab, filters]);
+  }), [allTasks, activeTab, filters, taskDepts]);
 
   const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
     const activeStatus = statusFilter || filters.status;
@@ -590,73 +657,6 @@ export default function ManagerTeamTasks() {
     link.download = `team_tasks_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
-
-  const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
-  const employees = rawMembers
-    .filter((m) => {
-      const mId = (m?._id || m?.id || "").toString();
-      return mId !== managerEmpId?.toString() && mId !== managerUserId?.toString();
-    })
-    .map((m) => ({
-      ...m,
-      _id: m._id,
-      name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
-      firstName: m.firstName || m.name,
-      lastName: m.lastName || "",
-      departmentId: m.departmentId?._id || m.departmentId,
-    }))
-    .sort((a, b) => {
-      const nameA = (a.name || a.fullName || `${a.firstName || ""} ${a.lastName || ""}`).trim();
-      const nameB = (b.name || b.fullName || `${b.firstName || ""} ${b.lastName || ""}`).trim();
-      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
-    });
-
-  const allowedDepts = useMemo(() => [
-    managerProfile.departmentId,
-    ...(managerProfile.departmentIds || []),
-    ...(managerProfile.accessibleDepartments || []),
-  ].filter(Boolean), [managerProfile.departmentId, managerProfile.departmentIds, managerProfile.accessibleDepartments]);
-
-  const taskDepts = useMemo(() => {
-    const map = new Map();
-    // 1. Process manager's departments
-    allowedDepts.forEach(d => {
-      if (!d) return;
-      const id = typeof d === "object" ? String(d._id || d.id || "") : String(d);
-      const name = (typeof d === "object" && d.name ? d.name : "").trim();
-      const displayName = name || "Manager Department";
-      const normKey = displayName.toLowerCase();
-      if (!map.has(normKey)) {
-        map.set(normKey, { _id: id || normKey, name: displayName });
-      }
-    });
-
-    // 2. Also incorporate any departments from allTasks if not yet present
-    allTasks.forEach(t => {
-      const d = t.departmentId || t.department;
-      let id = "";
-      let name = "";
-      if (d && typeof d === "object") {
-        id = String(d._id || d.id || "");
-        name = (d.name || "").trim();
-      } else if (typeof d === "string") {
-        name = d.trim();
-      }
-      if (!name && t.departmentName) {
-        name = t.departmentName.trim();
-      }
-      if (name) {
-        const normKey = name.toLowerCase();
-        if (!map.has(normKey)) {
-          map.set(normKey, { _id: id || normKey, name });
-        }
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allowedDepts, allTasks]);
-
-  const departments = taskDepts;
 
   const kanbanColumns = [
     { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) },

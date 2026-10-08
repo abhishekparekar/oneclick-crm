@@ -306,6 +306,64 @@ export default function ManagerMyTasks() {
   const _raw = tasksRes?.tasks || tasksRes?.data || [];
   const allTasks = Array.isArray(_raw) ? _raw : [];
 
+  const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
+  const employees = rawMembers.map(m => ({
+    ...m,
+    _id: m._id,
+    name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
+    firstName: m.firstName || m.name,
+    lastName: m.lastName || "",
+    departmentId: m.departmentId?._id || m.departmentId,
+  }));
+
+  const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
+  const allowedDepts = useMemo(() => [
+    managerProfile.departmentId,
+    ...(managerProfile.departmentIds || []),
+    ...(managerProfile.accessibleDepartments || []),
+  ].filter(Boolean), [managerProfile.departmentId, managerProfile.departmentIds, managerProfile.accessibleDepartments]);
+
+  const departments = useMemo(() => {
+    const map = new Map();
+    // 1. Process manager's departments
+    allowedDepts.forEach(d => {
+      if (!d) return;
+      const id = typeof d === "object" ? String(d._id || d.id || "") : String(d);
+      const name = (typeof d === "object" && d.name ? d.name : "").trim();
+      const displayName = name || "Manager Department";
+      const normKey = displayName.toLowerCase();
+      if (!map.has(normKey)) {
+        map.set(normKey, { _id: id || normKey, name: displayName });
+      }
+    });
+
+    // 2. Also incorporate any departments from allTasks if not yet present
+    allTasks.forEach(t => {
+      const d = t.departmentId || t.department;
+      let id = "";
+      let name = "";
+      if (d && typeof d === "object") {
+        id = String(d._id || d.id || "");
+        name = (d.name || "").trim();
+      } else if (typeof d === "string") {
+        name = d.trim();
+      }
+      if (!name && t.departmentName) {
+        name = t.departmentName.trim();
+      }
+      if (name) {
+        const normKey = name.toLowerCase();
+        if (!map.has(normKey)) {
+          map.set(normKey, { _id: id || normKey, name });
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allowedDepts, allTasks]);
+
+  const taskDepts = departments;
+
   const isTaskInDateRange = (task, startStr, endStr) => {
     if (!startStr || !endStr) return true;
     // Parse as LOCAL midnight (avoid UTC timezone offset shifting the date)
@@ -423,7 +481,7 @@ export default function ManagerMyTasks() {
     }
 
     return true;
-  }), [allTasks, activeTab, filters]);
+  }), [allTasks, activeTab, filters, departments]);
 
   const activeStatus = statusFilter || filters.status || "";
   const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
@@ -495,14 +553,14 @@ export default function ManagerMyTasks() {
       if (filters.departmentId) {
         const dId = (t.departmentId?._id || t.departmentId || t.department?._id || t.department || "").toString();
         const dName = t.departmentId?.name || t.department?.name || t.departmentName || getTaskDeptName(t);
-        const selectedDept = taskDepts.find(d => String(d._id) === String(filters.departmentId));
+        const selectedDept = departments.find(d => String(d._id) === String(filters.departmentId));
         const matchId = dId === String(filters.departmentId);
         const matchName = Boolean(selectedDept?.name && dName && selectedDept.name.trim().toLowerCase() === dName.trim().toLowerCase());
         if (!matchId && !matchName) return false;
       }
       return true;
     });
-  }, [allTasks, filters.departmentId, taskDepts]);
+  }, [allTasks, filters.departmentId, departments]);
   const recurringCount = recurringTasksList.length;
 
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
@@ -553,62 +611,6 @@ export default function ManagerMyTasks() {
     link.download = `my_tasks_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
-
-  const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
-  const employees = rawMembers.map(m => ({
-    ...m,
-    _id: m._id,
-    name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
-    firstName: m.firstName || m.name,
-    lastName: m.lastName || "",
-    departmentId: m.departmentId?._id || m.departmentId,
-  }));
-
-  const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
-  const allowedDepts = useMemo(() => [
-    managerProfile.departmentId,
-    ...(managerProfile.departmentIds || []),
-    ...(managerProfile.accessibleDepartments || []),
-  ].filter(Boolean), [managerProfile.departmentId, managerProfile.departmentIds, managerProfile.accessibleDepartments]);
-
-  const departments = useMemo(() => {
-    const map = new Map();
-    // 1. Process manager's departments
-    allowedDepts.forEach(d => {
-      if (!d) return;
-      const id = typeof d === "object" ? String(d._id || d.id || "") : String(d);
-      const name = (typeof d === "object" && d.name ? d.name : "").trim();
-      const displayName = name || "Manager Department";
-      const normKey = displayName.toLowerCase();
-      if (!map.has(normKey)) {
-        map.set(normKey, { _id: id || normKey, name: displayName });
-      }
-    });
-
-    // 2. Also incorporate any departments from allTasks if not yet present
-    allTasks.forEach(t => {
-      const d = t.departmentId || t.department;
-      let id = "";
-      let name = "";
-      if (d && typeof d === "object") {
-        id = String(d._id || d.id || "");
-        name = (d.name || "").trim();
-      } else if (typeof d === "string") {
-        name = d.trim();
-      }
-      if (!name && t.departmentName) {
-        name = t.departmentName.trim();
-      }
-      if (name) {
-        const normKey = name.toLowerCase();
-        if (!map.has(normKey)) {
-          map.set(normKey, { _id: id || normKey, name });
-        }
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allowedDepts, allTasks]);
 
   const kanbanColumns = [
     { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) },
