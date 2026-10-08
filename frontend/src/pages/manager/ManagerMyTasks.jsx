@@ -26,6 +26,11 @@ const formatDateDDMMYYYY = (val) => {
 };
 
 const getTaskFormattedDueDate = (t) => {
+  if (t.isTemplate) {
+    const raw = t.finishDate || t.endDate;
+    const until = raw ? `Until ${formatDateDDMMYYYY(raw)}` : "Ongoing";
+    return { text: t.repeatType ? `${t.repeatType.toUpperCase()} • ${until}` : until, isOverdue: false };
+  }
   const raw = t.endDateTime || t.endDate || t.dueDate || t.finishDate || t.startDate;
   if (!raw) return { text: "No Due Date", isOverdue: false };
   const d = new Date(raw);
@@ -73,7 +78,19 @@ const PriorityBadge = ({ priority }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, isTemplate, isActive = true }) => {
+  if (isTemplate) {
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+        isActive
+          ? "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800"
+          : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+      }`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-violet-500" : "bg-slate-400"}`} />
+        {isActive ? "Active (Routine)" : "Stopped"}
+      </span>
+    );
+  }
   const s = (status || "pending").toLowerCase();
   const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.pending;
   return (
@@ -268,7 +285,20 @@ export default function ManagerMyTasks() {
 
   const { data: tasksRes, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["managerMyTasks"],
-    queryFn: () => getManagerMyTasksApi({ limit: 200 }).then((r) => r.data),
+    queryFn: async () => {
+      const [regRes, tplRes] = await Promise.all([
+        getManagerMyTasksApi({ limit: 1000 }).catch(() => ({ data: { data: [] } })),
+        getManagerMyTasksApi({ isTemplate: true, limit: 1000 }).catch(() => ({ data: { data: [] } }))
+      ]);
+      const reg = regRes.data?.data || regRes.data?.tasks || [];
+      const tpls = (tplRes.data?.data || tplRes.data?.tasks || []).map((t) => ({
+        ...t,
+        isTemplate: true,
+        repeatEnabled: true,
+        status: t.status || (t.isActive ? "active" : "stopped"),
+      }));
+      return { data: [...reg, ...tpls] };
+    },
     refetchInterval: 5000,
     retry: 1,
   });
@@ -337,8 +367,9 @@ export default function ManagerMyTasks() {
   const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
     if (activeTab === "Recurring") {
       if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
-    } else if (activeTab === "Re Open") {
-      if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
+    } else {
+      if (task.isTemplate) return false;
+      if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
     if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
@@ -458,7 +489,21 @@ export default function ManagerMyTasks() {
     const due = t.dueDate || t.endDateTime ? new Date(t.dueDate || t.endDateTime) : null;
     return !done && due && due < new Date();
   }).length;
-  const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
+  const recurringTasksList = useMemo(() => {
+    return allTasks.filter(t => {
+      if (!t.isTemplate && !t.isRecurring && !t.isGeneratedFromTemplate && !t.parentTemplateId) return false;
+      if (filters.departmentId) {
+        const dId = (t.departmentId?._id || t.departmentId || t.department?._id || t.department || "").toString();
+        const dName = t.departmentId?.name || t.department?.name || t.departmentName || getTaskDeptName(t);
+        const selectedDept = taskDepts.find(d => String(d._id) === String(filters.departmentId));
+        const matchId = dId === String(filters.departmentId);
+        const matchName = Boolean(selectedDept?.name && dName && selectedDept.name.trim().toLowerCase() === dName.trim().toLowerCase());
+        if (!matchId && !matchName) return false;
+      }
+      return true;
+    });
+  }, [allTasks, filters.departmentId, taskDepts]);
+  const recurringCount = recurringTasksList.length;
 
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
   const categoryCounts = dateCategories.map(cat => {
@@ -993,8 +1038,8 @@ export default function ManagerMyTasks() {
         </div>
       )}
 
-      {/* ── 2. MICRO-KPI CARDS (6 Cards: Total, Pending, In Process, Completed, Overdue, Re-Open) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      {/* ── 2. MICRO-KPI CARDS (7 Cards: Total, Pending, In Process, Completed, Overdue, Re-Open, Recurring) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         <KPICard
           label="Total Tasks"
           value={totalCount}
@@ -1072,6 +1117,74 @@ export default function ManagerMyTasks() {
           }}
           isActive={statusFilter === "re_open" || filters.status === "re_pending,re_in_process,re_complete,re_late_complete"}
         />
+        <KPICard
+          label="Recurring Tasks"
+          value={recurringCount}
+          Icon={Repeat}
+          theme="violet"
+          onClick={() => {
+            if (activeTab === "Recurring") {
+              setActiveTab("All Time");
+              setTempTab("All Time");
+              setFilters(prev => ({ ...prev, startDate: "", endDate: "" }));
+            } else {
+              setActiveTab("Recurring");
+              setTempTab("Recurring");
+              setStatusFilter("");
+              setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+            }
+          }}
+          isActive={activeTab === "Recurring"}
+        />
+      </div>
+
+      {/* ── Quick Filter Tabs Bar ── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {[
+            { id: "Today", label: "Today", count: categoryCounts.find(c => c.name === "Today")?.count || 0 },
+            { id: "This Week", label: "This Week", count: categoryCounts.find(c => c.name === "This Week")?.count || 0 },
+            { id: "This Month", label: "This Month", count: categoryCounts.find(c => c.name === "This Month")?.count || 0 },
+            { id: "All Time", label: "All Tasks", count: allTasks.filter(t => !t.isTemplate).length },
+            { id: "Recurring", label: "Recurring Tasks", count: recurringCount, icon: Repeat, isSpecial: true },
+          ].map(tab => {
+            const isTabActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.id === "Recurring") {
+                    setActiveTab("Recurring");
+                    setTempTab("Recurring");
+                    setStatusFilter("");
+                    setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+                  } else {
+                    handleTabChange(tab.id);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isTabActive
+                    ? tab.isSpecial
+                      ? "bg-violet-600 text-white shadow-xs ring-2 ring-violet-500/30"
+                      : "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30"
+                    : tab.isSpecial
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100"
+                    : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {TabIcon && <TabIcon size={12} className={isTabActive ? "text-white" : "text-violet-600 dark:text-violet-400"} />}
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${
+                  isTabActive ? "bg-white/20 text-white" : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
 
@@ -1318,7 +1431,7 @@ export default function ManagerMyTasks() {
 
                       {/* Status */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={t.status} />
+                        <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} />
                       </td>
 
                       {/* Action */}
@@ -1348,7 +1461,7 @@ export default function ManagerMyTasks() {
             const rawDue = t.endDateTime || t.endDate || t.dueDate;
             const deadline = rawDue ? new Date(rawDue) : null;
             const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(status);
-            const isOverdue = deadline && !isNaN(deadline.getTime()) && !isDone && Date.now() >= deadline.getTime();
+            const isOverdue = !t.isTemplate && deadline && !isNaN(deadline.getTime()) && !isDone && Date.now() >= deadline.getTime();
 
             return (
               <div
@@ -1373,11 +1486,11 @@ export default function ManagerMyTasks() {
                     <div className="flex items-center gap-1 text-slate-500">
                       <CalendarClock size={11} className={isOverdue ? "text-rose-500" : "text-slate-400"} />
                       <span className={`font-mono ${isOverdue ? "text-rose-600 font-bold" : ""}`}>
-                        {deadline ? formatDateDDMMYYYY(deadline) : "No Date"}
+                        {t.isTemplate ? (t.repeatType ? t.repeatType.toUpperCase() : "Recurring") : (deadline ? formatDateDDMMYYYY(deadline) : "No Date")}
                       </span>
                     </div>
 
-                    <StatusBadge status={t.status} />
+                    <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} />
                   </div>
                 </div>
               </div>

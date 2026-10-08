@@ -67,54 +67,50 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
 
     // A. Long Stoppage Check (> 2 minutes gap):
     // When stopped at a location for a long time (e.g. 1.5 hours at a shop/office),
-    // do NOT divide distance by 5,400s to compute speed, as that permanently suppresses speed to 0.05 km/h!
+    // require true displacement (>= 25 meters) before treating as movement resumption
     if (timeDiffSeconds > 120) {
-      if (distMeters > 6.0) {
-        // User has started moving after stoppage (e.g. bike started)
+      if (distMeters >= 25.0) {
+        // User has started moving after stoppage (e.g. bike/walk started)
         isResumingFromStoppage = true;
-        calculatedSpeedKmh = 20.0; // Seed reasonable vehicle speed so initial bike points aren't dropped
+        calculatedSpeedKmh = Math.min(60.0, (distMeters / timeDiffSeconds) * 3.6);
       } else {
         // User is still stationary at the same place.
-        // Accept ONE stoppage anchor point every 5 minutes (300s) to keep server & lastAcceptedPoint alive!
+        // Accept ONE stoppage anchor point every 5 minutes (300s) to keep server & lastAcceptedPoint alive
         if (timeDiffSeconds >= 300) {
-          if (!isNaN(accuracy) && accuracy <= 95) {
-            console.log(`[LocationFilter] Accepted 5-min stoppage anchor point (${Math.round(timeDiffSeconds / 60)}m stationary)`);
+          if (!isNaN(accuracy) && accuracy <= 35) {
             return true;
           }
         }
-        // Discard sub-5-minute stationary jitter (< 2.5m)
+        // Discard stationary jitter (< 25m) while halted
         return false;
       }
     } else {
       // Normal continuous movement (< 2 minutes between points)
       calculatedSpeedKmh = (distMeters / timeDiffSeconds) * 3.6;
 
-      // Discard stationary indoor GPS drift & multipath jitter (< 25 meters when stationary or low speed)
+      // Discard stationary indoor GPS drift & multipath jitter (< 20 meters when stationary or low speed)
       const reportedSpeedKmh = (Number(point.speed) || 0) * 3.6;
       const effectiveSpeedKmh = Math.max(reportedSpeedKmh, calculatedSpeedKmh);
-      if (distMeters < 25 && effectiveSpeedKmh < 3.8) {
+      if (distMeters < 20 && effectiveSpeedKmh < 3.8) {
         return false;
       }
 
-      // Teleportation & impossible jump filter (e.g. > 135 km/h within continuous window)
-      if (distMeters > 30 && calculatedSpeedKmh > 135) {
-        console.log(`[LocationFilter] Rejected impossible jump: ${distMeters.toFixed(1)}m in ${timeDiffSeconds.toFixed(1)}s (${calculatedSpeedKmh.toFixed(0)} km/h)`);
+      // Teleportation & impossible jump filter (e.g. > 85 km/h in city/suburban)
+      if (distMeters > 35 && calculatedSpeedKmh > 85) {
         return false;
       }
     }
   }
 
   // 3. Dynamic speed evaluation for Bike/Car vs Walking
-  // Android frequently reports point.speed = 0 when the phone is inside a rider's pocket/bag.
-  // We use effectiveSpeedKmh so real bike movement is always recognized accurately.
   const hardwareSpeedKmh = (Number(point.speed) || 0) * 3.6;
   const effectiveSpeedKmh = Math.max(hardwareSpeedKmh, calculatedSpeedKmh);
 
-  // High-accuracy GPS filter: GPS provides accuracy <= 70 meters.
-  // Cell Tower and Wi-Fi network triangulation produce 150m - 1500m.
-  const PURE_GPS_MAX_ACCURACY = 70.0;
+  // Strict Hardware Satellite GPS Filter: Phone GPS satellite chip gives <= 25 meters accuracy.
+  // Cell Tower triangulation produces 50m - 1500m which causes wild jumps across town.
+  // Drop all cell tower points completely!
+  const PURE_GPS_MAX_ACCURACY = 25.0;
   if (!isNaN(accuracy) && accuracy > PURE_GPS_MAX_ACCURACY) {
-    console.log(`[LocationFilter] Rejected Coarse / Network point: ${accuracy}m (Allowed GPS <= ${PURE_GPS_MAX_ACCURACY}m)`);
     return false;
   }
 

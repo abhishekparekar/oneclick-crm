@@ -664,6 +664,30 @@ const getLeads = async (req, res) => {
       .limit(limit)
       .lean();
 
+    // Stage counts across all statuses (omitting statusId filter so stage pill counts stay accurate)
+    const countQuery = { ...query };
+    delete countQuery.statusId;
+
+    let totalAllStatuses = total;
+    let statusCountsMap = {};
+    try {
+      const [aggTotal, rawCounts] = await Promise.all([
+        statusId && statusId !== "all" ? Lead.countDocuments(countQuery) : Promise.resolve(total),
+        Lead.aggregate([
+          { $match: countQuery },
+          { $group: { _id: "$statusId", count: { $sum: 1 } } },
+        ]),
+      ]);
+      totalAllStatuses = aggTotal;
+      (rawCounts || []).forEach((sc) => {
+        if (sc._id) {
+          statusCountsMap[sc._id.toString()] = sc.count;
+        }
+      });
+    } catch (countErr) {
+      console.warn("[getLeads] Error computing status counts:", countErr.message);
+    }
+
     const formattedData = leads.map((l) => ({
       id: l._id.toString(),
       _id: l._id.toString(),
@@ -738,6 +762,8 @@ const getLeads = async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit) || 1,
       },
+      statusCounts: statusCountsMap,
+      totalCount: totalAllStatuses,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });

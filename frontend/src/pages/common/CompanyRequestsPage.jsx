@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
 import {
   getInternalRequestsApi,
+  getInternalRequestByIdApi,
   getInternalRequestTargetOptionsApi,
   createInternalRequestApi,
   replyToInternalRequestApi,
@@ -234,10 +235,11 @@ export default function CompanyRequestsPage({ role = "hr" }) {
         search,
       }).then((r) => r.data),
     keepPreviousData: true,
+    refetchInterval: 5000,
   });
 
   const requestsList = requestsData?.data || [];
-  const stats = requestsData?.stats || { total: 0, open: 0, inProgress: 0, resolved: 0, sentByMe: 0 };
+  const stats = requestsData?.stats || { total: 0, open: 0, inProgress: 0, resolved: 0, sentByMe: 0, assignedToMe: 0 };
 
   // Mutations
   const createMutation = useMutation({
@@ -408,6 +410,48 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     });
   };
 
+  const [loadingActiveDetails, setLoadingActiveDetails] = useState(false);
+  const replyTextareaRef = useRef(null);
+
+  const handleOpenRequest = async (reqItem, autoFocusReply = false) => {
+    setActiveRequest(reqItem);
+    setLoadingActiveDetails(true);
+    try {
+      const res = await getInternalRequestByIdApi(reqItem._id);
+      if (res?.data?.data) {
+        setActiveRequest(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch fresh request details:", err);
+    } finally {
+      setLoadingActiveDetails(false);
+      if (autoFocusReply) {
+        setTimeout(() => {
+          replyTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          replyTextareaRef.current?.focus();
+        }, 150);
+      }
+    }
+  };
+
+  // Real-time sync for active request thread when background polling receives updates
+  useEffect(() => {
+    if (activeRequest?._id && requestsData?.data) {
+      const found = requestsData.data.find((r) => r._id === activeRequest._id);
+      if (
+        found &&
+        ((found.responses?.length || 0) !== (activeRequest.responses?.length || 0) ||
+          found.status !== activeRequest.status)
+      ) {
+        getInternalRequestByIdApi(activeRequest._id)
+          .then((res) => {
+            if (res.data?.data) setActiveRequest(res.data.data);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [requestsData, activeRequest?._id]);
+
 
   return (
     <div className="space-y-3 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
@@ -501,7 +545,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
             {[
               { id: "all", label: "All Requests", count: stats.total },
               { id: "sent_by_me", label: "My Sent", count: stats.sentByMe },
-              { id: "assigned_to_me", label: "Received / For Me" },
+              { id: "assigned_to_me", label: "Received / For Me", count: stats.assignedToMe ?? 0 },
               { id: "resolved", label: "Resolved", count: stats.resolved },
             ].map((t) => {
               const isActive = tab === t.id;
@@ -631,7 +675,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                   return (
                     <tr
                       key={reqItem._id}
-                      onClick={() => setActiveRequest(reqItem)}
+                      onClick={() => handleOpenRequest(reqItem, false)}
                       className="hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors cursor-pointer group"
                     >
                       {/* 1. Code & Priority */}
@@ -720,31 +764,54 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                             {reqItem.status}
                           </span>
                           <div>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-black border ${
-                              responsesCount > 0
-                                ? "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700"
-                            }`}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenRequest(reqItem, true);
+                              }}
+                              title="Click to view responses or add a reply"
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10.5px] font-black border transition-all cursor-pointer hover:scale-105 ${
+                                responsesCount > 0
+                                  ? "bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-2xs"
+                                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+                              }`}
+                            >
                               <MessageSquare size={11} className={responsesCount > 0 ? "text-amber-600" : "text-slate-400"} />
                               <span>{responsesCount} {responsesCount === 1 ? "reply" : "replies"}</span>
-                            </span>
+                            </button>
                           </div>
                         </div>
                       </td>
 
                       {/* 6. Action */}
                       <td className="py-3.5 px-4 align-top text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveRequest(reqItem);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Eye size={12} strokeWidth={2.5} />
-                          <span>View</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenRequest(reqItem, false);
+                            }}
+                            title="View request details and responses"
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black transition-all border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                          >
+                            <Eye size={12} strokeWidth={2.5} />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenRequest(reqItem, true);
+                            }}
+                            title="Add a response to this request"
+                            className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs hover:shadow-xs"
+                          >
+                            <Send size={11} strokeWidth={2.5} />
+                            <span>Reply</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1166,56 +1233,107 @@ export default function CompanyRequestsPage({ role = "hr" }) {
 
               {/* Thread Responses */}
               <div>
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                  <MessageSquare size={12} className="text-amber-500" />
-                  Team Responses ({activeRequest.responses?.length || 0})
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <MessageSquare size={12} className="text-amber-500" />
+                    Team Responses ({activeRequest.responses?.length || 0})
+                  </h4>
+                  {loadingActiveDetails && (
+                    <div className="flex items-center gap-1 text-[10.5px] font-bold text-amber-500">
+                      <RefreshCw size={11} className="animate-spin" />
+                      <span>Syncing thread...</span>
+                    </div>
+                  )}
+                </div>
 
                 {(!activeRequest.responses || activeRequest.responses.length === 0) ? (
-                  <div className="py-8 text-center rounded-xl bg-slate-50 dark:bg-slate-900/30 text-slate-400 text-xs">
-                    No responses yet. Submit your feedback below.
+                  <div className="py-7 text-center rounded-xl bg-slate-50 dark:bg-slate-900/40 text-slate-400 text-xs border border-dashed border-slate-200 dark:border-slate-800">
+                    <MessageSquare size={20} className="mx-auto mb-1.5 opacity-30 text-amber-500" />
+                    <p className="font-bold text-slate-700 dark:text-slate-300">No responses yet</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Submit your reply or resolution update below.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {activeRequest.responses.map((resp, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-xl border ${
-                          resp.isResolution
-                            ? "bg-emerald-500/5 border-emerald-500/20"
-                            : "bg-slate-50 dark:bg-[#0B101B] border-slate-200/80 dark:border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-extrabold text-slate-900 dark:text-white text-xs">{resp.senderName}</span>
-                          <span className="text-[9.5px] text-slate-400 font-mono">{new Date(resp.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        </div>
-                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                          {resp.message}
-                        </p>
-                        {resp.attachments?.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {resp.attachments.map((att, i) => {
-                              const meta = getFileMeta(att.name, att.type);
-                              return (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => openDocument(att.url, att.name, att.type)}
-                                  title={`Click to open ${att.name}`}
-                                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs"
-                                >
-                                  <Paperclip size={10} className={meta.color} />
-                                  <span className="truncate max-w-[120px]">{att.name}</span>
-                                  {att.size && <span className="text-[9px] text-slate-400 font-mono">({att.size})</span>}
-                                  <Eye size={9} className="text-slate-400 ml-0.5" />
-                                </button>
-                              );
-                            })}
+                  <div className="space-y-2.5">
+                    {activeRequest.responses.map((resp, idx) => {
+                      const senderName = resp.senderId?.name || resp.senderName || "Team Member";
+                      const senderRole = resp.senderId?.role || resp.senderRole || "";
+                      const respDate = resp.createdAt
+                        ? new Date(resp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                        : "";
+                      const respTime = resp.createdAt
+                        ? new Date(resp.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                        : "";
+
+                      return (
+                        <div
+                          key={resp._id || idx}
+                          className={`p-3 rounded-xl border transition-all ${
+                            resp.isResolution
+                              ? "bg-emerald-500/10 dark:bg-emerald-950/20 border-emerald-500/30"
+                              : "bg-slate-50 dark:bg-[#0B101B] border-slate-200/80 dark:border-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <MiniAvatar name={senderName} size="w-6 h-6" textSize="text-[9px]" />
+                              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                <span className="font-black text-slate-900 dark:text-white text-xs truncate">
+                                  {senderName}
+                                </span>
+                                {senderRole && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                    {senderRole}
+                                  </span>
+                                )}
+                                {resp.department && (
+                                  <span className="text-[9.5px] font-semibold text-slate-400 truncate">
+                                    • {resp.department}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {resp.isResolution && (
+                                <span className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                  <CheckCheck size={11} className="stroke-[2.5]" />
+                                  <span>Resolution</span>
+                                </span>
+                              )}
+                              <span className="text-[9.5px] text-slate-400 font-mono">
+                                {respDate} {respTime}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap pl-8">
+                            {resp.message}
+                          </p>
+
+                          {resp.attachments?.length > 0 && (
+                            <div className="mt-2 pl-8 flex flex-wrap gap-1.5">
+                              {resp.attachments.map((att, i) => {
+                                const meta = getFileMeta(att.name, att.type);
+                                return (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => openDocument(att.url, att.name, att.type)}
+                                    title={`Click to open ${att.name}`}
+                                    className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs transition-all"
+                                  >
+                                    <Paperclip size={10} className={meta.color} />
+                                    <span className="truncate max-w-[120px]">{att.name}</span>
+                                    {att.size && <span className="text-[9px] text-slate-400 font-mono">({att.size})</span>}
+                                    <Eye size={9} className="text-slate-400 ml-0.5" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1225,6 +1343,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
             <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B101B]">
               <form onSubmit={handleSendReply} className="space-y-2 text-xs">
                 <textarea
+                  ref={replyTextareaRef}
                   rows={2}
                   placeholder="Type your response or resolution notes..."
                   value={replyMessage}

@@ -321,6 +321,24 @@ export default function CompanyRequestsScreen({ navigation }) {
     );
   };
 
+  const [fetchingDetails, setFetchingDetails] = useState(false);
+
+  const handleOpenDetails = async (item) => {
+    setSelectedRequest(item);
+    setDetailsModalVisible(true);
+    setFetchingDetails(true);
+    try {
+      const res = await api.get(`/internal-requests/${item._id}`);
+      if (res.data?.data) {
+        setSelectedRequest(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch fresh request details:", err);
+    } finally {
+      setFetchingDetails(false);
+    }
+  };
+
   const renderItem = ({ item }) => {
     const priorityInfo = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.Medium;
     const statusInfo = STATUS_CONFIG[item.status] || STATUS_CONFIG.Open;
@@ -331,10 +349,7 @@ export default function CompanyRequestsScreen({ navigation }) {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.88}
-        onPress={() => {
-          setSelectedRequest(item);
-          setDetailsModalVisible(true);
-        }}
+        onPress={() => handleOpenDetails(item)}
       >
         <View style={[styles.cardLeftStrip, { backgroundColor: priorityInfo.color }]} />
 
@@ -951,7 +966,7 @@ export default function CompanyRequestsScreen({ navigation }) {
             style={styles.modalBackdrop}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <View style={[styles.modalContainer, { maxHeight: "92%", paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.modalContainer, { height: "85%", maxHeight: "92%", paddingBottom: Math.max(insets.bottom, 12) }]}>
               {/* Header */}
               <View style={styles.modalHeaderRow}>
                 <View style={{ flex: 1, marginRight: 8 }}>
@@ -1005,7 +1020,17 @@ export default function CompanyRequestsScreen({ navigation }) {
               </View>
 
               {/* Chat & Details Scroll */}
-              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 24 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {fetchingDetails && (
+                  <View style={{ paddingVertical: 6, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color={THEME.primary} />
+                  </View>
+                )}
                 {/* Main Overview */}
                 <View style={styles.overviewBox}>
                   <Text style={styles.overviewDesc}>{selectedRequest.description}</Text>

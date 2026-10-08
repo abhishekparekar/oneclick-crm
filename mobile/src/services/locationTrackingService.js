@@ -47,7 +47,7 @@ const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 30000, // 30s timeout so watchPosition does not throw continuous error 3 timeouts when stopped
   maximumAge: 5000, // 5-second cache avoids dropping streaming movement
-  distanceFilter: 3, // Sensitive to 3 meters movement - captures every curve, corner, and street turn
+  distanceFilter: 10, // 10 meters filter: captures true turns and vehicle street turns while rejecting stationary desk vibration
   interval: 3000, // Android hardware poll interval: 3 seconds
   fastestInterval: 2000, // Android fastest interval: 2 seconds
 };
@@ -751,7 +751,7 @@ class LocationTrackingService {
       if (this.memoryQueue.length === 0 && this.isTracking && !this.isPollingGps) {
         try {
           const freshCoord = await this.getCurrentLocation();
-          if (freshCoord && freshCoord.latitude && freshCoord.longitude && (!freshCoord.accuracy || freshCoord.accuracy <= 70)) {
+          if (freshCoord && freshCoord.latitude && freshCoord.longitude && (!freshCoord.accuracy || freshCoord.accuracy <= 25)) {
             this.memoryQueue.push({
               latitude: Number(freshCoord.latitude.toFixed(6)),
               longitude: Number(freshCoord.longitude.toFixed(6)),

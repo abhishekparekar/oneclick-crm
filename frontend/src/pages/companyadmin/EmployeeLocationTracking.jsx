@@ -40,6 +40,93 @@ import {
 import { getLiveEmployeeLocationsApi, getEmployeeLocationTrailApi } from "../../api/locationApi";
 import { useAuth } from "../../context/AuthContext";
 
+const CARD_THEMES = {
+  blue: {
+    baseClass: "bg-blue-50/60 dark:bg-blue-950/20 border-blue-200/80 dark:border-blue-900/40 text-blue-950 dark:text-blue-200",
+    activeClass: "bg-blue-100/90 dark:bg-blue-900/40 border-blue-500 dark:border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/30 shadow-xs",
+    topBar: "bg-blue-500",
+    labelText: "text-blue-700 dark:text-blue-300 font-extrabold",
+    valueText: "text-blue-600 dark:text-blue-400",
+    subText: "text-blue-700/80 dark:text-blue-300/80 font-bold",
+  },
+  amber: {
+    baseClass: "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40 text-amber-950 dark:text-amber-200",
+    activeClass: "bg-amber-100/90 dark:bg-amber-900/40 border-amber-500 dark:border-amber-500 text-amber-950 dark:text-amber-100 ring-2 ring-amber-500/30 shadow-xs",
+    topBar: "bg-amber-500",
+    labelText: "text-amber-800 dark:text-amber-300 font-extrabold",
+    valueText: "text-amber-600 dark:text-amber-400",
+    subText: "text-amber-700/80 dark:text-amber-300/80 font-bold",
+  },
+  sky: {
+    baseClass: "bg-sky-50/60 dark:bg-sky-950/20 border-sky-200/80 dark:border-sky-900/40 text-sky-950 dark:text-sky-200",
+    activeClass: "bg-sky-100/90 dark:bg-sky-900/40 border-sky-500 dark:border-sky-500 text-sky-950 dark:text-sky-100 ring-2 ring-sky-500/30 shadow-xs",
+    topBar: "bg-sky-500",
+    labelText: "text-sky-700 dark:text-sky-300 font-extrabold",
+    valueText: "text-sky-600 dark:text-sky-400",
+    subText: "text-sky-700/80 dark:text-sky-300/80 font-bold",
+  },
+  indigo: {
+    baseClass: "bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-200/80 dark:border-indigo-900/40 text-indigo-950 dark:text-indigo-200",
+    activeClass: "bg-indigo-100/90 dark:bg-indigo-900/40 border-indigo-500 dark:border-indigo-500 text-indigo-950 dark:text-indigo-100 ring-2 ring-indigo-500/30 shadow-xs",
+    topBar: "bg-indigo-500",
+    labelText: "text-indigo-700 dark:text-indigo-300 font-extrabold",
+    valueText: "text-indigo-600 dark:text-indigo-400",
+    subText: "text-indigo-700/80 dark:text-indigo-300/80 font-bold",
+  },
+  emerald: {
+    baseClass: "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40 text-emerald-950 dark:text-emerald-200",
+    activeClass: "bg-emerald-100/90 dark:bg-emerald-900/40 border-emerald-500 dark:border-emerald-500 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-500/30 shadow-xs",
+    topBar: "bg-emerald-500",
+    labelText: "text-emerald-800 dark:text-emerald-300 font-extrabold",
+    valueText: "text-emerald-600 dark:text-emerald-400",
+    subText: "text-emerald-700/80 dark:text-emerald-300/80 font-bold",
+  },
+  rose: {
+    baseClass: "bg-rose-50/60 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/40 text-rose-950 dark:text-rose-200",
+    activeClass: "bg-rose-100/90 dark:bg-rose-900/40 border-rose-500 dark:border-rose-500 text-rose-950 dark:text-rose-100 ring-2 ring-rose-500/30 shadow-xs",
+    topBar: "bg-rose-500",
+    labelText: "text-rose-800 dark:text-rose-300 font-extrabold",
+    valueText: "text-rose-600 dark:text-rose-400",
+    subText: "text-rose-700/80 dark:text-rose-300/80 font-bold",
+  },
+};
+
+const TelemetryCard = ({ label, value, subLabel, theme = "blue", icon: Icon, onClick, isActive = false }) => {
+  const cfg = CARD_THEMES[theme] || CARD_THEMES.blue;
+  return (
+    <div
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-xl border transition-all duration-200 select-none p-3 sm:p-3.5 flex flex-col justify-between min-h-[80px] ${
+        onClick ? "cursor-pointer active:scale-[0.98]" : ""
+      } ${
+        isActive ? cfg.activeClass : cfg.baseClass
+      }`}
+    >
+      <div className={`absolute top-0 left-0 right-0 h-[3.5px] ${cfg.topBar}`} />
+      <div className="flex items-center justify-between gap-1 mb-1 pt-0.5">
+        <span className={`text-[10px] sm:text-[11px] uppercase tracking-wider truncate font-extrabold ${cfg.labelText}`}>
+          {label}
+        </span>
+        {Icon && (
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${cfg.valueText} bg-white/70 dark:bg-black/30 border border-white/50 dark:border-white/10`}>
+            <Icon size={13} strokeWidth={2.5} />
+          </div>
+        )}
+      </div>
+      <div className="flex items-baseline justify-between gap-1">
+        <h3 className={`text-xl sm:text-2xl font-black font-mono tracking-tight leading-none ${cfg.valueText}`}>
+          {value}
+        </h3>
+        {subLabel && (
+          <span className={`text-[10.5px] font-semibold truncate ${cfg.subText}`}>
+            {subLabel}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const EmployeeLocationTracking = () => {
   const { user } = useAuth();
   const isEmployee = (user?.role || "").toLowerCase() === "employee";
@@ -83,9 +170,11 @@ const EmployeeLocationTracking = () => {
   });
 
   const employees = useMemo(() => {
-    if (Array.isArray(liveResponse)) return liveResponse;
-    if (Array.isArray(liveResponse?.data)) return liveResponse.data;
-    return [];
+    let list = [];
+    if (Array.isArray(liveResponse)) list = liveResponse;
+    else if (Array.isArray(liveResponse?.data)) list = liveResponse.data;
+    // Strictly display only employees who have location tracking access enabled by admin
+    return list.filter((emp) => Boolean(emp.isLocationTrackingEnabled));
   }, [liveResponse]);
 
   const officeLocation = useMemo(() => {
@@ -597,10 +686,12 @@ const EmployeeLocationTracking = () => {
           ? trailData.cleanTrail
           : trailData.trail || [];
       const roadPoints =
-        trailData?.trail && trailData.trail.length > 0
+        trailData?.roadTrail && trailData.roadTrail.length > 0
+          ? trailData.roadTrail
+          : trailData?.trail && trailData.trail.length > 0
           ? trailData.trail
-          : trailData.cleanTrail || [];
-      const activePoints = rawCleanPoints;
+          : rawCleanPoints;
+      const activePoints = roadPoints && roadPoints.length >= 2 ? roadPoints : rawCleanPoints;
 
       const isStationary =
         trailData.isStationaryAllDay ||
@@ -691,9 +782,9 @@ const EmployeeLocationTracking = () => {
         }
       };
 
-      const pureLatLngs = rawCleanPoints.map((pt) => [pt.latitude, pt.longitude]);
+      const pureLatLngs = activePoints.map((pt) => [pt.latitude, pt.longitude]);
 
-      // 🎯 Pure GPS Actual Route: Directly from phone sensors without OSRM artificial detour
+      // 🎯 Road-snapped Actual Route: Follows streets and corners smoothly
       const polylineGlow = L.polyline(pureLatLngs, {
         color: "#064E3B",
         weight: 8,
@@ -712,7 +803,7 @@ const EmployeeLocationTracking = () => {
       });
       polylineLayerRef.current.addLayer(polyline);
 
-      drawArrows(rawCleanPoints);
+      drawArrows(activePoints);
 
       // Start Marker (Green Flag)
       const startPt = activePoints[0];
@@ -893,8 +984,8 @@ const EmployeeLocationTracking = () => {
   };
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4 flex flex-col overflow-hidden" : "space-y-2.5 w-full pb-6"}>
-      {/* ── Scoped Keyframe Animations & Enterprise Fleet Styling ───────── */}
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-slate-50 dark:bg-[#071A2F] p-4 flex flex-col overflow-hidden font-sans text-slate-900 dark:text-slate-100" : "space-y-2.5 pb-8 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden"}>
+      {/* ── Scoped Keyframe Animations ───────── */}
       <style>{`
         @keyframes radarSweep {
           0% { transform: rotate(0deg); }
@@ -930,595 +1021,511 @@ const EmployeeLocationTracking = () => {
           border: 2px solid rgba(16, 185, 129, 0.6);
           animation: radarPingRing 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
         }
-        .hud-glass-panel {
-          background: rgba(255, 255, 255, 0.94);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.16);
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 4px;
+          width: 4px;
         }
-        .dark .hud-glass-panel {
-          background: rgba(10, 16, 32, 0.94);
-          border: 1px solid rgba(56, 189, 248, 0.25);
-          box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
         }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.3);
+          border-radius: 4px;
         }
       `}</style>
 
-      {/* ── Top Header Bar (Compact & Professional) ────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-2.5 border-b border-border">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-            <Navigation size={18} />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg font-black text-foreground tracking-tight">
-              {isEmployee ? "My Live Location & Route" : "Live Employee Tracking"}
-            </h1>
-            {!isEmployee && (
-              <>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
-                  <span>
-                    {selectedDate === todayStr
-                      ? `${onlineCount} Live on Field`
-                      : `${activeTrackedCount} Active Tracked`}
-                  </span>
-                </span>
-                {hrManagerCount > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
-                    👔 {hrManagerCount} HR/Managers
-                  </span>
+      {/* ── 1. EXECUTIVE HEADER (Matching CompanyMyTasks.jsx) ────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-3.5 py-2.5 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Left: Title & Subtitle */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Navigation size={16} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                  {isEmployee ? "My Live Location & Route" : "Live Employee Tracking"}
+                </h1>
+                {!isEmployee && (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>
+                        {selectedDate === todayStr
+                          ? `${onlineCount} Live on Field`
+                          : `${activeTrackedCount} Active Tracked`}
+                      </span>
+                    </span>
+                    {hrManagerCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                        👔 {hrManagerCount} HR/Managers
+                      </span>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* View Mode Switcher + Date Selector + Action Controls */}
-        <div className="flex items-center space-x-1.5 self-start md:self-auto flex-wrap gap-y-1.5">
-          <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border">
-            <button
-              type="button"
-              onClick={() => setViewMode("live")}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-                viewMode === "live"
-                  ? "bg-background text-foreground shadow-xs font-black"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Navigation size={12} className={viewMode === "live" ? "text-blue-500" : ""} />
-              <span>Live Map</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setViewMode("trail");
-                const bestEmp =
-                  selectedEmployee?.latitude
-                    ? selectedEmployee
-                    : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
-                      employees.find((e) => e.latitude && e.longitude) ||
-                      employees[0];
-                if (bestEmp) setSelectedEmployee(bestEmp);
-                setTimeout(() => mapInstanceRef.current?.invalidateSize({ pan: false }), 150);
-              }}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
-                viewMode === "trail"
-                  ? "bg-background text-foreground shadow-xs font-black"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Footprints size={12} className={viewMode === "trail" ? "text-indigo-500" : ""} />
-              <span>Route Trail</span>
-            </button>
-          </div>
-
-          {/* Global Date Selector */}
-          <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDate(todayStr);
-                setViewMode("live");
-              }}
-              className={`px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
-                selectedDate === todayStr
-                  ? "bg-background text-foreground shadow-xs font-black text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDate(yesterdayStr);
-                setViewMode("trail");
-              }}
-              className={`px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
-                selectedDate === yesterdayStr
-                  ? "bg-background text-foreground shadow-xs font-black text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Yesterday
-            </button>
-            <div className="flex items-center gap-1 bg-background/90 px-1.5 py-0.5 rounded-md border border-border">
-              <Calendar size={11} className="text-muted-foreground" />
-              <input
-                type="date"
-                value={selectedDate}
-                max={todayStr}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedDate(val);
-                  if (val && val !== todayStr) {
-                    setViewMode("trail");
-                  }
-                }}
-                className="bg-transparent text-foreground text-xs font-bold focus:outline-none cursor-pointer"
-              />
+              </div>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                Real-time field personnel GPS telemetry, routes, and branch office monitoring
+              </p>
             </div>
           </div>
 
-          {/* Active / Inactive Tracked Summary Pill */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/60 border border-border text-xs font-bold">
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {activeTrackedCount} Active
-            </span>
-            <span className="text-muted-foreground/40">|</span>
-            <span className="text-muted-foreground font-semibold">
-              {inactiveCount} Inactive
-            </span>
+          {/* Right: Controls Toolbar */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setViewMode("live")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "live"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <Navigation size={12} strokeWidth={2.5} />
+                <span>Live Map</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode("trail");
+                  const bestEmp =
+                    selectedEmployee?.latitude
+                      ? selectedEmployee
+                      : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+                        employees.find((e) => e.latitude && e.longitude) ||
+                        employees[0];
+                  if (bestEmp) setSelectedEmployee(bestEmp);
+                  setTimeout(() => mapInstanceRef.current?.invalidateSize({ pan: false }), 150);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "trail"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <Footprints size={12} strokeWidth={2.5} />
+                <span>Route Trail</span>
+              </button>
+            </div>
+
+            {/* Date Selector */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-700/60 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDate(todayStr);
+                  setViewMode("live");
+                }}
+                className={`px-2 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  selectedDate === todayStr
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDate(yesterdayStr);
+                  setViewMode("trail");
+                }}
+                className={`px-2 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  selectedDate === yesterdayStr
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Yesterday
+              </button>
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700/80 ml-0.5">
+                <Calendar size={11} className="text-slate-400" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  max={todayStr}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedDate(val);
+                    if (val && val !== todayStr) {
+                      setViewMode("trail");
+                    }
+                  }}
+                  className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Travel Allowance Button */}
+            <Link
+              to={
+                (user?.role || "").toLowerCase().includes("hr")
+                  ? "/hr/tracking-allowance"
+                  : (user?.role || "").toLowerCase().includes("manager")
+                  ? "/manager/tracking-allowance"
+                  : "/company/tracking-allowance"
+              }
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 font-bold text-xs transition-colors cursor-pointer"
+              title="Travel Allowance"
+            >
+              <Wallet size={13} strokeWidth={2.5} />
+              <span className="hidden sm:inline">TA Allowance</span>
+            </Link>
+
+            {/* Refresh GPS Button */}
+            <button
+              type="button"
+              onClick={() => refetchLive()}
+              title="Refresh GPS Locations"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:border-blue-400 transition-colors cursor-pointer"
+            >
+              <RefreshCw size={13} className={isFetchingLive ? "animate-spin text-blue-600" : ""} />
+            </button>
+
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:border-blue-400 transition-colors cursor-pointer"
+            >
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </button>
           </div>
-
-          <Link
-            to={
-              (user?.role || "").toLowerCase().includes("hr")
-                ? "/hr/tracking-allowance"
-                : (user?.role || "").toLowerCase().includes("manager")
-                ? "/manager/tracking-allowance"
-                : "/company/tracking-allowance"
-            }
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black shadow-2xs transition-all cursor-pointer"
-            title="Travel Allowance"
-          >
-            <Wallet size={13} />
-            <span className="hidden sm:inline">TA Allowance</span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => refetchLive()}
-            title="Refresh GPS Locations"
-            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
-          >
-            <RefreshCw size={14} className={isFetchingLive ? "animate-spin text-primary" : ""} />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleToggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Command Center"}
-            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer bg-card border border-border hover:bg-muted shadow-xs"
-          >
-            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
         </div>
       </div>
 
-      {/* ── 4 Executive KPI Telemetry Cards (Compact & Clean) ─────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+      {/* ── 2. EXECUTIVE METRIC CARDS ROW (Exact CARD_THEMES Tokens) ─────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         {viewMode === "trail" ? (
           <>
-            {/* Trail Metric 1: Distance */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-blue-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  Distance
-                </p>
-                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
-                  {trailData?.pureDistanceKm
-                    ? `${trailData.pureDistanceKm} km`
-                    : trailData?.distanceText || `${trailData?.distanceKm || 0} km`}
-                </h3>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
-                <Navigation size={14} />
-              </div>
-            </div>
-
-            {/* Trail Metric 2: Halts */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-rose-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  Halt Duration
-                </p>
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 tracking-tight truncate">
-                    {trailData?.totalHaltTimeText || "0 mins"}
-                  </h3>
-                  <span className="text-[10px] font-bold text-muted-foreground">
-                    ({trailData?.haltCount || 0} stops)
-                  </span>
-                </div>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20 flex-shrink-0">
-                <Timer size={14} />
-              </div>
-            </div>
-
-            {/* Trail Metric 3: In-Motion */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  In-Motion Time
-                </p>
-                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
-                  {trailData?.totalMovingTimeText || "0 mins"}
-                </h3>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0">
-                <Clock size={14} />
-              </div>
-            </div>
-
-            {/* Trail Metric 4: Max Speed */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-amber-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  Max Speed
-                </p>
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tracking-tight truncate">
-                    {trailData?.maxSpeed || 0} <span className="text-xs font-bold text-muted-foreground">km/h</span>
-                  </h3>
-                  <span className="text-[10px] font-bold text-muted-foreground">
-                    Avg {trailData?.avgSpeed || 0} km/h
-                  </span>
-                </div>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0">
-                <Activity size={14} />
-              </div>
-            </div>
+            <TelemetryCard
+              label="Travel Distance"
+              value={trailData?.pureDistanceKm ? `${trailData.pureDistanceKm} km` : trailData?.distanceText || `${trailData?.distanceKm || 0} km`}
+              subLabel="Route recorded"
+              theme="blue"
+              icon={Navigation}
+            />
+            <TelemetryCard
+              label="Halt Duration"
+              value={trailData?.totalHaltTimeText || "0 mins"}
+              subLabel={`${trailData?.haltCount || 0} stops recorded`}
+              theme="rose"
+              icon={Timer}
+            />
+            <TelemetryCard
+              label="In-Motion Time"
+              value={trailData?.totalMovingTimeText || "0 mins"}
+              subLabel="Active movement"
+              theme="emerald"
+              icon={Clock}
+            />
+            <TelemetryCard
+              label="Max Speed"
+              value={`${trailData?.maxSpeed || 0} km/h`}
+              subLabel={`Avg ${trailData?.avgSpeed || 0} km/h`}
+              theme="amber"
+              icon={Activity}
+            />
           </>
         ) : (
           <>
-            {/* Live Metric 1: Active Tracking */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  {selectedDate === todayStr ? "Active Tracking" : "Tracked on Date"}
-                </p>
-                <h3 className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
-                  {selectedDate === todayStr ? activeTrackingCount : activeTrackedCount}{" "}
-                  <span className="text-xs font-bold text-muted-foreground">/ {employees.length}</span>
-                </h3>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 flex-shrink-0">
-                <Navigation size={14} />
-              </div>
-            </div>
-
-            {/* Live Metric 2: Halts */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-amber-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  Stationary Halts
-                </p>
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tracking-tight truncate">
-                    {haltingCount}
-                  </h3>
-                  <span className="text-[10px] font-bold text-muted-foreground">
-                    (&gt; 2 mins)
-                  </span>
-                </div>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 flex-shrink-0">
-                <Timer size={14} />
-              </div>
-            </div>
-
-            {/* Live Metric 3: Moving */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-blue-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  In-Motion Fleet
-                </p>
-                <h3 className="text-base sm:text-lg font-black text-blue-600 dark:text-blue-400 tracking-tight truncate">
-                  {movingCount}
-                </h3>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
-                <Car size={14} />
-              </div>
-            </div>
-
-            {/* Live Metric 4: Total Distance */}
-            <div className="bg-card px-3 py-2 rounded-xl border border-border border-l-[3px] border-l-indigo-500 shadow-2xs flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  Fleet Distance
-                </p>
-                <h3 className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 tracking-tight truncate">
-                  {totalFleetDistanceKm} <span className="text-xs font-bold text-muted-foreground">km</span>
-                </h3>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20 flex-shrink-0">
-                <Compass size={14} />
-              </div>
-            </div>
+            <TelemetryCard
+              label={selectedDate === todayStr ? "Active Tracking" : "Tracked on Date"}
+              value={`${selectedDate === todayStr ? activeTrackingCount : activeTrackedCount} / ${employees.length}`}
+              subLabel={`${inactiveCount} Standby`}
+              theme="blue"
+              icon={Navigation}
+            />
+            <TelemetryCard
+              label="Stationary Halts"
+              value={String(haltingCount)}
+              subLabel="Duration > 2 mins"
+              theme="amber"
+              icon={Timer}
+            />
+            <TelemetryCard
+              label="In-Motion Fleet"
+              value={String(movingCount)}
+              subLabel="Vehicles on road"
+              theme="sky"
+              icon={Car}
+            />
+            <TelemetryCard
+              label="Fleet Distance"
+              value={`${totalFleetDistanceKm} km`}
+              subLabel="Total cumulative"
+              theme="indigo"
+              icon={Compass}
+            />
           </>
         )}
       </div>
 
-      {/* ── Full-Width Interactive Radar Map ────────────────────────── */}
-      <div className={`w-full bg-card rounded-2xl border border-border overflow-hidden relative shadow-sm flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[450px] sm:h-[490px] lg:h-[530px]"}`}>
-          {/* ── Unified Floating Command Bar ──── */}
-          <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between gap-2 pointer-events-none">
-            {/* Left: Telemetry Status Badge */}
-            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-xs font-extrabold text-foreground tracking-tight whitespace-nowrap">
-                {viewMode === "live"
-                  ? selectedDate === todayStr
-                    ? `Live Fleet (${onlineCount} Active)`
-                    : `Fleet Map (${activeTrackedCount} Active Tracked)`
-                  : selectedEmployee?.name || "Route Trail"}
-              </span>
-              <span className="hidden sm:inline-block text-[10px] text-muted-foreground font-semibold border-l border-border pl-2">
-                4s Sync
-              </span>
+      {/* ── 3. MAP CANVAS WITH MODERN FLOATING COCKPIT HUD ───────────────────── */}
+      <div className={`w-full bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden relative shadow-2xs flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[450px] sm:h-[490px] lg:h-[530px]"}`}>
+        {/* Floating Command Bar on Map */}
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between gap-2 pointer-events-none">
+          {/* Left: Telemetry Status Badge */}
+          <div className="pointer-events-auto bg-white/95 dark:bg-[#111C24]/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
+              {viewMode === "live"
+                ? selectedDate === todayStr
+                  ? `Live Fleet (${onlineCount} Active)`
+                  : `Fleet Map (${activeTrackedCount} Active Tracked)`
+                : selectedEmployee?.name || "Route Trail"}
+            </span>
+            <span className="hidden sm:inline-block text-[10px] text-slate-400 font-semibold border-l border-slate-200 dark:border-slate-700 pl-2">
+              4s Sync
+            </span>
+          </div>
+
+          {/* Right: Map Layers & Quick Actions */}
+          <div className="pointer-events-auto bg-white/95 dark:bg-[#111C24]/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 p-0.5 rounded-lg shadow-sm flex items-center gap-1">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md text-[11px]">
+              <button
+                type="button"
+                onClick={() => handleMapTypeChange("satellite")}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer font-bold ${
+                  mapType === "satellite"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+                }`}
+              >
+                Satellite
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMapTypeChange("dark_radar")}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer font-bold ${
+                  mapType === "dark_radar"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+                }`}
+              >
+                Dark View
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMapTypeChange("street")}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer font-bold ${
+                  mapType === "street"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+                }`}
+              >
+                Street
+              </button>
             </div>
 
-            {/* Right: Map Layers & Quick Actions */}
-            <div className="pointer-events-auto bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border p-0.5 rounded-lg shadow-sm flex items-center gap-1">
-              <div className="flex items-center bg-muted/60 p-0.5 rounded-md text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleMapTypeChange("satellite")}
-                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    mapType === "satellite"
-                      ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
-                      : "text-muted-foreground hover:text-foreground font-semibold"
+            {/* Center Fleet Button */}
+            <button
+              type="button"
+              onClick={handleCenterFleet}
+              title="Fit fleet on map"
+              className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <Crosshair size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Selected Employee Floating Cockpit HUD */}
+        {selectedEmployee && (
+          <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:w-[360px] z-20 bg-white/95 dark:bg-[#111C24]/95 backdrop-blur-xl p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-xl flex flex-col gap-2.5 transition-all animate-in fade-in slide-in-from-bottom-2">
+            {/* Header: Avatar, Name, Role Tag, Status Pill, Close */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="relative w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs overflow-hidden">
+                  {selectedEmployee.avatar ? (
+                    <img src={selectedEmployee.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{(selectedEmployee.name || "E").slice(0, 2).toUpperCase()}</span>
+                  )}
+                  <span
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                      selectedEmployee.isTrackingActive || selectedEmployee.trackingStatus === "active"
+                        ? "bg-emerald-500 animate-pulse"
+                        : selectedEmployee.trackingStatus === "idle"
+                        ? "bg-amber-500"
+                        : "bg-slate-400"
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{selectedEmployee.name}</h4>
+                    {((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("hr") ||
+                    ((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("manager") ? (
+                      <span className="text-[8.5px] font-bold uppercase px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                        👔 HR/Mgr
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate font-medium">
+                    {selectedEmployee.designation || "Staff"} • {selectedEmployee.department || "General"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider ${
+                    selectedEmployee.isTrackingActive || selectedEmployee.trackingStatus === "active"
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
+                      : selectedEmployee.trackingStatus === "idle"
+                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
                   }`}
                 >
-                  Satellite
+                  {selectedEmployee.isTrackingActive || selectedEmployee.trackingStatus === "active"
+                    ? "Active"
+                    : selectedEmployee.trackingStatus === "idle"
+                    ? "Idle"
+                    : "Standby"}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmployee(null)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                  title="Close"
+                >
+                  <X size={14} />
                 </button>
+              </div>
+            </div>
+
+            {/* Location Bar with Admin Branch Address Fallback */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 flex flex-col gap-1 text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={13} className={selectedEmployee.latitude ? "text-emerald-500 shrink-0" : "text-blue-600 dark:text-blue-400 shrink-0"} />
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                  {selectedEmployee.latitude && selectedEmployee.longitude
+                    ? selectedEmployee.address || `${Number(selectedEmployee.latitude).toFixed(4)}, ${Number(selectedEmployee.longitude).toFixed(4)}`
+                    : `🏢 ${selectedEmployee.branchName || officeLocation?.name || "Main Branch"} (Branch Office)`}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium pl-4 truncate">
+                {selectedEmployee.displayAddress || selectedEmployee.branchAddress || officeLocation?.address || "Admin configured office"}
+              </p>
+            </div>
+
+            {/* Telemetry Pods (2 Columns) */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between">
+                <p className="text-[9.5px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
+                  {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving"
+                    ? "Speed"
+                    : "Status"}
+                </p>
+                <p className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
+                  {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving" ? (
+                    <>
+                      <Car size={13} className="text-blue-500" />
+                      <span className="text-blue-600 dark:text-blue-400">{Math.round(selectedEmployee.speed)} km/h</span>
+                    </>
+                  ) : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude ? (
+                    <>
+                      <Timer size={13} className="text-amber-500" />
+                      <span className="text-amber-700 dark:text-amber-300">{selectedEmployee.stoppageText || "0m"} stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Timer size={13} className="text-slate-400" />
+                      <span className="text-slate-500 dark:text-slate-400 text-[10.5px]">
+                        {selectedEmployee.trackingStatus === "stopped" ? "Punched Out" : "At Branch Office"}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-200/70 dark:border-slate-700/60 flex flex-col justify-between">
+                <p className="text-[9.5px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">
+                  Route Distance
+                </p>
+                <p className="font-bold text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 flex items-center gap-1">
+                  <Navigation size={13} />
+                  <span>
+                    {viewMode === "trail" && trailData
+                      ? `${trailData.distanceKm || 0} km`
+                      : selectedEmployee.todayDistanceText || "0 km"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Row: Battery, Lat/Lng Copy, and Route Trail CTA */}
+            <div className="flex items-center justify-between text-[10.5px] pt-1.5 border-t border-slate-100 dark:border-slate-800 flex-wrap gap-1.5">
+              <div className="flex items-center gap-1">
+                {selectedEmployee.batteryLevel !== null && selectedEmployee.batteryLevel !== undefined && (
+                  <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1">
+                    <Battery size={11} className={selectedEmployee.batteryLevel < 20 ? "text-rose-500" : "text-emerald-500"} />
+                    <span>{selectedEmployee.batteryLevel}%</span>
+                  </span>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => handleMapTypeChange("dark_radar")}
-                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    mapType === "dark_radar"
-                      ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
-                      : "text-muted-foreground hover:text-foreground font-semibold"
-                  }`}
+                  onClick={() => {
+                    if (selectedEmployee.latitude && selectedEmployee.longitude) {
+                      handleCopyCoordinates(selectedEmployee.latitude, selectedEmployee.longitude);
+                    } else if (officeLocation?.latitude && officeLocation?.longitude) {
+                      handleCopyCoordinates(officeLocation.latitude, officeLocation.longitude);
+                    }
+                  }}
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-bold flex items-center gap-1 transition-all cursor-pointer"
+                  title="Copy GPS Coordinates"
                 >
-                  Dark View
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMapTypeChange("street")}
-                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    mapType === "street"
-                      ? "bg-primary text-primary-foreground shadow-xs font-extrabold"
-                      : "text-muted-foreground hover:text-foreground font-semibold"
-                  }`}
-                >
-                  Street
+                  {copiedCoord ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                  <span>{copiedCoord ? "Copied" : "GPS"}</span>
                 </button>
               </div>
 
-              {/* Center Fleet Button */}
               <button
                 type="button"
-                onClick={handleCenterFleet}
-                title="Fit fleet on map"
-                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted/80 transition-all cursor-pointer"
+                onClick={() => {
+                  setViewMode("trail");
+                  if (selectedEmployee.latitude && selectedEmployee.longitude && mapInstanceRef.current) {
+                    mapInstanceRef.current.flyTo([selectedEmployee.latitude, selectedEmployee.longitude], 17);
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer flex items-center gap-1 transition-all active:scale-[0.98]"
               >
-                <Crosshair size={13} />
+                <Footprints size={12} />
+                <span>View Trail →</span>
               </button>
             </div>
           </div>
+        )}
 
-          {/* Selected Employee Floating Cockpit HUD (Compact & Non-Intrusive) */}
-          {selectedEmployee && (
-            <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:right-auto sm:w-[350px] z-20 hud-glass-panel p-3 rounded-xl shadow-lg flex flex-col gap-2 transition-all animate-in fade-in slide-in-from-bottom-2">
-              {/* Header: Avatar, Name, Designation, Close Button */}
-              <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                <div className="flex items-center space-x-2.5 min-w-0">
-                  <div className="relative w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs flex-shrink-0 shadow-sm">
-                    {selectedEmployee.avatar ? (
-                      <img src={selectedEmployee.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      <span>{(selectedEmployee.name || "E").slice(0, 2).toUpperCase()}</span>
-                    )}
-                    <span
-                      className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-background ${
-                        selectedEmployee.trackingStatus === "active"
-                          ? "bg-emerald-500 animate-pulse"
-                          : selectedEmployee.trackingStatus === "idle"
-                          ? "bg-amber-500"
-                          : "bg-rose-500"
-                      }`}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-black text-foreground truncate">{selectedEmployee.name}</h4>
-                      {((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("hr") ||
-                      ((selectedEmployee.designation || "") + " " + (selectedEmployee.department || "")).toLowerCase().includes("manager") ? (
-                        <span className="text-[8.5px] font-black uppercase px-1 py-0.2 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
-                          👔 HR/Mgr
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate font-medium">
-                      {selectedEmployee.designation || "Staff"} • {selectedEmployee.department || "General"}
-                    </p>
-                  </div>
-                </div>
+        {/* Leaflet Map Canvas */}
+        <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '380px' }} />
+      </div>
 
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider ${
-                      selectedEmployee.trackingStatus === "active"
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                        : selectedEmployee.trackingStatus === "idle"
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                        : "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30"
-                    }`}
-                  >
-                    {selectedEmployee.trackingStatus === "active"
-                      ? "Active"
-                      : selectedEmployee.trackingStatus === "idle"
-                      ? "Idle"
-                      : "Standby"}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEmployee(null)}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-all cursor-pointer"
-                    title="Close"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Location Bar */}
-              <div className="bg-muted/50 px-2 py-1 rounded-lg border border-border/70 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <MapPin size={12} className={selectedEmployee.latitude ? "text-emerald-500 flex-shrink-0" : "text-amber-500 flex-shrink-0"} />
-                  <span className="text-[10.5px] font-bold text-foreground truncate">
-                    {selectedEmployee.latitude && selectedEmployee.longitude
-                      ? selectedEmployee.address || `${Number(selectedEmployee.latitude).toFixed(4)}, ${Number(selectedEmployee.longitude).toFixed(4)}`
-                      : officeLocation
-                      ? `🏢 ${officeLocation.name} (Office)`
-                      : "Location: Standby / No GPS"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Telemetry Pods (Compact Row) */}
-              <div className="grid grid-cols-2 gap-1.5">
-                {/* Pod 1: Motion / Halt */}
-                <div className="bg-muted/40 p-1.5 rounded-lg border border-border/70 text-xs flex flex-col justify-between">
-                  <p className="text-[9.5px] text-muted-foreground font-bold uppercase tracking-wider">
-                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving"
-                      ? "Speed"
-                      : "Status"}
-                  </p>
-                  <p className="font-black text-xs text-foreground mt-0.5 flex items-center gap-1">
-                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving" ? (
-                      <>
-                        <Car size={12} className="text-blue-500" />
-                        <span className="text-blue-600 dark:text-blue-400">{Math.round(selectedEmployee.speed)} km/h</span>
-                      </>
-                    ) : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude ? (
-                      <>
-                        <Timer size={12} className="text-rose-500" />
-                        <span className="text-rose-600 dark:text-rose-400">{selectedEmployee.stoppageText || "0m"} stop</span>
-                      </>
-                    ) : (
-                      <>
-                        <Timer size={12} className="text-slate-400" />
-                        <span className="text-muted-foreground text-[10.5px] font-bold">
-                          {selectedEmployee.trackingStatus === "stopped" ? "Punched Out" : "Standby"}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                {/* Pod 2: Distance */}
-                <div className="bg-muted/40 p-1.5 rounded-lg border border-border/70 text-xs flex flex-col justify-between">
-                  <p className="text-[9.5px] text-muted-foreground font-bold uppercase tracking-wider">
-                    Route Distance
-                  </p>
-                  <p className="font-black text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 flex items-center gap-1">
-                    <Navigation size={12} />
-                    <span>
-                      {viewMode === "trail" && trailData
-                        ? `${trailData.distanceKm || 0} km`
-                        : selectedEmployee.todayDistanceText || "0 km"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Bottom Row: Battery, Lat/Lng Copy, and Route Trail CTA */}
-              <div className="flex items-center justify-between text-[10.5px] pt-1 border-t border-border/60 flex-wrap gap-1.5">
-                <div className="flex items-center gap-1">
-                  {selectedEmployee.batteryLevel !== null && selectedEmployee.batteryLevel !== undefined && (
-                    <span className="bg-muted px-1.5 py-0.5 rounded border border-border font-bold flex items-center gap-1">
-                      <Battery size={11} className={selectedEmployee.batteryLevel < 20 ? "text-rose-500" : "text-emerald-500"} />
-                      <span>{selectedEmployee.batteryLevel}%</span>
-                    </span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedEmployee.latitude && selectedEmployee.longitude) {
-                        handleCopyCoordinates(selectedEmployee.latitude, selectedEmployee.longitude);
-                      } else if (officeLocation?.latitude && officeLocation?.longitude) {
-                        handleCopyCoordinates(officeLocation.latitude, officeLocation.longitude);
-                      }
-                    }}
-                    className="bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border font-bold flex items-center gap-1 transition-all cursor-pointer"
-                    title="Copy GPS Coordinates"
-                  >
-                    {copiedCoord ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-                    <span>{copiedCoord ? "Copied" : "GPS"}</span>
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setViewMode("trail")}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10.5px] font-black px-2.5 py-1 rounded-lg shadow-xs cursor-pointer flex items-center gap-1 transition-all"
-                >
-                  <Footprints size={11} />
-                  <span>View Trail →</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Leaflet Map Canvas */}
-          <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '380px' }} />
-        </div>
-
-      {/* ── Compact Fleet Radar Roster (Relocated Below Map) ──────────────── */}
+      {/* ── 4. FLEET DIRECTORY ROSTER (Clean Enterprise Layout) ─────────────── */}
       {!isFullscreen && (
-        <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-4 shadow-2xs space-y-3">
           {/* Header Bar: Title, Search, and Status Filter Tabs */}
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
-                <Users size={16} />
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Users size={16} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-extrabold text-foreground tracking-tight">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Fleet Directory
                 </h3>
-                <p className="text-[10.5px] text-muted-foreground font-medium">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   {filteredEmployees.length} of {employees.length} Staff • Click card to focus pin on map
                 </p>
               </div>
@@ -1526,20 +1533,20 @@ const EmployeeLocationTracking = () => {
 
             {/* Right: Search & Horizontal Filter Tabs */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
-              {/* Search Input */}
-              <div className="relative min-w-[180px] sm:w-56">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              {/* Search Box */}
+              <div className="relative w-full sm:w-56">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search staff, role, dept..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-muted/40 border border-border rounded-xl pl-7 pr-3 py-1.5 text-xs font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-all shadow-2xs"
+                  className="w-full text-xs h-8 pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-[#0D1321] text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
-              {/* Status Filter Horizontal Tabs (Compact Pills) */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+              {/* Status Filter Horizontal Tabs (Exact CompanyMyTasks Pill Tabs) */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
                 {[
                   { id: "all", label: "All", count: employees.length },
                   { id: "active", label: selectedDate === todayStr ? "Active" : "Tracked", count: activeTrackedCount },
@@ -1547,52 +1554,53 @@ const EmployeeLocationTracking = () => {
                   { id: "moving", label: "Moving", count: movingCount },
                   { id: "halt", label: "Halts", count: haltingCount },
                   { id: "hr_mgr", label: "HR/Mgrs", count: hrManagerCount },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setStatusFilter(tab.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      statusFilter === tab.id
-                        ? "bg-primary text-primary-foreground shadow-2xs font-black"
-                        : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60"
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span
-                      className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-black ${
-                        statusFilter === tab.id
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-background/80 text-foreground"
+                ].map((tab) => {
+                  const isSel = statusFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setStatusFilter(tab.id)}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                        isSel
+                          ? "bg-blue-600 text-white shadow-2xs"
+                          : "bg-white dark:bg-[#111C24] text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
                       }`}
                     >
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
+                      <span>{tab.label}</span>
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                          isSel ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* If Trail Mode: Compact Date Picker & Route Stats / Halts Ribbon */}
           {viewMode === "trail" && (
-            <div className="p-2.5 bg-muted/30 rounded-xl border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 text-xs">
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 text-xs">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <div className="flex items-center gap-1.5 font-bold text-foreground">
-                  <Calendar size={13} className="text-primary" />
+                <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
+                  <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
                   <span>Date:</span>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-bold text-foreground focus:outline-none focus:border-primary shadow-2xs cursor-pointer"
+                    className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
                   />
                 </div>
 
                 {selectedEmployee && (
-                  <div className="flex items-center gap-2 pl-2 border-l border-border">
-                    <span className="font-black text-foreground">{selectedEmployee.name}:</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 text-[11px]">
+                  <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedEmployee.name}:</span>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 text-[11px]">
                       {trailData?.pureDistanceKm
                         ? `${trailData.pureDistanceKm} km`
                         : trailData?.distanceText || `${trailData?.distanceKm || 0} km`} Route
@@ -1603,8 +1611,8 @@ const EmployeeLocationTracking = () => {
 
               {/* Halts Quick Fly-To Buttons */}
               {Array.isArray(trailData?.halts) && trailData.halts.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-0.5 no-scrollbar">
-                  <span className="text-[10px] font-black uppercase text-muted-foreground whitespace-nowrap">
+                <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-0.5 custom-scrollbar">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     Halts ({trailData.haltCount}):
                   </span>
                   {trailData.halts.map((h, idx) => (
@@ -1617,9 +1625,9 @@ const EmployeeLocationTracking = () => {
                           mapContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                         }
                       }}
-                      className="px-2 py-0.5 bg-background hover:bg-muted/80 rounded-md border border-border text-[10.5px] font-bold text-foreground hover:text-primary flex items-center gap-1 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+                      className="px-2 py-0.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-md border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 flex items-center gap-1 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
                     >
-                      <span className="w-4 h-4 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[9px] font-black flex items-center justify-center">
+                      <span className="w-4 h-4 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[9px] font-black flex items-center justify-center">
                         #{idx + 1}
                       </span>
                       <span>{h.durationText || `${h.durationMinutes}m`}</span>
@@ -1630,15 +1638,15 @@ const EmployeeLocationTracking = () => {
             </div>
           )}
 
-          {/* Compact Staff Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {/* Staff Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
             {loadingLive && employees.length === 0 ? (
               <div className="col-span-full py-10 text-center">
-                <RefreshCw size={22} className="animate-spin text-primary mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground font-bold">Connecting fleet satellites...</p>
+                <RefreshCw size={22} className="animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">Connecting fleet satellites...</p>
               </div>
             ) : filteredEmployees.length === 0 ? (
-              <div className="col-span-full py-10 text-center text-muted-foreground">
+              <div className="col-span-full py-10 text-center text-slate-400 dark:text-slate-500">
                 <Users size={26} className="mx-auto mb-2 opacity-40" />
                 <p className="text-xs font-bold">No matching staff found</p>
               </div>
@@ -1653,33 +1661,36 @@ const EmployeeLocationTracking = () => {
                   ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("hr") ||
                   ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("manager");
 
-                const leftAccent = isTrackingActive
-                  ? "border-l-[3px] border-l-emerald-500"
-                  : isTrackingActive && emp.motionStatus === "stationary"
-                  ? "border-l-[3px] border-l-amber-500"
-                  : "border-l-[3px] border-l-slate-300 dark:border-l-slate-700";
-
                 return (
                   <div
                     key={emp._id}
                     onClick={() => handleSelectStaff(emp)}
-                    className={`p-3 rounded-xl border cursor-pointer flex flex-col justify-between space-y-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${leftAccent} ${
+                    className={`relative overflow-hidden p-3 rounded-xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                       isSelected
-                        ? "bg-primary/[0.07] border-primary shadow-sm ring-1 ring-primary/30"
-                        : "bg-card hover:bg-muted/30 border-border hover:border-primary/30 shadow-xs"
+                        ? "bg-blue-50/40 dark:bg-blue-950/20 border-blue-500 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-xs"
+                        : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-2xs"
                     }`}
                   >
+                    {/* Accent top line */}
+                    <div
+                      className={`absolute top-0 left-0 right-0 h-[3px] ${
+                        isTrackingActive
+                          ? isMoving ? "bg-blue-500" : "bg-emerald-500"
+                          : isIdle ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-700"
+                      }`}
+                    />
+
                     {/* Top Row: Avatar + Name + HR/Mgr Tag + Status Badge */}
-                    <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center justify-between gap-2 pt-1">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10.5px] flex-shrink-0">
+                        <div className="relative w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-2xs overflow-hidden">
                           {emp.avatar ? (
-                            <img src={emp.avatar} alt={emp.name} className="w-full h-full rounded-full object-cover" />
+                            <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
                           ) : (
                             <span>{(emp.name || "E").slice(0, 2).toUpperCase()}</span>
                           )}
                           <span
-                            className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-background ${
+                            className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${
                               isTrackingActive
                                 ? "bg-emerald-500 animate-pulse"
                                 : isIdle
@@ -1690,94 +1701,113 @@ const EmployeeLocationTracking = () => {
                         </div>
 
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <h4 className="text-xs font-black text-foreground truncate">{emp.name}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{emp.name}</h4>
                             {isHrOrMgr && (
-                              <span className="text-[8.5px] font-black uppercase px-1 py-0.2 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex-shrink-0">
+                              <span className="text-[8.5px] font-bold uppercase px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
                                 👔 HR/Mgr
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate font-medium">
+                          <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate font-medium">
                             {emp.designation || emp.department || (isFieldStaff ? "Field Staff" : "Office Staff")}
                           </p>
                         </div>
                       </div>
 
                       {/* Status Tag */}
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         {selectedDate !== todayStr ? (
                           emp.isTrackingActive ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               Tracked
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border">
-                              Not Tracked
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              Standby
                             </span>
                           )
                         ) : isTrackingActive ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                            Active
-                          </span>
+                          isMoving ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                              Moving
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Active
+                            </span>
+                          )
                         ) : isIdle ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                             Idle
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                             Off-Duty
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Bottom Row: Motion / Distance / Battery / Ping */}
-                    <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[10px]">
+                    {/* Middle Row: Branch Office & Location */}
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+                      <MapPin size={12} className={isTrackingActive && emp.latitude ? "text-emerald-500 shrink-0" : "text-slate-400 shrink-0"} />
+                      <span className="truncate font-medium">
+                        {isTrackingActive && emp.latitude
+                          ? emp.address || `${Number(emp.latitude).toFixed(4)}, ${Number(emp.longitude).toFixed(4)}`
+                          : `🏢 ${emp.branchName || officeLocation?.name || "Main Branch Office"}`}
+                      </span>
+                    </div>
+
+                    {/* Bottom Row: Telemetry, Speed/Halt, TA & Battery */}
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-slate-800 text-[10px]">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {selectedDate !== todayStr ? (
                           emp.isTrackingActive ? (
-                            <div className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 text-[9.5px]">
-                              <span>📍 {emp.totalPoints || 0} GPS Pings</span>
-                            </div>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
+                              📍 {emp.totalPoints || 0} GPS Pings
+                            </span>
                           ) : (
-                            <span className="text-[9.5px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
-                              No Route Recorded
+                            <span className="font-medium text-slate-400 dark:text-slate-500">
+                              No route recorded
                             </span>
                           )
                         ) : isTrackingActive && isMoving ? (
-                          <div className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-[9.5px]">
-                            <Car size={10} />
-                            <span>{Math.round(emp.speed)} km/h</span>
-                          </div>
+                          <span className="font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
+                            <Car size={11} />
+                            {Math.round(emp.speed)} km/h
+                          </span>
                         ) : isTrackingActive && emp.latitude ? (
-                          <div className="flex items-center gap-0.5 text-amber-700 dark:text-amber-400 font-extrabold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[9.5px]">
-                            <Timer size={10} />
-                            <span>Halt: {emp.stoppageText || "0m"}</span>
-                          </div>
+                          <span className="font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800/60 flex items-center gap-1">
+                            <Timer size={11} />
+                            Halt: {emp.stoppageText || "0m"}
+                          </span>
                         ) : (
-                          <span className="text-[9.5px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
-                            {emp.trackingStatus === "stopped" ? "Punched Out" : officeLocation ? `🏢 ${officeLocation.name}` : "📍 Off-Duty"}
+                          <span className="font-medium text-slate-500 dark:text-slate-400">
+                            {emp.trackingStatus === "stopped" ? "Punched Out" : "At Office"}
                           </span>
                         )}
 
-
                         {(parseFloat(emp.todayDistanceKm) > 0 || (emp.todayDistanceText && emp.todayDistanceText !== "0 km" && emp.todayDistanceText !== "0.00 km")) && (
-                          <div className="text-[9.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
+                          <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-1">
                             <span>🎯 {emp.todayDistanceText}</span>
-                            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold border-l border-indigo-500/30 pl-1">
-                              ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)} TA
+                            <span className="text-emerald-700 dark:text-emerald-300 border-l border-indigo-200 dark:border-indigo-800/60 pl-1 font-extrabold">
+                              ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)}
                             </span>
-                          </div>
+                          </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 ml-auto text-[9.5px] text-muted-foreground font-semibold">
+                      <div className="flex items-center gap-1.5 ml-auto text-slate-500 dark:text-slate-400 font-semibold shrink-0">
                         {emp.batteryLevel !== null && emp.batteryLevel !== undefined && (
-                          <span className={`flex items-center gap-0.5 ${emp.batteryLevel < 20 ? "text-rose-500 font-bold" : ""}`}>
-                            <Battery size={10} />
+                          <span className={`flex items-center gap-0.5 ${emp.batteryLevel < 20 ? "text-rose-600 font-bold" : ""}`}>
+                            <Battery size={11} />
                             <span>{emp.batteryLevel}%</span>
                           </span>
                         )}

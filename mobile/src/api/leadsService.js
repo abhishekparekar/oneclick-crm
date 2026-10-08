@@ -154,15 +154,23 @@ export const leadsService = {
       }
       if (response?.data?.data && Array.isArray(response.data.data)) {
         await setLocalData(STORAGE_KEYS.LEADS, response.data.data);
-        return response.data.data;
+        const dataArr = response.data.data;
+        dataArr.statusCounts = response.data.statusCounts || {};
+        dataArr.totalCount = response.data.totalCount !== undefined
+          ? response.data.totalCount
+          : (response.data.pagination?.total !== undefined ? response.data.pagination.total : dataArr.length);
+        dataArr.pagination = response.data.pagination;
+        dataArr.data = dataArr;
+        return dataArr;
       }
     } catch (_) {}
 
     // Safe fallback to local persistent cache
     let list = await getLocalData(STORAGE_KEYS.LEADS, DEFAULT_LEADS);
+    let baseList = [...list];
     if (params.search) {
       const q = params.search.toLowerCase();
-      list = list.filter(
+      baseList = baseList.filter(
         (l) =>
           l.name?.toLowerCase().includes(q) ||
           l.whatsappPhone?.includes(q) ||
@@ -170,13 +178,49 @@ export const leadsService = {
           l.company?.toLowerCase().includes(q)
       );
     }
-    if (params.statusId && params.statusId !== "all") {
-      list = list.filter((l) => l.statusId === params.statusId || l.status?.id === params.statusId);
-    }
     if (params.source && params.source !== "all") {
-      list = list.filter((l) => l.source === params.source);
+      baseList = baseList.filter((l) => l.source === params.source);
     }
-    return list;
+
+    const fallbackStatusCounts = {};
+    baseList.forEach((l) => {
+      const sid = l.statusId || l.status?.id || l.status?._id;
+      if (sid) fallbackStatusCounts[sid] = (fallbackStatusCounts[sid] || 0) + 1;
+    });
+
+    let filtered = [...baseList];
+    if (params.statusId && params.statusId !== "all") {
+      filtered = filtered.filter((l) => l.statusId === params.statusId || l.status?.id === params.statusId || l.status?._id === params.statusId);
+    }
+    filtered.statusCounts = fallbackStatusCounts;
+    filtered.totalCount = baseList.length;
+    filtered.data = filtered;
+    return filtered;
+  },
+
+  getStatusCounts: async () => {
+    try {
+      const response = await api.get("/leads-engine/leads/stats");
+      if (response?.data?.statusCounts) {
+        return {
+          statusCounts: response.data.statusCounts,
+          totalCount: response.data.totalContacts || 0,
+        };
+      }
+    } catch (_) {}
+    try {
+      const response = await api.get("/leads-engine/dashboard/lead-status-counts");
+      if (Array.isArray(response?.data)) {
+        const map = {};
+        let total = 0;
+        response.data.forEach((st) => {
+          map[st.id || st._id] = st.count || 0;
+          total += st.count || 0;
+        });
+        return { statusCounts: map, totalCount: total };
+      }
+    } catch (_) {}
+    return { statusCounts: {}, totalCount: 0 };
   },
 
   getLeadById: async (id) => {

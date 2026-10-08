@@ -118,8 +118,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         officeLocation: officeLocation,
         selectedId: selectedEmployee?._id,
       });
-    } else if (viewMode === "trail" && trailData.trail) {
-      const activeTrail = (trailData.cleanTrail && trailData.cleanTrail.length > 0)
+      const activeTrail = (trailData.roadTrail && trailData.roadTrail.length > 0)
+        ? trailData.roadTrail
+        : (trailData.cleanTrail && trailData.cleanTrail.length > 0)
         ? trailData.cleanTrail
         : trailData.trail;
       const isStationary = Boolean(
@@ -337,7 +338,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       setTrailData(data);
 
       if (mapReady) {
-        const activeTrail = (data.cleanTrail && data.cleanTrail.length > 0)
+        const activeTrail = (data.roadTrail && data.roadTrail.length > 0)
+          ? data.roadTrail
+          : (data.cleanTrail && data.cleanTrail.length > 0)
           ? data.cleanTrail
           : (data.trail || []);
         postToMap({
@@ -1319,7 +1322,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                       </View>
                     </View>
                     <Text style={styles.stripSub} numberOfLines={1}>
-                      {selectedEmployee.designation || selectedEmployee.department || "Field Staff"}
+                      {selectedEmployee.latitude && selectedEmployee.longitude
+                        ? `${selectedEmployee.designation || "Staff"} • ${selectedEmployee.department || "General"}`
+                        : `🏢 ${selectedEmployee.branchName || officeLocation?.name || "Main Branch"}: ${selectedEmployee.branchAddress || officeLocation?.address || "Branch Office"}`}
                     </Text>
                   </View>
                 </View>
@@ -1502,7 +1507,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                                 : emp.todayDistanceText
                                 ? `📍 ${emp.todayDistanceText}`
                                 : "🟢 Active"
-                              : "⚪ Standby"}
+                              : `🏢 ${emp.branchName || "Branch"}`}
                           </Text>
                         </View>
                       </View>

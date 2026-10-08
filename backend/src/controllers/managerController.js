@@ -1664,7 +1664,8 @@ const getMyTasks = async (req, res, next) => {
         companyId,
         $or: [
           { assignedTo: { $in: targetAssigneeIds } },
-          { assignedBy: req.user._id, assignmentType: "self" }
+          { assignedBy: req.user._id, assignmentType: "self" },
+          { createdBy: req.user._id, assignmentType: "self" }
         ]
       })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
@@ -1678,6 +1679,8 @@ const getMyTasks = async (req, res, next) => {
       
       tasks.forEach(t => {
         t.isTemplate = true;
+        t.repeatEnabled = true;
+        t.status = t.status || (t.isActive ? "active" : "stopped");
         t.assignees = t.assignedTo || [];
       });
     } else {
@@ -1772,7 +1775,8 @@ const getTeamTasks = async (req, res, next) => {
     // Comprehensive scope: Tasks assigned to team members, tasks created/assigned by manager, and tasks in manager's department(s)
     let teamFilterOr = [
       { assignedTo: { $in: allTeamAssigneeIds } },
-      { assignedBy: req.user._id }
+      { assignedBy: req.user._id },
+      { createdBy: req.user._id }
     ];
     if (deptMatchList.length > 0) {
       teamFilterOr.push({ departmentId: { $in: deptMatchList } });
@@ -1819,6 +1823,8 @@ const getTeamTasks = async (req, res, next) => {
         
       templates.forEach(t => {
         t.isTemplate = true;
+        t.repeatEnabled = true;
+        t.status = t.status || (t.isActive ? "active" : "stopped");
         t.assignees = t.assignedTo || [];
       });
 
@@ -2591,7 +2597,11 @@ const updateTaskChecklist = async (req, res, next) => {
     const fullChecklist = Array.isArray(checklist) ? checklist : (Array.isArray(subtasks) ? subtasks : null);
 
     if (fullChecklist) {
-      task.checklist = fullChecklist;
+      task.checklist = fullChecklist.map((c) => ({
+        ...(c._id ? { _id: c._id } : {}),
+        title: String(c.title || "").trim(),
+        isCompleted: Boolean(c.isCompleted || c.completed),
+      }));
     } else {
       let subtask = null;
       if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {

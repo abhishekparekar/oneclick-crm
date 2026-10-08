@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Employee = require("../models/Employee");
 const Task = require("../models/Task");
 const Timesheet = require("../models/Timesheet");
@@ -631,14 +632,20 @@ const updateTaskChecklist = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    const { subtaskId, completed, isCompleted, itemIndex, checklist } = req.body;
+    const { subtaskId, completed, isCompleted, itemIndex, checklist, subtasks } = req.body;
 
     if (!Array.isArray(task.checklist)) {
       task.checklist = [];
     }
 
-    if (Array.isArray(checklist)) {
-      task.checklist = checklist;
+    const fullChecklist = Array.isArray(checklist) ? checklist : (Array.isArray(subtasks) ? subtasks : null);
+
+    if (fullChecklist) {
+      task.checklist = fullChecklist.map((c) => ({
+        ...(c._id ? { _id: c._id } : {}),
+        title: String(c.title || "").trim(),
+        isCompleted: Boolean(c.isCompleted || c.completed),
+      }));
     } else {
       let subtask = null;
       if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
@@ -665,9 +672,16 @@ const updateTaskChecklist = async (req, res, next) => {
       subtask.isCompleted = Boolean(nextCompleted);
     }
 
+    const userName = `${employee.firstName} ${employee.lastName}`;
+    if (!task.activityLog) task.activityLog = [];
+    task.activityLog.push({
+      action: `Updated subtask checklist item`,
+      performedBy: userName,
+    });
+
     await task.save();
 
-    res.json({ success: true, message: "Checklist item updated successfully", task });
+    res.json({ success: true, message: "Checklist updated successfully", task, data: task });
   } catch (error) {
     next(error);
   }

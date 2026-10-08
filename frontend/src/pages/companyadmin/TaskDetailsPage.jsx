@@ -7,10 +7,10 @@ import {
   ChevronLeft, User, CalendarDays, BarChart, Flag, CheckSquare, ClipboardList,
   History, ArrowRight, Play, CheckCircle2, RotateCcw, Share2, HelpCircle,
   MessageSquare, Send, FileIcon, Plus, XCircle, Tag, Repeat, Trash2, Eye, Download,
-  Sparkles, ShieldCheck, Layers
+  Sparkles, ShieldCheck, Layers, Check, Loader2
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { InProcessModal, CompleteModal, ReopenModal, ShiftModal } from "../../components/tasks/StatusModals";
 import TaskEditModal from "../../components/tasks/TaskEditModal";
 import TaskStatusModal from "../../components/tasks/TaskStatusModal";
@@ -224,6 +224,10 @@ export default function TaskDetailsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedFileForPreview, setSelectedFileForPreview] = useState(null);
 
+  // Local checklist state for instant optimistic updates and loading indicator
+  const [localChecklist, setLocalChecklist] = useState(null);
+  const [updatingChecklistIndex, setUpdatingChecklistIndex] = useState(null);
+
   // Comments state
   const [commentText, setCommentText] = useState("");
   const [commentAttachments, setCommentAttachments] = useState([]);
@@ -305,17 +309,66 @@ export default function TaskDetailsPage() {
     }
   };
 
-  const toggleChecklistItem = (index) => {
-    if (!task) return;
-    const currentList = task.checklist || task.subtasks || [];
-    const newChecklist = [...currentList];
-    const isDone = newChecklist[index].isCompleted || newChecklist[index].completed;
-    newChecklist[index] = {
-      ...newChecklist[index],
-      isCompleted: !isDone,
-      completed: !isDone,
-    };
-    updateMutation.mutate({ checklist: newChecklist });
+  // Sync server checklist with local state only when task query genuinely updates
+  useEffect(() => {
+    if (task?.checklist && updatingChecklistIndex === null) {
+      setLocalChecklist(task.checklist);
+    }
+  }, [task]);
+
+  const toggleChecklistItem = async (index) => {
+    if (!task || updatingChecklistIndex !== null) return;
+    const currentList = [...checklistItems];
+    if (!currentList[index]) return;
+
+    const targetItem = currentList[index];
+    const willBeCompleted = !(targetItem.isCompleted || targetItem.completed);
+
+    // 1. Instant optimistic update so click is immediately visible
+    const newChecklist = currentList.map((item, i) =>
+      i === index ? { ...item, isCompleted: willBeCompleted, completed: willBeCompleted } : item
+    );
+    setLocalChecklist(newChecklist);
+    setUpdatingChecklistIndex(index);
+
+    try {
+      let returnedTask = null;
+      try {
+        const res = await api.post(`/tasks/${task._id || id}/checklist`, { checklist: newChecklist });
+        returnedTask = res?.data?.task || res?.data?.data;
+      } catch (_) {
+        const res = await updateTaskApi(task._id || id, { checklist: newChecklist });
+        returnedTask = res?.data?.task || res?.data?.data;
+      }
+      
+      // Direct cache update to prevent stale refetch flashing/blinking
+      queryClient.setQueryData(["task", id], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            task: {
+              ...(old.data?.task || {}),
+              ...(returnedTask && typeof returnedTask === "object" ? returnedTask : {}),
+              checklist: newChecklist
+            }
+          }
+        };
+      });
+      queryClient.invalidateQueries(["tasks"]);
+      toast.success(
+        willBeCompleted
+          ? `Subtask "${targetItem.title}" marked as complete`
+          : `Subtask "${targetItem.title}" marked as pending`
+      );
+    } catch (err) {
+      // Revert optimistic update on error
+      setLocalChecklist(currentList);
+      toast.error(err?.response?.data?.message || `Failed to update subtask "${targetItem.title}"`);
+    } finally {
+      setUpdatingChecklistIndex(null);
+    }
   };
 
   const handleAddComment = async (e) => {
@@ -361,9 +414,10 @@ export default function TaskDetailsPage() {
   }
 
   const theme = STATUS_THEMES[task.status] || STATUS_THEMES.pending;
-  const checklistItems = task.checklist || task.subtasks || [];
+  const checklistItems = localChecklist !== null ? localChecklist : (task.checklist || task.subtasks || []);
   const completedChecklistCount = checklistItems.filter(c => c.isCompleted || c.completed).length;
   const totalChecklistCount = checklistItems.length;
+  const progressPercent = totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0;
 
   return (
     <div className="space-y-2.5 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
@@ -477,45 +531,94 @@ export default function TaskDetailsPage() {
             </div>
 
             {checklistItems && checklistItems.length > 0 && (
-              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-[10.5px]">
-                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                    <CheckSquare size={12} className="text-teal-600 dark:text-teal-400" />
-                    <span>Complete {completedChecklistCount || 0}</span>
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {/* Header with Title and Clear Progress Status */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckSquare size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Subtasks ({completedChecklistCount}/{totalChecklistCount} Completed)</span>
                   </span>
-                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
-                    {totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {updatingChecklistIndex !== null && (
+                      <span className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 font-bold">
+                        <Loader2 size={11} className="animate-spin" />
+                        <span>Updating...</span>
+                      </span>
+                    )}
+                    <span className="font-mono font-black text-teal-700 dark:text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20">
+                      {progressPercent}%
+                    </span>
+                  </div>
                 </div>
 
-                <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                {/* Progress Bar with smooth animation (no blinking) */}
+                <div className="relative h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                   <div
-                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
-                    style={{ width: `${totalChecklistCount > 0 ? (completedChecklistCount / totalChecklistCount) * 100 : 0}%` }}
+                    className={`h-full rounded-full transition-all duration-300 ease-out ${
+                      progressPercent === 100 ? "bg-emerald-500" : "bg-teal-500"
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
 
-                <div className="space-y-1 pt-0.5 max-h-60 overflow-y-auto pr-1">
-                  {checklistItems.map((item, idx) => (
-                    <label 
-                      key={idx} 
-                      className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all cursor-pointer text-xs shadow-2xs ${
-                        item.isCompleted || item.completed
-                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
-                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold hover:border-teal-500/50"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.isCompleted || item.completed || false}
-                        onChange={() => toggleChecklistItem(idx)}
-                        className="mt-0.5 rounded text-amber-500 focus:ring-0 cursor-pointer shrink-0"
-                      />
-                      <span className="flex-1 break-words leading-relaxed text-xs">
-                        {item.title}
-                      </span>
-                    </label>
-                  ))}
+                {/* Subtask Interactive List */}
+                <div className="space-y-1.5 pt-0.5 max-h-60 overflow-y-auto pr-1">
+                  {checklistItems.map((item, idx) => {
+                    const isDone = Boolean(item.isCompleted || item.completed);
+                    const isItemUpdating = updatingChecklistIndex === idx;
+
+                    return (
+                      <div
+                        key={item._id || idx}
+                        onClick={() => !isItemUpdating && toggleChecklistItem(idx)}
+                        className={`group flex items-center justify-between gap-2.5 p-2.5 rounded-lg border transition-all text-xs select-none ${
+                          isItemUpdating
+                            ? "border-teal-500/60 bg-teal-50/50 dark:bg-teal-950/20 ring-1 ring-teal-500/30 cursor-wait"
+                            : isDone
+                              ? "bg-slate-50/70 dark:bg-slate-900/30 border-slate-200/80 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer"
+                              : "bg-white dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold hover:border-teal-500/60 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 shadow-2xs cursor-pointer"
+                        }`}
+                        title={isItemUpdating ? "Updating subtask..." : isDone ? "Click to mark as pending" : "Click to mark as complete"}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {/* Interactive Box with Loading Spinner */}
+                          <div className="shrink-0 flex items-center justify-center">
+                            {isItemUpdating ? (
+                              <Loader2 size={16} className="animate-spin text-teal-600 dark:text-teal-400" />
+                            ) : (
+                              <div
+                                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                  isDone
+                                    ? "bg-teal-500 border-teal-600 text-white shadow-2xs"
+                                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-teal-500"
+                                }`}
+                              >
+                                {isDone && <Check size={11} strokeWidth={3} />}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Subtask Text */}
+                          <span className={`break-words leading-relaxed text-xs transition-all ${
+                            isDone ? "line-through text-slate-400 dark:text-slate-500" : ""
+                          }`}>
+                            {item.title}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 transition-all ${
+                          isItemUpdating
+                            ? "bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30"
+                            : isDone
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                        }`}>
+                          {isItemUpdating ? "Saving..." : isDone ? "Done" : "Pending"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

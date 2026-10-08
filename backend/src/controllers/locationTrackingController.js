@@ -90,9 +90,12 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     };
   }
 
-  // 1. Accuracy filter: phone hardware GPS gives <= 70m.
-  const accuratePts = rawPoints.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
-  let candidatePts = accuratePts.length >= 2 ? accuratePts : rawPoints;
+  // 1. Strict Satellite GPS Filter: require direct hardware GPS (accuracy <= 25m, drop cell-tower fixes)
+  const highAccPts = rawPoints.filter((p) => p.accuracy && Number(p.accuracy) <= 25);
+  let candidatePts =
+    highAccPts.length >= Math.max(5, rawPoints.length * 0.2)
+      ? highAccPts
+      : rawPoints.filter((p) => !p.accuracy || Number(p.accuracy) <= 30);
   if (candidatePts.length < 2) candidatePts = rawPoints;
 
   // Sort chronologically
@@ -105,7 +108,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     const p2 = candidatePts[2];
     const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
     const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
-    if (jump01 > 120 && cluster12 < 80) {
+    if (jump01 > 100 && cluster12 < 70) {
       candidatePts = candidatePts.slice(1);
     }
   }
@@ -115,12 +118,12 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     const pPrev2 = candidatePts[candidatePts.length - 3];
     const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
     const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
-    if (jumpTail > 120 && clusterPrev < 80) {
+    if (jumpTail > 100 && clusterPrev < 70) {
       candidatePts = candidatePts.slice(0, -1);
     }
   }
 
-  // Excursion & Teleport spike filter
+  // Multi-pass Outlier / Ping-Pong Spike Elimination
   const cleaned = [candidatePts[0]];
   for (let i = 1; i < candidatePts.length; i++) {
     const prev = cleaned[cleaned.length - 1];
@@ -129,22 +132,25 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     const dt = Math.max(0.5, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
     const speed = (distFromPrev / dt) * 3.6;
 
-    if (distFromPrev > 250 && speed > 70) continue; // Teleport jump
+    // Reject impossible sudden teleport / jump > 85 km/h in urban streets
+    if (speed > 85 && distFromPrev > 35) continue;
 
-    let isExcursion = false;
-    if (distFromPrev > 30) {
-      for (let look = 1; look <= 25 && i + look < candidatePts.length; look++) {
+    // Ping-pong spike test: point jumps out and subsequent point returns near prev
+    let isPingPong = false;
+    if (distFromPrev > 35) {
+      for (let look = 1; look <= 4 && i + look < candidatePts.length; look++) {
         const next = candidatePts[i + look];
-        const dtNext = (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000;
-        if (dtNext > 90) break;
         const distToPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
-        if (distToPrev < 30) {
-          isExcursion = true;
+        const distCurToNext = getHaversineDistanceMeters(cur.latitude, cur.longitude, next.latitude, next.longitude);
+        const dtNext = (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000;
+
+        if (distToPrev < Math.max(30, distFromPrev * 0.4) && distCurToNext > 30 && dtNext < 120) {
+          isPingPong = true;
           break;
         }
       }
     }
-    if (isExcursion) continue;
+    if (isPingPong) continue;
 
     cleaned.push(cur);
   }
@@ -200,7 +206,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
   const p90Dist = sortedDists[Math.floor(sortedDists.length * 0.9)] || 0;
   const p95Dist = sortedDists[Math.floor(sortedDists.length * 0.95)] || 0;
 
-  // Check if there is any true sustained transit trip (at least 3 consecutive points > 120m away from center moving at >= 4 km/h)
+  // Check if there is any true sustained transit trip (at least 3 consecutive points > 110m away from center moving at >= 4 km/h)
   let hasSustainedTrip = false;
   let consecutiveTripPoints = 0;
   for (let i = 1; i < cleaned.length; i++) {
@@ -259,8 +265,9 @@ const processGpsTrailAndMetrics = (rawPoints) => {
   }
 
   // 3. Multi-Stop State Machine: Halt Cluster Collapsing & Transit Road Generation
-  const HALT_MERGE_RADIUS_METERS = 50;
-  const BREAKOUT_MIN_METERS = 55;
+  const HALT_RADIUS_METERS = 45;
+  const HALT_MIN_MINUTES = 3;
+  const BREAKOUT_DIST_METERS = 65;
   const BREAKOUT_MIN_SPEED_KMH = 4.0;
 
   let mode = "HALT"; // "HALT" | "TRANSIT"
@@ -275,9 +282,8 @@ const processGpsTrailAndMetrics = (rawPoints) => {
 
   const cleanTrail = [];
   const halts = [];
-  const movingSpeeds = [];
+  const validMovingSpeeds = [];
   let totalDistanceMeters = 0;
-  let maxSpeed = 0;
   let lastTransitPoint = null;
 
   for (let i = 1; i < cleaned.length; i++) {
@@ -296,7 +302,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
       const effSpeed = Math.max(sensorSpeed, impliedSpeed);
 
       // Still stationary within halt radius
-      if (dCenter < HALT_MERGE_RADIUS_METERS || (dCenter < 80 && effSpeed < 3.5)) {
+      if (dCenter <= HALT_RADIUS_METERS || (dCenter <= 65 && effSpeed < 3.5)) {
         currentHalt.endTime = pt.timestamp;
         currentHalt.centerLat =
           (currentHalt.centerLat * currentHalt.count + pt.latitude) / (currentHalt.count + 1);
@@ -304,35 +310,30 @@ const processGpsTrailAndMetrics = (rawPoints) => {
           (currentHalt.centerLng * currentHalt.count + pt.longitude) / (currentHalt.count + 1);
         currentHalt.count++;
         if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
-        continue; // CRITICAL: Absorb jitter points into halt, ZERO criss-cross lines!
+        continue; // Absorb jitter points into halt centroid: ZERO internal lines!
       }
 
       // Breakout check: user started moving away from the halt
-      if (dCenter >= BREAKOUT_MIN_METERS && effSpeed >= BREAKOUT_MIN_SPEED_KMH) {
-        // Lookahead verification: ensure it's not a single-point bounce
-        let isConfirmedBreakout = true;
-        if (i + 1 < cleaned.length) {
-          const nextPt = cleaned[i + 1];
-          const dNextToHalt = getHaversineDistanceMeters(
-            currentHalt.centerLat,
-            currentHalt.centerLng,
-            nextPt.latitude,
-            nextPt.longitude
-          );
-          if (dNextToHalt < 40) {
-            isConfirmedBreakout = false;
-          }
+      let isConfirmedBreakout = true;
+      if (i + 1 < cleaned.length) {
+        const nextPt = cleaned[i + 1];
+        const dNextToHalt = getHaversineDistanceMeters(
+          currentHalt.centerLat,
+          currentHalt.centerLng,
+          nextPt.latitude,
+          nextPt.longitude
+        );
+        if (dNextToHalt < 40) {
+          isConfirmedBreakout = false;
         }
+      }
 
-        if (!isConfirmedBreakout) {
-          continue; // Temporary jitter bounce, reject
-        }
-
+      if (dCenter >= BREAKOUT_DIST_METERS && effSpeed >= BREAKOUT_MIN_SPEED_KMH && isConfirmedBreakout) {
         // Finalize completed halt
         const haltMins = Math.round(
           (new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000
         );
-        if (haltMins >= 3) {
+        if (haltMins >= HALT_MIN_MINUTES) {
           halts.push({
             latitude: Number(currentHalt.centerLat.toFixed(6)),
             longitude: Number(currentHalt.centerLng.toFixed(6)),
@@ -359,9 +360,8 @@ const processGpsTrailAndMetrics = (rawPoints) => {
         totalDistanceMeters += dCenter;
         lastTransitPoint = pt;
 
-        if (effSpeed > 0 && effSpeed <= 120) {
-          movingSpeeds.push(effSpeed);
-          if (effSpeed > maxSpeed) maxSpeed = effSpeed;
+        if (effSpeed >= 3 && effSpeed <= 85) {
+          validMovingSpeeds.push(effSpeed);
         }
       }
     } else {
@@ -377,15 +377,14 @@ const processGpsTrailAndMetrics = (rawPoints) => {
       const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
       const effSpeed = Math.max(sensorSpeed, impliedSpeed);
 
-      if (impliedSpeed > 120 && distFromLast > 250) continue; // Outlier jump
+      if (impliedSpeed > 85 && distFromLast > 40) continue; // Outlier skip
 
       // Check if entering a new halt (slowed down and stopping)
       let isStopping = false;
-      if (effSpeed < 3.0 && distFromLast < 45) {
-        // Look ahead 2 minutes to confirm stoppage
+      if (effSpeed < 3.2 && distFromLast < 40) {
         let stayNearCount = 0;
         let lookMins = 0;
-        for (let look = 1; look <= 10 && i + look < cleaned.length; look++) {
+        for (let look = 1; look <= 12 && i + look < cleaned.length; look++) {
           const future = cleaned[i + look];
           const dFut = getHaversineDistanceMeters(pt.latitude, pt.longitude, future.latitude, future.longitude);
           const dtFut = (new Date(future.timestamp) - new Date(pt.timestamp)) / 60000;
@@ -393,7 +392,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
           lookMins = dtFut;
           if (dtFut >= 2.0) break;
         }
-        if (stayNearCount >= 2 || lookMins >= 2.0) {
+        if (stayNearCount >= 3 || lookMins >= 2.0) {
           isStopping = true;
         }
       }
@@ -409,10 +408,11 @@ const processGpsTrailAndMetrics = (rawPoints) => {
           count: 1,
         };
         cleanTrail.push(pt);
+        lastTransitPoint = pt;
         continue;
       }
 
-      if (distFromLast < 20) continue; // Skip sub-20m micro-steps
+      if (distFromLast < 15) continue; // Skip sub-15m micro-steps
 
       // Anti-spiderweb oscillation filter: suppress rapid 180° back-and-forth ping-pong jumps
       if (cleanTrail.length >= 2 && distFromLast < 55) {
@@ -432,8 +432,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
         let angleDiff = Math.abs(bearing2 - bearing1);
         if (angleDiff > 180) angleDiff = 360 - angleDiff;
         if (angleDiff > 135) {
-          // Reversing back on itself within 55m: bounce, skip
-          continue;
+          continue; // Reversing back on itself within 55m: skip bounce
         }
       }
 
@@ -441,9 +440,8 @@ const processGpsTrailAndMetrics = (rawPoints) => {
       cleanTrail.push(pt);
       lastTransitPoint = pt;
 
-      if (effSpeed > 0 && effSpeed <= 120) {
-        movingSpeeds.push(effSpeed);
-        if (effSpeed > maxSpeed) maxSpeed = effSpeed;
+      if (effSpeed >= 3 && effSpeed <= 85) {
+        validMovingSpeeds.push(effSpeed);
       }
     }
   }
@@ -453,7 +451,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     const finalHaltMins = Math.round(
       (new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000
     );
-    if (finalHaltMins >= 3 || cleanTrail.length <= 1) {
+    if (finalHaltMins >= HALT_MIN_MINUTES || cleanTrail.length <= 1) {
       halts.push({
         latitude: Number(currentHalt.centerLat.toFixed(6)),
         longitude: Number(currentHalt.centerLng.toFixed(6)),
@@ -507,10 +505,17 @@ const processGpsTrailAndMetrics = (rawPoints) => {
 
   const totalHaltMinutes = halts.reduce((sum, h) => sum + h.durationMinutes, 0);
   const movingMinutes = Math.max(0, totalDayMinutes - totalHaltMinutes);
-  const avgMovingSpeed =
-    movingSpeeds.length > 0
-      ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)
-      : 0;
+
+  // Safe speeds (exclude top 2% outlier spikes for maxSpeed, cap at 75 km/h for city)
+  let maxSpeedVal = 0;
+  let avgMovingSpeed = 0;
+  if (validMovingSpeeds.length > 0) {
+    const sorted = [...validMovingSpeeds].sort((a, b) => a - b);
+    const p95Idx = Math.floor(sorted.length * 0.95);
+    maxSpeedVal = Math.min(75, Math.round(sorted[p95Idx] || sorted[sorted.length - 1]));
+    avgMovingSpeed = Math.round(validMovingSpeeds.reduce((a, b) => a + b, 0) / validMovingSpeeds.length);
+  }
+
   const distanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
 
   return {
@@ -524,7 +529,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
     totalHaltTimeText: formatStoppageDuration(totalHaltMinutes),
     totalMovingTimeMinutes: movingMinutes,
     totalMovingTimeText: formatStoppageDuration(movingMinutes),
-    maxSpeed: Math.round(maxSpeed),
+    maxSpeed: maxSpeedVal,
     avgSpeed: avgMovingSpeed,
     startLocation: cleanTrail[0] || null,
     endLocation: cleanTrail[cleanTrail.length - 1] || null,
@@ -695,8 +700,8 @@ const syncBatchLocations = async (req, res) => {
       const lng = Number(pt.longitude);
       const acc = Number(pt.accuracy) || 0;
 
-      // Drop coarse network / cell-tower fixes (> 70m)
-      if (acc > 70) {
+      // Drop coarse network / cell-tower fixes (> 25m)
+      if (acc > 25) {
         continue;
       }
 
@@ -813,9 +818,10 @@ const getLiveEmployeeLocations = async (req, res) => {
     let employeeQuery = {
       companyId: new mongoose.Types.ObjectId(companyId.toString()),
       status: { $ne: "terminated" },
+      isLocationTrackingEnabled: true,
     };
 
-    // If Manager, filter to their managed department or team + include manager themselves
+    // If Manager, filter to their managed department or team + include manager themselves (only tracking-enabled)
     if (isManager) {
       const managerEmp = await Employee.findOne({
         companyId,
@@ -827,7 +833,12 @@ const getLiveEmployeeLocations = async (req, res) => {
           : managerEmp.departmentName
           ? { departmentName: managerEmp.departmentName }
           : {};
-        employeeQuery.$or = [deptFilter, { _id: managerEmp._id }];
+        employeeQuery = {
+          companyId: new mongoose.Types.ObjectId(companyId.toString()),
+          status: { $ne: "terminated" },
+          isLocationTrackingEnabled: true,
+          $or: [deptFilter, { _id: managerEmp._id }],
+        };
       }
     } else if (req.user.role === "Employee" || req.user.role === "employee") {
       // If Employee, show their own location so their tracking radar opens focused on themselves
@@ -886,26 +897,53 @@ const getLiveEmployeeLocations = async (req, res) => {
       Company.findById(companyId).select("companyName address city state pincode").lean().catch(() => null),
     ]);
 
+    // Build branch lookup map
+    const branchMap = new Map();
+    if (Array.isArray(branches)) {
+      branches.forEach((b) => branchMap.set(b._id.toString(), b));
+    }
+
+    // Prioritize Branch location configured by admin with valid coordinates
+    const branchWithCoords = Array.isArray(branches)
+      ? branches.find((b) => b.latitude && b.longitude && Math.abs(b.latitude) > 10)
+      : null;
+
     let officeLocation = null;
-    if (attSettings && attSettings.latitude && attSettings.longitude) {
+    if (branchWithCoords) {
+      officeLocation = {
+        _id: branchWithCoords._id,
+        name: branchWithCoords.branchName || "Main Branch",
+        latitude: Number(branchWithCoords.latitude),
+        longitude: Number(branchWithCoords.longitude),
+        address: branchWithCoords.address || (companyDoc?.address ? `${companyDoc.address}, ${companyDoc.city || ""}` : "Branch Office"),
+        radius: branchWithCoords.allowedRadiusMeters || 100,
+      };
+    } else if (attSettings && attSettings.latitude && attSettings.longitude && Math.abs(attSettings.latitude) > 10) {
       officeLocation = {
         name: attSettings.officeName || "Main Office",
         latitude: Number(attSettings.latitude),
         longitude: Number(attSettings.longitude),
-        address: companyDoc?.address || "",
+        address: attSettings.address || companyDoc?.address || "Main Office",
         radius: attSettings.allowedRadiusMeters || 100,
       };
     } else if (Array.isArray(branches) && branches.length > 0) {
-      const branchWithCoords = branches.find((b) => b.latitude && b.longitude);
-      if (branchWithCoords) {
-        officeLocation = {
-          name: branchWithCoords.branchName || "Main Branch",
-          latitude: Number(branchWithCoords.latitude),
-          longitude: Number(branchWithCoords.longitude),
-          address: branchWithCoords.address || companyDoc?.address || "",
-          radius: branchWithCoords.allowedRadiusMeters || 100,
-        };
-      }
+      const primaryBranch = branches.find((b) => b.isMainBranch) || branches[0];
+      officeLocation = {
+        _id: primaryBranch._id,
+        name: primaryBranch.branchName || "Main Branch",
+        latitude: primaryBranch.latitude ? Number(primaryBranch.latitude) : null,
+        longitude: primaryBranch.longitude ? Number(primaryBranch.longitude) : null,
+        address: primaryBranch.address || companyDoc?.address || "Branch Office",
+        radius: primaryBranch.allowedRadiusMeters || 100,
+      };
+    } else if (companyDoc) {
+      officeLocation = {
+        name: companyDoc.companyName || "Company Office",
+        latitude: null,
+        longitude: null,
+        address: companyDoc.address || "Company Headquarters",
+        radius: 100,
+      };
     }
 
     const attendanceMap = new Map();
@@ -1202,13 +1240,22 @@ const getLiveEmployeeLocations = async (req, res) => {
         punchInTime: dayAtt ? dayAtt.punchInTime : null,
         punchOutTime: dayAtt ? dayAtt.punchOutTime : null,
         isLocationTrackingEnabled: Boolean(emp.isLocationTrackingEnabled),
+        branchName: emp.branchId && branchMap.get(emp.branchId.toString()) ? branchMap.get(emp.branchId.toString()).branchName : officeLocation?.name || "Main Branch",
+        branchAddress: emp.branchId && branchMap.get(emp.branchId.toString()) ? (branchMap.get(emp.branchId.toString()).address || officeLocation?.address || "") : officeLocation?.address || "",
         displayLocation:
           latitude && longitude
             ? address || "Recorded Location"
+            : (emp.branchId && branchMap.get(emp.branchId.toString()))
+            ? `${branchMap.get(emp.branchId.toString()).branchName} (Branch Office)`
             : officeLocation
-            ? `${officeLocation.name} (Office)`
-            : "NA",
-        displayAddress: address || (officeLocation ? officeLocation.address : "NA"),
+            ? `${officeLocation.name} (Branch Office)`
+            : "Branch Office",
+        displayAddress:
+          latitude && longitude && address
+            ? address
+            : (emp.branchId && branchMap.get(emp.branchId.toString()) && branchMap.get(emp.branchId.toString()).address)
+            ? branchMap.get(emp.branchId.toString()).address
+            : officeLocation?.address || "Branch Office",
         officeLocation: officeLocation,
       };
     });
@@ -1269,42 +1316,85 @@ async function getRoadPathBetweenPoints(pt1, pt2) {
 }
 
 /**
- * Route GPS trail segments along actual road network
- * Replaces straight diagonal lines that cut through buildings with real road paths
+ * Route GPS trail segments along actual road network via OSRM
+ * Snaps waypoints to real streets, lanes, and turns; prevents straight lines slicing through buildings
  */
 async function alignTrailToRoadNetwork(cleanPoints) {
-  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) return { trail: cleanPoints, distanceMeters: 0 };
+  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) {
+    return { trail: cleanPoints || [], distanceMeters: 0, distanceKm: 0 };
+  }
 
-  const roadTrail = [];
-  let totalRoadDistance = 0;
+  // Sample waypoints if dense (keep start, end, and representative corridor points)
+  const maxWaypoints = 45;
+  let keyPoints = cleanPoints;
+  if (cleanPoints.length > maxWaypoints) {
+    const step = Math.ceil(cleanPoints.length / maxWaypoints);
+    keyPoints = cleanPoints.filter(
+      (_, idx) => idx === 0 || idx === cleanPoints.length - 1 || idx % step === 0
+    );
+  }
 
-  for (let i = 0; i < cleanPoints.length - 1; i++) {
-    const p1 = cleanPoints[i];
-    const p2 = cleanPoints[i + 1];
-    const straightDist = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+  // Chunk to max 30 waypoints per OSRM query to prevent long URL query strings
+  const chunkSize = 30;
+  const chunks = [];
+  for (let i = 0; i < keyPoints.length; i += chunkSize - 1) {
+    chunks.push(keyPoints.slice(i, i + chunkSize));
+  }
 
-    if (straightDist < 25) {
-      if (roadTrail.length === 0) roadTrail.push(p1);
-      roadTrail.push(p2);
-      totalRoadDistance += straightDist;
-    } else {
-      const roadPath = await getRoadPathBetweenPoints(p1, p2);
-      if (roadPath && Array.isArray(roadPath.points) && roadPath.points.length >= 2) {
-        if (roadTrail.length === 0) {
-          roadTrail.push(...roadPath.points);
-        } else {
-          roadTrail.push(...roadPath.points.slice(1));
+  const snappedRoadPoints = [];
+  let totalRoadMeters = 0;
+
+  for (const chunk of chunks) {
+    if (chunk.length < 2) continue;
+    const coordsStr = chunk
+      .map((p) => `${Number(p.longitude).toFixed(6)},${Number(p.latitude).toFixed(6)}`)
+      .join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+
+    let success = false;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+      if (res && res.ok) {
+        const json = await res.json();
+        if (json.code === "Ok" && json.routes && json.routes[0]?.geometry?.coordinates?.length >= 2) {
+          const roadCoords = json.routes[0].geometry.coordinates.map((c) => ({
+            latitude: c[1],
+            longitude: c[0],
+          }));
+          if (snappedRoadPoints.length === 0) {
+            snappedRoadPoints.push(...roadCoords);
+          } else {
+            snappedRoadPoints.push(...roadCoords.slice(1));
+          }
+          totalRoadMeters += Number(json.routes[0].distance) || 0;
+          success = true;
         }
-        totalRoadDistance += roadPath.distanceMeters;
+      }
+    } catch (_) {}
+
+    if (!success) {
+      if (snappedRoadPoints.length === 0) {
+        snappedRoadPoints.push(...chunk);
       } else {
-        if (roadTrail.length === 0) roadTrail.push(p1);
-        roadTrail.push(p2);
-        totalRoadDistance += straightDist;
+        snappedRoadPoints.push(...chunk.slice(1));
+      }
+      for (let j = 0; j < chunk.length - 1; j++) {
+        totalRoadMeters += getHaversineDistanceMeters(
+          chunk[j].latitude,
+          chunk[j].longitude,
+          chunk[j + 1].latitude,
+          chunk[j + 1].longitude
+        );
       }
     }
   }
 
-  return { trail: roadTrail, distanceMeters: totalRoadDistance };
+  const finalDistanceKm = Number((totalRoadMeters / 1000).toFixed(2));
+  return {
+    trail: snappedRoadPoints.length >= 2 ? snappedRoadPoints : cleanPoints,
+    distanceMeters: Math.round(totalRoadMeters),
+    distanceKm: finalDistanceKm,
+  };
 }
 
 /**
@@ -1380,32 +1470,62 @@ const getEmployeeLocationTrail = async (req, res) => {
     }
 
     if (rawTrail.length === 0) {
-      const [attSettings, branches, companyDoc] = await Promise.all([
+      const [attSettings, branches, companyDoc, targetEmp] = await Promise.all([
         CompanyAttendanceSettings.findOne({ companyId }).lean().catch(() => null),
         Branch.find({ companyId, status: "active" }).lean().catch(() => []),
         Company.findById(companyId).select("companyName address city state pincode").lean().catch(() => null),
+        Employee.findById(targetEmployeeId).select("branchId firstName lastName").lean().catch(() => null),
       ]);
 
+      const branchMap = new Map();
+      if (Array.isArray(branches)) {
+        branches.forEach((b) => branchMap.set(b._id.toString(), b));
+      }
+
+      // Check if target employee belongs to a specific branch with coordinates
+      const empBranch = targetEmp?.branchId ? branchMap.get(targetEmp.branchId.toString()) : null;
+      const branchWithCoords = empBranch && empBranch.latitude && empBranch.longitude && Math.abs(empBranch.latitude) > 10
+        ? empBranch
+        : Array.isArray(branches)
+        ? branches.find((b) => b.latitude && b.longitude && Math.abs(b.latitude) > 10)
+        : null;
+
       let officeLocation = null;
-      if (attSettings && attSettings.latitude && attSettings.longitude) {
+      if (branchWithCoords) {
+        officeLocation = {
+          _id: branchWithCoords._id,
+          name: branchWithCoords.branchName || "Main Branch",
+          latitude: Number(branchWithCoords.latitude),
+          longitude: Number(branchWithCoords.longitude),
+          address: branchWithCoords.address || (companyDoc?.address ? `${companyDoc.address}, ${companyDoc.city || ""}` : "Branch Office"),
+          radius: branchWithCoords.allowedRadiusMeters || 100,
+        };
+      } else if (attSettings && attSettings.latitude && attSettings.longitude && Math.abs(attSettings.latitude) > 10) {
         officeLocation = {
           name: attSettings.officeName || "Main Office",
           latitude: Number(attSettings.latitude),
           longitude: Number(attSettings.longitude),
-          address: companyDoc?.address || "",
+          address: attSettings.address || companyDoc?.address || "Main Office",
           radius: attSettings.allowedRadiusMeters || 100,
         };
       } else if (Array.isArray(branches) && branches.length > 0) {
-        const branchWithCoords = branches.find((b) => b.latitude && b.longitude);
-        if (branchWithCoords) {
-          officeLocation = {
-            name: branchWithCoords.branchName || "Main Branch",
-            latitude: Number(branchWithCoords.latitude),
-            longitude: Number(branchWithCoords.longitude),
-            address: branchWithCoords.address || companyDoc?.address || "",
-            radius: branchWithCoords.allowedRadiusMeters || 100,
-          };
-        }
+        const primaryBranch = empBranch || branches.find((b) => b.isMainBranch) || branches[0];
+        officeLocation = {
+          _id: primaryBranch._id,
+          name: primaryBranch.branchName || "Main Branch",
+          latitude: primaryBranch.latitude ? Number(primaryBranch.latitude) : null,
+          longitude: primaryBranch.longitude ? Number(primaryBranch.longitude) : null,
+          address: primaryBranch.address || companyDoc?.address || "Branch Office",
+          radius: primaryBranch.allowedRadiusMeters || 100,
+        };
+      } else if (companyDoc) {
+        officeLocation = {
+          name: companyDoc.companyName || "Company Office",
+          latitude: null,
+          longitude: null,
+          address: companyDoc.address || "Company Headquarters",
+          radius: 100,
+        };
       }
 
       return res.status(200).json({
@@ -1471,29 +1591,17 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // Ultra-fast in-memory trail: cleanTrail has already passed hardware accuracy,
-    // stationary cluster collapsing, teleport spike removal, and anti-oscillation filtering.
-    // If trail is huge (> 800 points), downsample while preserving all halts, start, and end
-    let finalTrail = metrics.cleanTrail;
-    if (finalTrail.length > 800) {
-      const step = Math.ceil(finalTrail.length / 600);
-      const sampled = [];
-      for (let i = 0; i < finalTrail.length; i++) {
-        if (i === 0 || i === finalTrail.length - 1 || i % step === 0) {
-          sampled.push(finalTrail[i]);
-        }
-      }
-      finalTrail = sampled;
-    }
-    const actualRoadDistanceMeters = metrics.totalDistanceMeters;
+    // Align genuine travel legs to real road network via OSRM
+    const roadResult = await alignTrailToRoadNetwork(metrics.cleanTrail);
+    const finalTrail = roadResult.trail && roadResult.trail.length >= 2 ? roadResult.trail : metrics.cleanTrail;
+    const finalDistanceKm = roadResult.distanceKm > 0 ? roadResult.distanceKm : metrics.distanceKm;
+    const finalDistanceMeters = roadResult.distanceMeters > 0 ? roadResult.distanceMeters : metrics.totalDistanceMeters;
 
-    const pureDistanceKm = metrics.distanceKm;
-    const finalDistance = Number((actualRoadDistanceMeters / 1000).toFixed(2));
     let distanceText = "0 km";
-    if (pureDistanceKm >= 1.0) {
-      distanceText = `${pureDistanceKm.toFixed(2)} km`;
-    } else if (metrics.totalDistanceMeters > 0) {
-      distanceText = `${Math.round(metrics.totalDistanceMeters)} m`;
+    if (finalDistanceKm >= 1.0) {
+      distanceText = `${finalDistanceKm.toFixed(2)} km`;
+    } else if (finalDistanceMeters > 0) {
+      distanceText = `${Math.round(finalDistanceMeters)} m`;
     }
 
     return res.status(200).json({
@@ -1501,16 +1609,16 @@ const getEmployeeLocationTrail = async (req, res) => {
       data: {
         trail: finalTrail,
         cleanTrail: metrics.cleanTrail, // Filtered GPS trail without spider-webs
-        roadTrail: finalTrail,
+        roadTrail: finalTrail, // Snapped road trail following actual streets
         rawSensorPoints: metrics.cleanTrail,
         isStationaryAllDay: false,
         rawCount: rawTrail.length,
         cleanCount: finalTrail.length,
         totalPoints: rawTrail.length,
-        distanceKm: pureDistanceKm,
-        pureDistanceKm: pureDistanceKm,
-        roadDistanceKm: finalDistance,
-        distanceMeters: metrics.totalDistanceMeters,
+        distanceKm: finalDistanceKm,
+        pureDistanceKm: metrics.distanceKm,
+        roadDistanceKm: finalDistanceKm,
+        distanceMeters: finalDistanceMeters,
         distanceText: distanceText,
         todayDistanceText: distanceText,
         maxSpeed: metrics.maxSpeed,
@@ -1558,8 +1666,8 @@ const getTrackingAllowanceReport = async (req, res) => {
       queryEndDate = targetDate;
     }
 
-    // Build employees filter
-    const empFilter = { companyId, status: "active" };
+    // Build employees filter (only staff with location tracking enabled)
+    const empFilter = { companyId, status: "active", isLocationTrackingEnabled: true };
     if (req.user.role === "Employee" || req.user.role === "employee") {
       const ownEmp = await Employee.findOne({
         companyId,

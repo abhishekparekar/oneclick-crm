@@ -68,6 +68,8 @@ export default function LeadsListScreen({ navigation, route }) {
   const [leads, setLeads] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [sources, setSources] = useState([]);
+  const [statusCounts, setStatusCounts] = useState({});
+  const [totalLeadsCount, setTotalLeadsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -142,13 +144,14 @@ export default function LeadsListScreen({ navigation, route }) {
   const fetchMetadata = async () => {
     if (metadataLoadedRef.current) return;
     try {
-      const [statusesRes, sourcesRes, assignable, prods, depts, tagsRes] = await Promise.all([
+      const [statusesRes, sourcesRes, assignable, prods, depts, tagsRes, countsRes] = await Promise.all([
         leadsService.getStatuses(),
         leadsService.getSources(),
         leadsService.getAssignableUsers().catch(() => []),
         leadsService.getProducts().catch(() => []),
         leadsService.getDepartments().catch(() => []),
         leadsService.getTags ? leadsService.getTags().catch(() => []) : Promise.resolve([]),
+        leadsService.getStatusCounts ? leadsService.getStatusCounts().catch(() => null) : Promise.resolve(null),
       ]);
 
       let stList = Array.isArray(statusesRes) && statusesRes.length > 0 ? statusesRes : [];
@@ -173,6 +176,12 @@ export default function LeadsListScreen({ navigation, route }) {
       setProducts(Array.isArray(prods) ? prods : []);
       setDepartments(Array.isArray(depts) ? depts : []);
       setTags(Array.isArray(tagsRes) ? tagsRes : (tagsRes?.tags || []));
+      if (countsRes?.statusCounts && Object.keys(countsRes.statusCounts).length > 0) {
+        setStatusCounts(countsRes.statusCounts);
+        if (countsRes.totalCount !== undefined) {
+          setTotalLeadsCount(countsRes.totalCount);
+        }
+      }
       metadataLoadedRef.current = true;
     } catch (_) { }
   };
@@ -234,6 +243,24 @@ export default function LeadsListScreen({ navigation, route }) {
             ? leadsRes.leads
             : [];
       setLeads(data);
+
+      const resCounts = leadsRes?.statusCounts || leadsRes?.data?.statusCounts;
+      const resTotal = leadsRes?.totalCount !== undefined
+        ? leadsRes.totalCount
+        : (leadsRes?.pagination?.total !== undefined ? leadsRes.pagination.total : null);
+
+      if (resCounts && typeof resCounts === "object" && Object.keys(resCounts).length > 0) {
+        setStatusCounts(resCounts);
+        if (resTotal !== null) setTotalLeadsCount(resTotal);
+      } else if (selectedStatus === "all") {
+        const map = {};
+        data.forEach((l) => {
+          const sid = l.statusId || l.status?.id || l.status?._id;
+          if (sid) map[sid] = (map[sid] || 0) + 1;
+        });
+        setStatusCounts(map);
+        setTotalLeadsCount(data.length);
+      }
     } catch (err) {
       console.warn("[LeadsList] Fetch note:", err?.message || err);
     } finally {
@@ -371,6 +398,23 @@ export default function LeadsListScreen({ navigation, route }) {
       lostValue,
     };
   }, [leads]);
+
+  // Stage count helper ensuring active filter doesn't zero out other stage pills
+  const getStageCount = useCallback((stId) => {
+    if (statusCounts && statusCounts[stId] !== undefined) {
+      return statusCounts[stId];
+    }
+    return leads.filter((l) => (l.statusId === stId || l.status?.id === stId || l.status?._id === stId)).length;
+  }, [statusCounts, leads]);
+
+  // Total leads count across all stages
+  const allStagesCount = useMemo(() => {
+    if (totalLeadsCount > 0) return totalLeadsCount;
+    if (statusCounts && Object.keys(statusCounts).length > 0) {
+      return Object.values(statusCounts).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+    }
+    return leads.length;
+  }, [totalLeadsCount, statusCounts, leads.length]);
 
   useEffect(() => {
     fetchData();
@@ -741,18 +785,19 @@ export default function LeadsListScreen({ navigation, route }) {
               onPress={() => setSelectedStatus("all")}
             >
               <Text style={[styles.statusChipText, selectedStatus === "all" && styles.statusChipTextActive]}>
-                All ({leads.length})
+                All ({allStagesCount})
               </Text>
             </TouchableOpacity>
 
             {statuses.map((st) => {
-              const count = leads.filter((l) => (l.statusId === st.id || l.statusId === st._id || l.status?.id === st.id || l.status?._id === st._id)).length;
-              const isActive = selectedStatus === (st.id || st._id);
+              const stId = st.id || st._id;
+              const count = getStageCount(stId);
+              const isActive = selectedStatus === stId;
               return (
                 <TouchableOpacity
-                  key={st.id || st._id}
+                  key={stId}
                   style={[styles.statusChip, isActive && styles.statusChipActive]}
-                  onPress={() => setSelectedStatus(st.id || st._id)}
+                  onPress={() => setSelectedStatus(stId)}
                 >
                   <View style={[styles.pillDot, { backgroundColor: st.color || THEME.primary }]} />
                   <Text style={[styles.statusChipText, isActive && styles.statusChipTextActive]}>
@@ -1852,16 +1897,14 @@ export default function LeadsListScreen({ navigation, route }) {
                           selectedStatus === "all" && styles.filterOptionChipTextActive,
                         ]}
                       >
-                        All Stages ({leads.length})
+                        All Stages ({allStagesCount})
                       </Text>
                     </TouchableOpacity>
 
                     {statuses.map((st) => {
                       const stId = st.id || st._id;
                       const isSel = selectedStatus === stId;
-                      const count = leads.filter(
-                        (l) => l.statusId === stId || l.status?.id === stId || l.status?._id === stId
-                      ).length;
+                      const count = getStageCount(stId);
                       return (
                         <TouchableOpacity
                           key={stId}

@@ -161,18 +161,37 @@ const getRequests = async (req, res) => {
       .populate("requesterId", "name email role profileImage")
       .populate("targetDepartmentId", "name")
       .populate("targetEmployeeIds", "name email role profileImage")
+      .populate("responses.senderId", "name email role profileImage")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
 
     // Calculate Summary Stats
     const statsQuery = { companyId, deletedAt: null };
-    const [totalCount, openCount, inProgressCount, resolvedCount, sentByMeCount] = await Promise.all([
+
+    const empDoc = await Employee.findOne({ userId });
+    const uDeptId = empDoc?.departmentId;
+    const dList = (empDoc?.departmentIds || []).map((id) => (id?._id || id).toString());
+    const aList = (empDoc?.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+    const deptIdsForStats = Array.from(new Set([uDeptId?.toString(), ...dList, ...aList].filter(Boolean)));
+
+    const assignedClause = [
+      { targetType: "ALL_EMPLOYEES" },
+      { targetEmployeeIds: userId },
+      ...(deptIdsForStats.length > 0 ? [{ targetDepartmentId: { $in: deptIdsForStats } }] : []),
+    ];
+
+    const [totalCount, openCount, inProgressCount, resolvedCount, sentByMeCount, assignedToMeCount] = await Promise.all([
       InternalRequest.countDocuments(statsQuery),
       InternalRequest.countDocuments({ ...statsQuery, status: "Open" }),
       InternalRequest.countDocuments({ ...statsQuery, status: "In Progress" }),
       InternalRequest.countDocuments({ ...statsQuery, status: { $in: ["Resolved", "Closed"] } }),
       InternalRequest.countDocuments({ ...statsQuery, requesterId: userId }),
+      InternalRequest.countDocuments({
+        ...statsQuery,
+        requesterId: { $ne: userId },
+        $or: assignedClause,
+      }),
     ]);
 
     return res.json({
@@ -184,6 +203,7 @@ const getRequests = async (req, res) => {
         inProgress: inProgressCount,
         resolved: resolvedCount,
         sentByMe: sentByMeCount,
+        assignedToMe: assignedToMeCount,
       },
       pagination: {
         page: Number(page),
@@ -208,7 +228,8 @@ const getRequestById = async (req, res) => {
       .populate("requesterId", "name email role profileImage")
       .populate("targetDepartmentId", "name")
       .populate("targetEmployeeIds", "name email role profileImage")
-      .populate("resolvedBy", "name role");
+      .populate("resolvedBy", "name role")
+      .populate("responses.senderId", "name email role profileImage");
 
     if (!request) {
       return res.status(404).json({ success: false, message: "Request not found" });
@@ -402,7 +423,8 @@ const replyToRequest = async (req, res) => {
       .populate("requesterId", "name email role profileImage")
       .populate("targetDepartmentId", "name")
       .populate("targetEmployeeIds", "name email role profileImage")
-      .populate("resolvedBy", "name role");
+      .populate("resolvedBy", "name role")
+      .populate("responses.senderId", "name email role profileImage");
 
     // ── Dispatch Notification to Requester with Push Notification ──
     try {

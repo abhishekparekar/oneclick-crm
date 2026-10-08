@@ -29,6 +29,11 @@ const formatDateDDMMYYYY = (val) => {
 };
 
 const getTaskFormattedDueDate = (t) => {
+  if (t.isTemplate) {
+    const raw = t.finishDate || t.endDate;
+    const until = raw ? `Until ${formatDateDDMMYYYY(raw)}` : "Ongoing";
+    return { text: t.repeatType ? `${t.repeatType.toUpperCase()} • ${until}` : until, isOverdue: false };
+  }
   const raw = t.endDateTime || t.endDate || t.dueDate || t.finishDate || t.startDate;
   if (!raw) return { text: "No Due Date", isOverdue: false };
   const d = new Date(raw);
@@ -76,7 +81,19 @@ const PriorityBadge = ({ priority }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, isTemplate, isActive = true }) => {
+  if (isTemplate) {
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+        isActive
+          ? "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800"
+          : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+      }`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-violet-500" : "bg-slate-400"}`} />
+        {isActive ? "Active (Routine)" : "Stopped"}
+      </span>
+    );
+  }
   const s = (status || "pending").toLowerCase();
   const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.pending;
   return (
@@ -248,7 +265,20 @@ export default function ManagerTeamTasks() {
 
   const { data: tasksRes, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["managerTeamTasks"],
-    queryFn: () => getManagerTeamTasksApi({ limit: 1000 }).then((r) => r.data),
+    queryFn: async () => {
+      const [regRes, tplRes] = await Promise.all([
+        getManagerTeamTasksApi({ limit: 1000 }).catch(() => ({ data: { data: [] } })),
+        getManagerTeamTasksApi({ isTemplate: true, limit: 1000 }).catch(() => ({ data: { data: [] } }))
+      ]);
+      const reg = regRes.data?.data || regRes.data?.tasks || [];
+      const tpls = (tplRes.data?.data || tplRes.data?.tasks || []).map((t) => ({
+        ...t,
+        isTemplate: true,
+        repeatEnabled: true,
+        status: t.status || (t.isActive ? "active" : "stopped"),
+      }));
+      return { data: [...reg, ...tpls] };
+    },
     refetchInterval: 5000,
     retry: 1,
   });
@@ -348,8 +378,9 @@ export default function ManagerTeamTasks() {
   const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
     if (activeTab === "Recurring") {
       if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
-    } else if (activeTab === "Re Open") {
-      if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
+    } else {
+      if (task.isTemplate) return false;
+      if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
     if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
@@ -500,7 +531,29 @@ export default function ManagerTeamTasks() {
     return !done && due && due < new Date();
   }).length;
   const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
-  const recurringCount = tabFilteredTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+  const recurringTasksList = useMemo(() => {
+    return allTasks.filter(t => {
+      if (!t.isTemplate && !t.isRecurring && !t.isGeneratedFromTemplate && !t.parentTemplateId) return false;
+      if (filters.assignedTo) {
+        const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+        const matchesAssignee = assigneesArr.some(a => {
+          const aId = (a?._id || a?.id || a || "").toString();
+          return aId === String(filters.assignedTo);
+        });
+        if (!matchesAssignee) return false;
+      }
+      if (filters.departmentId) {
+        const dId = (t.departmentId?._id || t.departmentId || t.department?._id || t.department || "").toString();
+        const dName = t.departmentId?.name || t.department?.name || t.departmentName || getTaskDeptName(t);
+        const selectedDept = taskDepts.find(d => String(d._id) === String(filters.departmentId));
+        const matchId = dId === String(filters.departmentId);
+        const matchName = Boolean(selectedDept?.name && dName && selectedDept.name.trim().toLowerCase() === dName.trim().toLowerCase());
+        if (!matchId && !matchName) return false;
+      }
+      return true;
+    });
+  }, [allTasks, filters.assignedTo, filters.departmentId, taskDepts]);
+  const recurringCount = recurringTasksList.length;
 
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
   const categoryCounts = dateCategories.map(cat => {
@@ -1576,7 +1629,7 @@ export default function ManagerTeamTasks() {
 
                         {/* Status */}
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <StatusBadge status={t.status} />
+                          <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} />
                         </td>
 
                         {/* Action */}
@@ -1648,11 +1701,11 @@ export default function ManagerTeamTasks() {
                       <div className="flex items-center gap-1 text-slate-500">
                         <CalendarClock size={11} className={isOverdue ? "text-rose-500" : "text-slate-400"} />
                         <span className={`font-mono ${isOverdue ? "text-rose-600 font-bold" : ""}`}>
-                          {deadline ? formatDateDDMMYYYY(deadline) : "No Date"}
+                          {t.isTemplate ? (t.repeatType ? t.repeatType.toUpperCase() : "Recurring") : (deadline ? formatDateDDMMYYYY(deadline) : "No Date")}
                         </span>
                       </div>
 
-                      <StatusBadge status={t.status} />
+                      <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} />
                     </div>
                   </div>
                 </div>
