@@ -216,6 +216,19 @@ const isTaskAssignedToUser = (t, user) => {
   return isAssigned || isSelfCreated;
 };
 
+// ── Recurring Task Helper ──────────────────────────────────────────────────
+export const isTaskRecurring = (task) => {
+  if (!task) return false;
+  return Boolean(
+    task.isTemplate ||
+    task.isRecurring ||
+    task.repeatEnabled ||
+    task.isGeneratedFromTemplate ||
+    task.parentTemplateId ||
+    (task.repeatType && task.repeatType !== "none")
+  );
+};
+
 export default function EmployeeMyTasks() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -374,9 +387,19 @@ export default function EmployeeMyTasks() {
   const { data: tasksRes, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["employeeMyTasksPage", authUser?._id, authUser?.employeeId],
     queryFn: async () => {
-      const res = await getMyTasksApi().catch(() => ({ data: {} }));
-      const list = res.data?.tasks || res.data?.data || (Array.isArray(res.data) ? res.data : []);
-      return list.filter(t => t.status !== "cancelled" && t.status !== "canceled" && isTaskAssignedToUser(t, authUser));
+      const [regRes, tplRes] = await Promise.all([
+        getMyTasksApi().catch(() => ({ data: {} })),
+        getMyTasksApi({ isTemplate: true }).catch(() => ({ data: {} }))
+      ]);
+      const regList = regRes.data?.tasks || regRes.data?.data || (Array.isArray(regRes.data) ? regRes.data : []);
+      const tplList = (tplRes.data?.tasks || tplRes.data?.data || (Array.isArray(tplRes.data) ? tplRes.data : [])).map(t => ({
+        ...t,
+        isTemplate: true,
+        repeatEnabled: true,
+        status: t.status || (t.isActive ? "active" : "stopped"),
+      }));
+      const combined = [...regList, ...tplList];
+      return combined.filter(t => t.status !== "cancelled" && t.status !== "canceled" && isTaskAssignedToUser(t, authUser));
     }
   });
 
@@ -433,9 +456,11 @@ export default function EmployeeMyTasks() {
     return dateCategories.map(cat => {
       let count = 0;
       if (cat === "Re Open") {
-        count = tasks.filter(t => !t.isRecurring && ["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes((t.status || "").toLowerCase())).length;
+        count = tasks.filter(t => !isTaskRecurring(t) && ["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes((t.status || "").toLowerCase())).length;
       } else if (cat === "Recurring") {
-        count = tasks.filter(t => t.isRecurring || t.isTemplate || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+        count = tasks.filter(t => isTaskRecurring(t)).length;
+      } else if (cat === "All Time") {
+        count = tasks.length;
       } else {
         const { start, end } = getDates(cat);
         count = tasks.filter(t => !t.isTemplate && isTaskInDateRange(t, start, end)).length;
@@ -448,12 +473,13 @@ export default function EmployeeMyTasks() {
   const baseTabTasks = useMemo(() => {
     return tasks.filter(task => {
       if (dateTab === "Recurring") {
-        if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
+        if (!isTaskRecurring(task)) return false;
+        return true;
       } else {
-        if (task.isTemplate) return false;
+        if (task.isTemplate && dateTab !== "All Time") return false;
         if (dateTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes((task.status || "").toLowerCase())) return false;
       }
-      return isTaskInDateRange(task, filters.startDate, filters.endDate);
+      return dateTab === "All Time" ? true : isTaskInDateRange(task, filters.startDate, filters.endDate);
     });
   }, [tasks, dateTab, filters.startDate, filters.endDate]);
 

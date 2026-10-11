@@ -191,6 +191,19 @@ const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) =>
   );
 };
 
+// ── Recurring Task Helper ──────────────────────────────────────────────────
+export const isTaskRecurring = (task) => {
+  if (!task) return false;
+  return Boolean(
+    task.isTemplate ||
+    task.isRecurring ||
+    task.repeatEnabled ||
+    task.isGeneratedFromTemplate ||
+    task.parentTemplateId ||
+    (task.repeatType && task.repeatType !== "none")
+  );
+};
+
 export default function CompanyMyTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
@@ -292,7 +305,20 @@ export default function CompanyMyTasks() {
 
   const { data: tasksRes, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["companyAdminMyTasks"],
-    queryFn: () => getAdminMyTasksApi({ limit: 500 }).then(r => r.data),
+    queryFn: async () => {
+      const [regRes, tplRes] = await Promise.all([
+        getAdminMyTasksApi({ limit: 500 }).catch(() => ({ data: {} })),
+        getAdminMyTasksApi({ isTemplate: true, limit: 500 }).catch(() => ({ data: {} }))
+      ]);
+      const regList = regRes.data?.tasks || regRes.data?.data || (Array.isArray(regRes.data) ? regRes.data : []);
+      const tplList = (tplRes.data?.tasks || tplRes.data?.data || (Array.isArray(tplRes.data) ? tplRes.data : [])).map(t => ({
+        ...t,
+        isTemplate: true,
+        repeatEnabled: true,
+        status: t.status || (t.isActive ? "active" : "stopped"),
+      }));
+      return { tasks: [...regList, ...tplList] };
+    },
     refetchInterval: 6000,
     retry: 1,
   });
@@ -372,12 +398,13 @@ export default function CompanyMyTasks() {
 
   const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
     if (activeTab === "Recurring") {
-      if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
-    } else if (activeTab === "Re Open") {
-      if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
+      if (!isTaskRecurring(task)) return false;
+    } else {
+      if (task.isTemplate && activeTab !== "All Time") return false;
+      if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
-    if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
+    if (activeTab !== "Recurring" && activeTab !== "All Time" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
 
     if (filters.departmentId) {
       const dId = task.departmentId?._id || task.departmentId || task.department?._id || task.department;
@@ -481,7 +508,7 @@ export default function CompanyMyTasks() {
     return counts;
   }, [tabFilteredTasks]);
 
-  const totalCount = tabFilteredTasks.length;
+  const totalCount = allTasks.length;
 
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
   const categoryCounts = dateCategories.map(cat => {
@@ -491,7 +518,7 @@ export default function CompanyMyTasks() {
     } else if (cat === "Re Open") {
       count = allTasks.filter(t => ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
     } else if (cat === "Recurring") {
-      count = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+      count = allTasks.filter(isTaskRecurring).length;
     } else {
       const { start, end } = getDates(cat);
       count = allTasks.filter(t => isTaskInDateRange(t, start, end)).length;
@@ -556,10 +583,10 @@ export default function CompanyMyTasks() {
   });
 
   const kanbanColumns = [
-    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) },
+    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active")) },
     { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase()) },
-    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete"].includes((t.status || "").toLowerCase()) },
-    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !["complete", "completed", "done"].includes((t.status || "").toLowerCase()) && (t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < new Date() },
+    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (!t.isActive || t.status === "stopped")) },
+    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !t.isTemplate && !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && (t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < new Date() },
   ];
 
   return (

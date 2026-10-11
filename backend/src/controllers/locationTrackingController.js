@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Company = require("../models/Company");
 const CompanyAttendanceSettings = require("../models/CompanyAttendanceSettings");
 const Branch = require("../models/Branch");
+const Department = require("../models/Department");
 const TrackingAllowance = require("../models/TrackingAllowance");
 const mongoose = require("mongoose");
 const https = require("https");
@@ -821,23 +822,66 @@ const getLiveEmployeeLocations = async (req, res) => {
       isLocationTrackingEnabled: true,
     };
 
-    // If Manager, filter to their managed department or team + include manager themselves (only tracking-enabled)
+    // If Manager, filter to all their managed departments, team members, direct reports + include manager themselves (only tracking-enabled)
     if (isManager) {
       const managerEmp = await Employee.findOne({
         companyId,
         $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
       });
       if (managerEmp) {
-        const deptFilter = managerEmp.departmentId
-          ? { departmentId: managerEmp.departmentId }
-          : managerEmp.departmentName
-          ? { departmentName: managerEmp.departmentName }
-          : {};
+        const allowedDeptIds = [];
+        if (managerEmp.departmentId) allowedDeptIds.push(managerEmp.departmentId);
+        if (Array.isArray(managerEmp.departmentIds)) {
+          managerEmp.departmentIds.forEach((id) => {
+            if (id && !allowedDeptIds.some((x) => x.toString() === id.toString())) {
+              allowedDeptIds.push(id);
+            }
+          });
+        }
+        if (Array.isArray(managerEmp.accessibleDepartments)) {
+          managerEmp.accessibleDepartments.forEach((d) => {
+            const id = d?._id || d;
+            if (id && !allowedDeptIds.some((x) => x.toString() === id.toString())) {
+              allowedDeptIds.push(id);
+            }
+          });
+        }
+
+        const deptObjIds = allowedDeptIds
+          .filter((id) => mongoose.Types.ObjectId.isValid(id.toString()))
+          .map((id) => new mongoose.Types.ObjectId(id.toString()));
+
+        const deptNames = [];
+        if (managerEmp.departmentName) {
+          deptNames.push(managerEmp.departmentName);
+        }
+        if (deptObjIds.length > 0) {
+          const deptDocs = await Department.find({ _id: { $in: deptObjIds } })
+            .select("name")
+            .lean()
+            .catch(() => []);
+          deptDocs.forEach((d) => {
+            if (d && d.name && !deptNames.includes(d.name)) {
+              deptNames.push(d.name);
+            }
+          });
+        }
+
+        const teamConditions = [{ _id: managerEmp._id }, { reportingManagerId: managerEmp._id }];
+        if (deptObjIds.length > 0) {
+          teamConditions.push({ departmentId: { $in: deptObjIds } });
+          teamConditions.push({ departmentIds: { $in: deptObjIds } });
+          teamConditions.push({ accessibleDepartments: { $in: deptObjIds } });
+        }
+        if (deptNames.length > 0) {
+          teamConditions.push({ departmentName: { $in: deptNames } });
+        }
+
         employeeQuery = {
           companyId: new mongoose.Types.ObjectId(companyId.toString()),
           status: { $ne: "terminated" },
           isLocationTrackingEnabled: true,
-          $or: [deptFilter, { _id: managerEmp._id }],
+          $or: teamConditions,
         };
       }
     } else if (req.user.role === "Employee" || req.user.role === "employee") {
@@ -1679,6 +1723,61 @@ const getTrackingAllowanceReport = async (req, res) => {
       empFilter._id = ownEmp._id;
     } else if (employeeId && mongoose.Types.ObjectId.isValid(employeeId)) {
       empFilter._id = employeeId;
+    } else if (req.user.role === "Manager" || req.user.role === "manager") {
+      const managerEmp = await Employee.findOne({
+        companyId,
+        $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      });
+      if (managerEmp) {
+        const allowedDeptIds = [];
+        if (managerEmp.departmentId) allowedDeptIds.push(managerEmp.departmentId);
+        if (Array.isArray(managerEmp.departmentIds)) {
+          managerEmp.departmentIds.forEach((id) => {
+            if (id && !allowedDeptIds.some((x) => x.toString() === id.toString())) {
+              allowedDeptIds.push(id);
+            }
+          });
+        }
+        if (Array.isArray(managerEmp.accessibleDepartments)) {
+          managerEmp.accessibleDepartments.forEach((d) => {
+            const id = d?._id || d;
+            if (id && !allowedDeptIds.some((x) => x.toString() === id.toString())) {
+              allowedDeptIds.push(id);
+            }
+          });
+        }
+
+        const deptObjIds = allowedDeptIds
+          .filter((id) => mongoose.Types.ObjectId.isValid(id.toString()))
+          .map((id) => new mongoose.Types.ObjectId(id.toString()));
+
+        const deptNames = [];
+        if (managerEmp.departmentName) {
+          deptNames.push(managerEmp.departmentName);
+        }
+        if (deptObjIds.length > 0) {
+          const deptDocs = await Department.find({ _id: { $in: deptObjIds } })
+            .select("name")
+            .lean()
+            .catch(() => []);
+          deptDocs.forEach((d) => {
+            if (d && d.name && !deptNames.includes(d.name)) {
+              deptNames.push(d.name);
+            }
+          });
+        }
+
+        const teamConditions = [{ _id: managerEmp._id }, { reportingManagerId: managerEmp._id }];
+        if (deptObjIds.length > 0) {
+          teamConditions.push({ departmentId: { $in: deptObjIds } });
+          teamConditions.push({ departmentIds: { $in: deptObjIds } });
+          teamConditions.push({ accessibleDepartments: { $in: deptObjIds } });
+        }
+        if (deptNames.length > 0) {
+          teamConditions.push({ departmentName: { $in: deptNames } });
+        }
+        empFilter.$or = teamConditions;
+      }
     }
 
     const employees = await Employee.find(empFilter)

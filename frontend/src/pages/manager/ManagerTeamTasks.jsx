@@ -205,6 +205,19 @@ const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) =>
   );
 };
 
+// ── Recurring Task Helper ──────────────────────────────────────────────────
+export const isTaskRecurring = (task) => {
+  if (!task) return false;
+  return Boolean(
+    task.isTemplate ||
+    task.isRecurring ||
+    task.repeatEnabled ||
+    task.isGeneratedFromTemplate ||
+    task.parentTemplateId ||
+    (task.repeatType && task.repeatType !== "none")
+  );
+};
+
 export default function ManagerTeamTasks() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -444,13 +457,13 @@ export default function ManagerTeamTasks() {
 
   const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
     if (activeTab === "Recurring") {
-      if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
+      if (!isTaskRecurring(task)) return false;
     } else {
-      if (task.isTemplate) return false;
+      if (task.isTemplate && activeTab !== "All Time") return false;
       if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((task.status || "").toLowerCase())) return false;
     }
 
-    if (activeTab !== "Recurring" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
+    if (activeTab !== "Recurring" && activeTab !== "All Time" && !isTaskInDateRange(task, filters.startDate, filters.endDate)) return false;
 
     if (filters.assignedTo) {
       const assigneesArr = Array.isArray(task.assignedTo) ? task.assignedTo : task.assignedTo ? [task.assignedTo] : (task.assignees || []);
@@ -581,14 +594,9 @@ export default function ManagerTeamTasks() {
     return [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue, statusFilter || filters.status, hasTimeframe].filter(Boolean).length;
   }, [filters, statusFilter, activeTab]);
 
-  const totalCount = useMemo(() => {
-    if (activeCustomFiltersCount === 0 && !search && (!activeTab || activeTab === "All Time")) {
-      return Math.max(tabFilteredTasks.length, tasksRes?.totalCount || 0, tasksRes?.count || 0);
-    }
-    return tabFilteredTasks.length;
-  }, [activeCustomFiltersCount, search, activeTab, tabFilteredTasks.length, tasksRes?.totalCount, tasksRes?.count]);
+  const totalCount = allTasks.length;
 
-  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase())).length;
+  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active"))).length;
   const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
   const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const overdueCount = tabFilteredTasks.filter(t => {
@@ -600,7 +608,7 @@ export default function ManagerTeamTasks() {
   const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const recurringTasksList = useMemo(() => {
     return allTasks.filter(t => {
-      if (!t.isTemplate && !t.isRecurring && !t.isGeneratedFromTemplate && !t.parentTemplateId) return false;
+      if (!isTaskRecurring(t)) return false;
       if (filters.assignedTo) {
         const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
         const matchesAssignee = assigneesArr.some(a => {
@@ -630,7 +638,7 @@ export default function ManagerTeamTasks() {
     } else if (cat === "Re Open") {
       count = allTasks.filter(t => ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
     } else if (cat === "Recurring") {
-      count = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+      count = allTasks.filter(isTaskRecurring).length;
     } else {
       const { start, end } = getDates(cat);
       count = allTasks.filter(t => isTaskInDateRange(t, start, end)).length;
@@ -659,10 +667,10 @@ export default function ManagerTeamTasks() {
   };
 
   const kanbanColumns = [
-    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) },
+    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active")) },
     { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase()) },
-    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete"].includes((t.status || "").toLowerCase()) },
-    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && (t.endDateTime || t.endDate || t.dueDate) && !isNaN(new Date(t.endDateTime || t.endDate || t.dueDate).getTime()) && Date.now() >= new Date(t.endDateTime || t.endDate || t.dueDate).getTime() },
+    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (!t.isActive || t.status === "stopped")) },
+    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !t.isTemplate && !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && (t.endDateTime || t.endDate || t.dueDate) && !isNaN(new Date(t.endDateTime || t.endDate || t.dueDate).getTime()) && Date.now() >= new Date(t.endDateTime || t.endDate || t.dueDate).getTime() },
   ];
 
   const ALL_STATUS_PILLS = [

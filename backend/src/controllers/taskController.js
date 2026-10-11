@@ -625,6 +625,8 @@ exports.getTasks = async (req, res) => {
             tasks = docs.map(d => {
                 const obj = { ...d };
                 obj.isTemplate = true;
+                obj.repeatEnabled = true;
+                obj.status = obj.status || (obj.isActive ? "active" : "stopped");
                 obj.assignees = obj.assignedTo || [];
                 return obj;
             });

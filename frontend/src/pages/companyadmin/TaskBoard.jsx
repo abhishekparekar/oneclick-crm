@@ -201,6 +201,19 @@ const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) =>
   );
 };
 
+// ── Recurring Task Helper ──────────────────────────────────────────────────
+export const isTaskRecurring = (task) => {
+  if (!task) return false;
+  return Boolean(
+    task.isTemplate ||
+    task.isRecurring ||
+    task.repeatEnabled ||
+    task.isGeneratedFromTemplate ||
+    task.parentTemplateId ||
+    (task.repeatType && task.repeatType !== "none")
+  );
+};
+
 // ── Task Card ─────────────────────────────────────────────────────────────────
 const TaskCard = ({ task, onClick, activeTab, isSelected, onToggleSelect }) => {
   const status = task.status || "pending";
@@ -661,12 +674,12 @@ export default function TaskBoard() {
   // Tab-filtered tasks
   const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
     if (activeTab === "Recurring") {
-      if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
+      if (!isTaskRecurring(task)) return false;
     } else {
-      if (task.isTemplate) return false;
+      if (task.isTemplate && activeTab !== "All Time") return false;
       if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes((task.status || "").toLowerCase())) return false;
     }
-    const passesDate = activeTab === "Recurring" ? true : isTaskInDateRange(task, filters.startDate, filters.endDate);
+    const passesDate = (activeTab === "Recurring" || activeTab === "All Time") ? true : isTaskInDateRange(task, filters.startDate, filters.endDate);
 
     let passesDept = true;
     if (filters.departmentId) {
@@ -756,7 +769,7 @@ export default function TaskBoard() {
     if (activeStatus) {
       const taskSt = (task.status || "pending").toLowerCase();
       if (activeStatus === "pending") {
-        if (!["pending", "re_pending"].includes(taskSt)) return false;
+        if (!["pending", "re_pending"].includes(taskSt) && !(task.isTemplate && (task.isActive || task.status === "active"))) return false;
       } else if (activeStatus === "in_process") {
         if (!["in_process", "re_in_process", "in progress"].includes(taskSt)) return false;
       } else if (activeStatus === "re_pending") {
@@ -797,19 +810,19 @@ export default function TaskBoard() {
   }), [tabFilteredTasks, statusFilter, filters.status, searchQ]);
 
   // KPI Metrics Calculation
-  const totalCount = tabFilteredTasks.length;
-  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes(t.status)).length;
-  const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process"].includes(t.status)).length;
-  const completedCount = tabFilteredTasks.filter(t => ["complete", "re_complete", "late_complete", "re_late_complete"].includes(t.status)).length;
+  const totalCount = allTasks.length;
+  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active"))).length;
+  const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
+  const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const overdueCount = tabFilteredTasks.filter(t => {
     if (t.isTemplate) return false;
     const st = (t.status || "").toLowerCase();
-    const done = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(st);
+    const done = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
     const due = t.endDateTime ? new Date(t.endDateTime) : null;
     return !done && due && due < new Date();
   }).length;
-  const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
-  const recurringCount = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+  const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
+  const recurringCount = allTasks.filter(isTaskRecurring).length;
 
   // STRICT UNIQUE DATE CATEGORIES
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
@@ -817,17 +830,30 @@ export default function TaskBoard() {
   const categoryCounts = dateCategories.map(cat => {
     let count = 0;
     if (cat === "Re Open") {
-      count = allTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
+      count = allTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
     } else if (cat === "Recurring") {
       count = recurringCount;
     } else if (cat === "All Time") {
-      count = allTasks.filter(t => !t.isTemplate).length;
+      count = allTasks.length;
     } else {
       const { start, end } = getDates(cat);
       count = allTasks.filter(t => !t.isTemplate && isTaskInDateRange(t, start, end)).length;
     }
     return { name: cat, count };
   });
+
+  const allMatchingSearchCount = useMemo(() => {
+    if (!searchQ) return 0;
+    const q = searchQ.toLowerCase();
+    return allTasks.filter(task => {
+      const title = (task.title || "").toLowerCase();
+      const id = (task.taskId || "").toLowerCase();
+      const dept = (task.departmentId?.name || "").toLowerCase();
+      const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
+      const assigneeNames = assignees.map(a => `${a?.firstName || a?.name || ""} ${a?.lastName || ""}`.toLowerCase()).join(" ");
+      return title.includes(q) || id.includes(q) || dept.includes(q) || assigneeNames.includes(q);
+    }).length;
+  }, [allTasks, searchQ]);
 
   // Calculate custom dropdown filters count (including active status and date tab filters)
   const activeCustomFiltersCount = useMemo(() => {
@@ -905,10 +931,10 @@ export default function TaskBoard() {
 
   // Kanban Columns Definition
   const kanbanColumns = [
-    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes(t.status) },
+    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes(t.status) || (t.isTemplate && (t.isActive || t.status === "active")) },
     { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => ["in_process", "re_in_process"].includes(t.status) },
-    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "re_complete", "late_complete", "re_late_complete"].includes(t.status) },
-    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => t.status === "overdue" || (!["complete", "completed", "done", "late_complete"].includes(t.status) && t.endDateTime && new Date(t.endDateTime) < new Date()) },
+    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "re_complete", "late_complete", "re_late_complete"].includes(t.status) || (t.isTemplate && (!t.isActive || t.status === "stopped")) },
+    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !t.isTemplate && (t.status === "overdue" || (!["complete", "completed", "done", "late_complete"].includes(t.status) && t.endDateTime && new Date(t.endDateTime) < new Date())) },
   ];
 
   return (
@@ -1487,7 +1513,7 @@ export default function TaskBoard() {
             { id: "Today", label: "Today", count: categoryCounts.find(c => c.name === "Today")?.count || 0 },
             { id: "This Week", label: "This Week", count: categoryCounts.find(c => c.name === "This Week")?.count || 0 },
             { id: "This Month", label: "This Month", count: categoryCounts.find(c => c.name === "This Month")?.count || 0 },
-            { id: "All Time", label: "All Tasks", count: allTasks.filter(t => !t.isTemplate).length },
+            { id: "All Time", label: "All Tasks", count: allTasks.length },
             { id: "Recurring", label: "Recurring Tasks", count: recurringCount, icon: Repeat, isSpecial: true },
           ].map(tab => {
             const isTabActive = activeTab === tab.id;
@@ -1660,8 +1686,24 @@ export default function TaskBoard() {
           </div>
           <p className="text-slate-900 dark:text-white font-extrabold text-base">No tasks found</p>
           <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">Try adjusting your status filter, search term, or date range</p>
-          {(statusFilter || searchQ) && (
-            <button onClick={() => { setStatusFilter(""); setSearchQ(""); }} className="mt-4 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer">
+          {allMatchingSearchCount > 0 && activeTab !== "All Time" && (
+            <div className="flex flex-col sm:flex-row items-center gap-2 mt-4 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold text-blue-900 dark:text-blue-200 shadow-2xs">
+              <span>Found {allMatchingSearchCount} task(s) matching "{searchQ}" in All Tasks.</span>
+              <button
+                onClick={() => {
+                  setActiveTab("All Time");
+                  setTempTab("All Time");
+                  setStatusFilter("");
+                  setFilters(prev => ({ ...prev, status: "", startDate: "", endDate: "" }));
+                }}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer transition-colors shadow-2xs text-[11px]"
+              >
+                Switch to All Tasks
+              </button>
+            </div>
+          )}
+          {(statusFilter || searchQ || activeTab !== "Today") && (
+            <button onClick={() => { setStatusFilter(""); setSearchQ(""); handleTabChange("Today"); }} className="mt-4 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer">
               <X size={13} /> Reset status & search filters
             </button>
           )}

@@ -133,6 +133,8 @@ const getAssignedTasks = async (req, res, next) => {
 
       tasks.forEach(t => {
         t.isTemplate = true;
+        t.repeatEnabled = true;
+        t.status = t.status || (t.isActive ? "active" : "stopped");
         t.assignees = t.assignedTo || [];
       });
     } else {

@@ -9,56 +9,87 @@ import SaSelect from "../../components/common/SaSelect";
 import {
   Search, MoreVertical, ShieldAlert, Key, LogOut, CheckCircle,
   CheckCircle2, Ban, Eye, Users, UserCheck, Shield, User, Building2,
-  ExternalLink, Mail, Phone, Calendar, Lock
+  ExternalLink, Mail, Phone, Calendar, Lock, X, RotateCcw, Filter
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 /* ─── Palette-Enforced Role Badge ──────────────────────────────────────── */
 const GlobalUserRoleBadge = ({ role }) => {
   const roleMap = {
-    CompanyAdmin: { bg: "bg-[#f59e0b]/15", text: "text-[#f59e0b]", border: "border-[#f59e0b]/30", label: "Company Admin" },
-    HR: { bg: "bg-[#06B6D4]/15", text: "text-[#06B6D4]", border: "border-[#06B6D4]/30", label: "HR Manager" },
-    Manager: { bg: "bg-[#fbbf24]/15", text: "text-[#fbbf24]", border: "border-[#fbbf24]/30", label: "Team Lead / Mgr" },
-    Employee: { bg: "bg-sa-bg", text: "text-sa-text-secondary", border: "border-sa-border/30", label: "Standard Employee" }
+    CompanyAdmin: { 
+      bg: "bg-indigo-500/10 dark:bg-indigo-500/15", 
+      text: "text-indigo-600 dark:text-indigo-400", 
+      border: "border-indigo-500/30", 
+      label: "Company Admin" 
+    },
+    HR: { 
+      bg: "bg-cyan-500/10 dark:bg-cyan-500/15", 
+      text: "text-cyan-600 dark:text-cyan-400", 
+      border: "border-cyan-500/30", 
+      label: "HR Manager" 
+    },
+    Manager: { 
+      bg: "bg-amber-500/10 dark:bg-amber-500/15", 
+      text: "text-amber-700 dark:text-amber-400", 
+      border: "border-amber-500/30", 
+      label: "Team Lead / Mgr" 
+    },
+    Employee: { 
+      bg: "bg-slate-500/10 dark:bg-slate-500/15", 
+      text: "text-slate-600 dark:text-slate-400", 
+      border: "border-slate-500/25", 
+      label: "Employee" 
+    }
   };
   const current = roleMap[role] || roleMap.Employee;
   return (
-    <span className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${current.bg} ${current.text} ${current.border}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10.5px] font-black uppercase tracking-wider border transition-colors ${current.bg} ${current.text} ${current.border}`}>
       {current.label}
     </span>
   );
 };
 
-/* ─── Palette-Enforced Status Badge ────────────────────────────────────── */
+/* ─── Modern High-Contrast Status Badge ─────────────────────────────────── */
 const GlobalUserStatusBadge = ({ isActive }) => (
-  <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${
+  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-black uppercase tracking-wider border transition-all ${
     isActive 
-      ? "bg-[#fbbf24]/15 text-[#fbbf24] border-[#fbbf24]/30" 
-      : "bg-sa-bg text-sa-text-secondary border-sa-border/30"
+      ? "bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" 
+      : "bg-rose-500/10 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
   }`}>
-    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[#fbbf24]" : "bg-sa-text-secondary"}`} />
+    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500 ring-2 ring-emerald-500/25 animate-pulse" : "bg-rose-500"}`} />
     <span>{isActive ? "Active Account" : "Suspended / Locked"}</span>
   </span>
 );
 
-/* ─── Top Identity & Access Summary Card ───────────────────────────────── */
+/* ─── Premium Identity & Access KPI Summary Card ───────────────────────── */
 const UserKpiCard = ({ title, count, subtitle, icon: Icon, grad = ["#d97706", "#f59e0b"], active, onClick }) => (
   <div 
     onClick={onClick}
-    className={`bg-sa-surface rounded-2xl p-4 border transition-all cursor-pointer flex items-center justify-between shadow-xs ${
-      active ? "border-[#f59e0b] ring-2 ring-[#f59e0b]/20 shadow-md" : "border-sa-border/30 hover:border-sa-border/80 hover:bg-sa-bg/30"
+    className={`relative overflow-hidden bg-sa-surface rounded-2xl p-4 border transition-all duration-200 cursor-pointer flex items-center justify-between shadow-xs hover:-translate-y-0.5 hover:shadow-md ${
+      active 
+        ? "border-[#f59e0b] ring-2 ring-[#f59e0b]/25 bg-[#f59e0b]/[0.03] shadow-md" 
+        : "border-sa-border/40 hover:border-sa-border/80 hover:bg-sa-bg/30"
     }`}
   >
-    <div>
-      <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1">{title}</p>
-      <div className="flex items-baseline space-x-2">
-        <h4 className="text-2xl font-black text-sa-text tracking-tight leading-none">{count}</h4>
-        {subtitle && <span className="text-[10px] font-bold text-sa-text-secondary">{subtitle}</span>}
+    {active && (
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+    )}
+    <div className="min-w-0 pr-2">
+      <p className="text-[10.5px] font-black text-sa-text-secondary uppercase tracking-wider mb-1 truncate">{title}</p>
+      <div className="flex items-baseline gap-2">
+        <h4 className="text-2xl sm:text-3xl font-black text-sa-text tracking-tight leading-none">{count}</h4>
+        {subtitle && (
+          <span className="text-[10px] font-bold text-sa-text-secondary truncate max-w-[120px]" title={subtitle}>
+            {subtitle}
+          </span>
+        )}
       </div>
     </div>
-    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
-      style={{ background: `linear-gradient(135deg, ${grad[0]}, ${grad[1]})` }}>
-      <Icon size={18} className="text-white" />
+    <div 
+      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-200 hover:scale-105"
+      style={{ background: `linear-gradient(135deg, ${grad[0]}, ${grad[1]})` }}
+    >
+      <Icon size={20} className="text-white" />
     </div>
   </div>
 );
@@ -183,13 +214,62 @@ const SuperAdminUsers = () => {
     ? companiesData?.data
     : (companiesData?.data?.companies || companiesData?.data?.data || []);
 
+  const isCompanyActive = companyFilter !== "all";
+  const isRoleActive = roleFilter !== "all";
+  const isStatusActive = statusFilter !== "all";
+  const isSearchActive = Boolean(searchTerm.trim());
+  const hasActiveFilters = isCompanyActive || isRoleActive || isStatusActive || isSearchActive;
+
+  const selectedCompany = companies.find(
+    (c) => String(c._id) === String(companyFilter) || String(c.companyName).toLowerCase() === String(companyFilter).toLowerCase()
+  );
+  const selectedCompanyName = selectedCompany?.companyName || "Selected Company";
+
+  const roleLabelMap = {
+    CompanyAdmin: "Company Admin",
+    HR: "HR Manager",
+    Manager: "Manager",
+    Employee: "Employee",
+    standard: "Staff Member"
+  };
+  const roleLabel = roleLabelMap[roleFilter] || roleFilter;
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setCompanyFilter("all");
+    setRoleFilter("all");
+    setStatusFilter("all");
+  };
+
+  const handleCardClick = (type) => {
+    if (type === "all") {
+      setStatusFilter("all");
+      setRoleFilter("all");
+    } else if (type === "active") {
+      setStatusFilter((prev) => (prev === "active" ? "all" : "active"));
+    } else if (type === "inactive") {
+      setStatusFilter((prev) => (prev === "inactive" ? "all" : "inactive"));
+    } else if (type === "CompanyAdmin") {
+      setRoleFilter((prev) => (prev === "CompanyAdmin" ? "all" : "CompanyAdmin"));
+    } else if (type === "standard") {
+      setRoleFilter((prev) => (prev === "standard" ? "all" : "standard"));
+    }
+  };
+
+  const isUserActive = (user) => Boolean(user?.isActive === true || user?.isActive === "active");
+  const isUserSuspended = (user) => !isUserActive(user);
+
+  // Full table filter
   const filteredUsers = users.filter((user) => {
     const name = user.name || "";
     const email = user.email || "";
-    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          email.toLowerCase().includes(searchTerm.toLowerCase());
+    const phone = user.phone || "";
+    const matchesSearch = !searchTerm || 
+                          name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          phone.includes(searchTerm);
     const matchesStatus = statusFilter === "all" || 
-                          (statusFilter === "active" ? (user.isActive === true || user.isActive === "active" || user.status === "active") : (user.isActive === false || user.isActive === "inactive" || !user.isActive || user.status !== "active"));
+                          (statusFilter === "active" ? isUserActive(user) : isUserSuspended(user));
     const matchesRole = roleFilter === "all" || user.role === roleFilter || (roleFilter === "standard" && user.role !== "CompanyAdmin");
     const userCompId = user.companyId?._id || user.companyId?.id || user.companyId;
     const matchesCompany = companyFilter === "all" || 
@@ -198,11 +278,12 @@ const SuperAdminUsers = () => {
     return matchesSearch && matchesStatus && matchesRole && matchesCompany;
   });
 
-  const totalUsers = users.length;
-  const activeUsers = users.filter(u => u.isActive).length;
-  const suspendedUsers = users.filter(u => !u.isActive).length;
-  const companyAdmins = users.filter(u => u.role === "CompanyAdmin").length;
-  const standardUsers = users.filter(u => u.role !== "CompanyAdmin").length;
+  // KPI card counts calculated directly from filteredUsers so every card value changes dynamically with any applied filter
+  const totalUsers = filteredUsers.length;
+  const activeUsers = filteredUsers.filter(isUserActive).length;
+  const suspendedUsers = filteredUsers.filter(isUserSuspended).length;
+  const companyAdmins = filteredUsers.filter(u => u.role === "CompanyAdmin").length;
+  const standardUsers = filteredUsers.filter(u => u.role !== "CompanyAdmin").length;
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => updateUserStatusApi(id, status),
@@ -382,80 +463,111 @@ const SuperAdminUsers = () => {
       </div>
 
       {/* Identity & Access KPI Row (5 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
         <UserKpiCard 
           title="Total Users" 
           count={totalUsers} 
-          subtitle="All registered accounts" 
+          subtitle={
+            hasActiveFilters 
+              ? (isCompanyActive ? selectedCompanyName : isRoleActive ? roleLabel : "Filtered") 
+              : "All registered"
+          } 
           icon={Users} 
-          grad={["#d97706", "#f59e0b"]} 
-          active={statusFilter === "all" && roleFilter === "all"} 
-          onClick={() => { setStatusFilter("all"); setRoleFilter("all"); }} 
+          grad={["#f59e0b", "#d97706"]} 
+          active={statusFilter === "all" && roleFilter === "all" && !hasActiveFilters} 
+          onClick={() => handleCardClick("all")} 
         />
         <UserKpiCard 
           title="Active Profiles" 
           count={activeUsers} 
-          subtitle="Enrolled & verified" 
+          subtitle={hasActiveFilters ? "Active matching" : "Verified & active"} 
           icon={UserCheck} 
-          grad={["#f59e0b", "#f59e0b"]} 
+          grad={["#10b981", "#059669"]} 
           active={statusFilter === "active"} 
-          onClick={() => setStatusFilter("active")} 
+          onClick={() => handleCardClick("active")} 
         />
         <UserKpiCard 
           title="Suspended / Locked" 
           count={suspendedUsers} 
-          subtitle="Account locked / suspended" 
+          subtitle={hasActiveFilters ? "Locked matching" : "Account suspended"} 
           icon={Ban} 
-          grad={["#b45309", "#06B6D4"]} 
+          grad={["#f43f5e", "#e11d48"]} 
           active={statusFilter === "inactive"} 
-          onClick={() => setStatusFilter("inactive")} 
+          onClick={() => handleCardClick("inactive")} 
         />
         <UserKpiCard 
           title="Company Admins" 
           count={companyAdmins} 
-          subtitle="Company administrators" 
+          subtitle={hasActiveFilters ? "Admins matching" : "Company admins"} 
           icon={Shield} 
-          grad={["#d97706", "#fbbf24"]} 
+          grad={["#8b5cf6", "#6366f1"]} 
           active={roleFilter === "CompanyAdmin"} 
-          onClick={() => setRoleFilter("CompanyAdmin")} 
+          onClick={() => handleCardClick("CompanyAdmin")} 
         />
         <UserKpiCard 
-          title="Employees &amp; HR" 
+          title="Employees & Staff" 
           count={standardUsers} 
-          subtitle="Staff members" 
+          subtitle={hasActiveFilters ? "Staff matching" : "Staff & managers"} 
           icon={User} 
-          grad={["#f59e0b", "#06B6D4"]} 
-          active={roleFilter === "standard"} 
-          onClick={() => setRoleFilter("standard")} 
+          grad={["#06b6d4", "#0284c7"]} 
+          active={roleFilter === "standard" || ["Employee", "HR", "Manager"].includes(roleFilter)} 
+          onClick={() => handleCardClick("standard")} 
         />
       </div>
 
       {/* Multi-Filter Search Toolbar */}
-      <div className="bg-sa-surface p-2.5 sm:p-3 rounded-2xl border border-sa-border/30 shadow-xs space-y-2.5 sm:space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5 sm:gap-3">
-          <div className="relative md:col-span-2">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
+      <div className="bg-sa-surface p-3 sm:p-3.5 rounded-2xl border border-sa-border/40 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${isSearchActive ? "text-[#f59e0b]" : "text-sa-text-secondary"}`} />
             <input 
               type="text" 
-              placeholder="Search users by full name, email address, or registered phone..." 
-              className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all" 
+              placeholder="Search by name, email, or phone..." 
+              className={`w-full h-10 rounded-xl pl-9 pr-9 text-xs font-bold placeholder:text-sa-text-secondary/50 focus:outline-none transition-all ${
+                isSearchActive
+                  ? "bg-[#f59e0b]/10 border-2 border-[#f59e0b] text-sa-text ring-2 ring-[#f59e0b]/25 shadow-xs"
+                  : "bg-sa-bg/60 border border-sa-border/30 text-sa-text focus:border-[#f59e0b]"
+              }`}
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
             />
+            {isSearchActive && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sa-text-secondary hover:text-sa-text p-1 rounded-full hover:bg-sa-surface transition-all cursor-pointer"
+                title="Clear search"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
-          <SaSelect
-            value={companyFilter}
-            onChange={setCompanyFilter}
-            options={[
-              { label: "All Companies", value: "all" },
-              ...companies.map(c => ({ label: c.companyName, value: c._id }))
-            ]}
-            buttonClassName="!py-2 !px-3.5 !rounded-xl !bg-sa-bg/60 !w-full"
-          />
-          <div className="grid grid-cols-2 gap-2">
+
+          {/* Company Select */}
+          <div className="w-full md:w-[220px]">
+            <SaSelect
+              value={companyFilter}
+              onChange={setCompanyFilter}
+              icon={Building2}
+              options={[
+                { label: "All Companies", value: "all" },
+                ...companies.map(c => ({ label: c.companyName, value: c._id }))
+              ]}
+              buttonClassName={`!h-10 !py-2 !px-3.5 !rounded-xl !w-full transition-all text-xs font-bold ${
+                isCompanyActive
+                  ? "!border-[#f59e0b] !bg-[#f59e0b]/15 !text-[#f59e0b] font-black ring-2 ring-[#f59e0b]/25 shadow-xs"
+                  : "!bg-sa-bg/60 !border-sa-border/30 !text-sa-text hover:border-sa-border/80"
+              }`}
+            />
+          </div>
+
+          {/* Role Select */}
+          <div className="w-full md:w-[170px]">
             <SaSelect
               value={roleFilter}
               onChange={setRoleFilter}
+              icon={Shield}
               options={[
                 { label: "All Roles", value: "all" },
                 { label: "Company Admin", value: "CompanyAdmin" },
@@ -463,20 +575,116 @@ const SuperAdminUsers = () => {
                 { label: "Manager", value: "Manager" },
                 { label: "Employee", value: "Employee" }
               ]}
-              buttonClassName="!py-2 !px-3 !rounded-xl !bg-sa-bg/60 !w-full"
+              buttonClassName={`!h-10 !py-2 !px-3 !rounded-xl !w-full transition-all text-xs font-bold ${
+                isRoleActive
+                  ? "!border-[#f59e0b] !bg-[#f59e0b]/15 !text-[#f59e0b] font-black ring-2 ring-[#f59e0b]/25 shadow-xs"
+                  : "!bg-sa-bg/60 !border-sa-border/30 !text-sa-text hover:border-sa-border/80"
+              }`}
             />
+          </div>
+
+          {/* Status Select */}
+          <div className="w-full md:w-[150px]">
             <SaSelect
               value={statusFilter}
               onChange={setStatusFilter}
+              icon={UserCheck}
               options={[
                 { label: "All Status", value: "all" },
                 { label: "Active Only", value: "active" },
                 { label: "Suspended", value: "inactive" }
               ]}
-              buttonClassName="!py-2 !px-3 !rounded-xl !bg-sa-bg/60 !w-full"
+              buttonClassName={`!h-10 !py-2 !px-3 !rounded-xl !w-full transition-all text-xs font-bold ${
+                isStatusActive
+                  ? "!border-[#f59e0b] !bg-[#f59e0b]/15 !text-[#f59e0b] font-black ring-2 ring-[#f59e0b]/25 shadow-xs"
+                  : "!bg-sa-bg/60 !border-sa-border/30 !text-sa-text hover:border-sa-border/80"
+              }`}
             />
           </div>
         </div>
+
+        {/* Active Filters Pill Bar & Results Count */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-sa-border/30 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-black text-sa-text-secondary uppercase tracking-wider flex items-center gap-1 mr-1">
+                <Filter size={11} className="text-[#f59e0b]" />
+                <span>Active Filters:</span>
+              </span>
+              {isCompanyActive && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30 text-xs font-bold shadow-xs">
+                  <Building2 size={12} />
+                  <span>Company: {selectedCompanyName}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setCompanyFilter("all")} 
+                    className="hover:text-sa-text ml-0.5 p-0.5 rounded transition-colors cursor-pointer"
+                    title="Remove company filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {isRoleActive && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30 text-xs font-bold shadow-xs">
+                  <Shield size={12} />
+                  <span>Role: {roleLabel}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setRoleFilter("all")} 
+                    className="hover:text-sa-text ml-0.5 p-0.5 rounded transition-colors cursor-pointer"
+                    title="Remove role filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {isStatusActive && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30 text-xs font-bold shadow-xs">
+                  <UserCheck size={12} />
+                  <span>Status: {statusFilter === "active" ? "Active Accounts" : "Suspended"}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setStatusFilter("all")} 
+                    className="hover:text-sa-text ml-0.5 p-0.5 rounded transition-colors cursor-pointer"
+                    title="Remove status filter"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {isSearchActive && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30 text-xs font-bold shadow-xs">
+                  <Search size={12} />
+                  <span>Search: "{searchTerm}"</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setSearchTerm("")} 
+                    className="hover:text-sa-text ml-0.5 p-0.5 rounded transition-colors cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <span className="text-[11px] font-bold text-sa-text-secondary">
+                Showing <strong className="text-sa-text font-black text-xs">{filteredUsers.length}</strong> of <span className="font-semibold">{users.length}</span> users
+              </span>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sa-surface border border-sa-border/50 text-[11px] font-extrabold text-[#f59e0b] hover:bg-[#f59e0b]/15 hover:border-[#f59e0b] transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Reset all applied filters"
+              >
+                <RotateCcw size={11} />
+                <span>Reset All</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Data Table Section */}
