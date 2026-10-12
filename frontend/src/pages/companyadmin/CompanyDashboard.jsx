@@ -246,8 +246,16 @@ export default function CompanyDashboard() {
   const { data: tasksRes, isLoading: isLoadingTasks } = useQuery({
     queryKey: ["companyDashboardAllTasks"],
     queryFn: async () => {
-      const res = await getTasksApi({ limit: 500 });
-      return res.data?.tasks || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const [regRes, tplRes] = await Promise.all([
+        getTasksApi().catch(() => ({ data: { tasks: [] } })),
+        getTasksApi({ isTemplate: true }).catch(() => ({ data: { tasks: [] } }))
+      ]);
+      const reg = regRes.data?.tasks || regRes.data?.data || (Array.isArray(regRes.data) ? regRes.data : []);
+      const tpls = (tplRes.data?.tasks || tplRes.data?.data || (Array.isArray(tplRes.data) ? tplRes.data : [])).map((t) => ({
+        ...t,
+        isTemplate: true,
+      }));
+      return [...reg, ...tpls];
     },
     enabled: !!hasPermission("tasks"),
     staleTime: 30000,
@@ -373,10 +381,38 @@ export default function CompanyDashboard() {
   }, [empRes]);
 
   const realTasks = useMemo(() => {
-    if (Array.isArray(tasksRes)) return tasksRes;
-    if (Array.isArray(tasksRes?.tasks)) return tasksRes.tasks;
-    if (Array.isArray(tasksRes?.data)) return tasksRes.data;
-    return [];
+    const raw = Array.isArray(tasksRes)
+      ? tasksRes
+      : Array.isArray(tasksRes?.tasks)
+      ? tasksRes.tasks
+      : Array.isArray(tasksRes?.data)
+      ? tasksRes.data
+      : [];
+    const now = Date.now();
+    return raw.map((t) => {
+      if (t.isTemplate) {
+        return {
+          ...t,
+          status: t.isActive ? "active" : "stopped",
+        };
+      }
+      const st = (t.status || "pending").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+      if (!isDone) {
+        const rawEnd = t.endDateTime || t.endDate || t.dueDate;
+        if (rawEnd) {
+          const due = new Date(rawEnd);
+          if (!isNaN(due.getTime())) {
+            if (now >= due.getTime()) {
+              return { ...t, status: "overdue" };
+            } else if (st === "overdue") {
+              return { ...t, status: t.isReopened ? "re_pending" : "pending" };
+            }
+          }
+        }
+      }
+      return t;
+    });
   }, [tasksRes]);
 
   const realProjects = useMemo(() => {
@@ -549,39 +585,55 @@ export default function CompanyDashboard() {
   }, [realProjects, realTasks]);
 
   // ── Tasks Tab Data ──
-  const totalTasksCount = realTasks.length;
-  const completedTasksCount = useMemo(() =>
-    realTasks.filter((t) =>
-      ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
-    ).length,
-    [realTasks]
-  );
-  const activeTasksCount = useMemo(() =>
-    realTasks.filter((t) =>
-      ["in_process", "re_in_process", "in-progress", "working"].includes((t.status || "").toLowerCase())
-    ).length,
-    [realTasks]
-  );
-  const pendingTasksCount = useMemo(() =>
-    realTasks.filter((t) =>
-      ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
-    ).length,
-    [realTasks]
-  );
+  const totalTasksCount = realTasks.length > 0
+    ? realTasks.length
+    : (kpis.totalTasks ?? dashRes?.taskStats?.find((s) => s.status === "all")?.count ?? 0);
+
+  const completedTasksCount = useMemo(() => {
+    if (realTasks.length > 0) {
+      return realTasks.filter((t) =>
+        ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
+      ).length;
+    }
+    return (dashRes?.taskStats?.find((s) => s.status === "done")?.count || 0);
+  }, [realTasks, dashRes]);
+
+  const activeTasksCount = useMemo(() => {
+    if (realTasks.length > 0) {
+      return realTasks.filter((t) =>
+        ["in_process", "re_in_process", "in-progress", "working"].includes((t.status || "").toLowerCase())
+      ).length;
+    }
+    return (dashRes?.taskStats?.find((s) => s.status === "in-progress")?.count || 0);
+  }, [realTasks, dashRes]);
+
+  const pendingTasksCount = useMemo(() => {
+    if (realTasks.length > 0) {
+      return realTasks.filter((t) =>
+        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
+        (t.isTemplate && (t.isActive || t.status === "active"))
+      ).length;
+    }
+    return (dashRes?.taskStats?.find((s) => s.status === "todo")?.count || 0);
+  }, [realTasks, dashRes]);
+
   const overdueTasksCount = useMemo(() => {
-    const now = Date.now();
-    return realTasks.filter((t) => {
-      if (t.isTemplate) return false;
-      const st = (t.status || "").toLowerCase();
-      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
-      if (isDone) return false;
-      if (st === "overdue") return true;
-      const raw = t.endDateTime || t.endDate || t.dueDate;
-      if (!raw) return false;
-      const dueTime = new Date(raw).getTime();
-      return !isNaN(dueTime) && now >= dueTime;
-    }).length;
-  }, [realTasks]);
+    if (realTasks.length > 0) {
+      const now = Date.now();
+      return realTasks.filter((t) => {
+        if (t.isTemplate) return false;
+        const st = (t.status || "").toLowerCase();
+        const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+        if (isDone) return false;
+        if (st === "overdue") return true;
+        const raw = t.endDateTime || t.endDate || t.dueDate;
+        if (!raw) return false;
+        const dueTime = new Date(raw).getTime();
+        return !isNaN(dueTime) && now >= dueTime;
+      }).length;
+    }
+    return (kpis.overdueTasks ?? dashRes?.taskStats?.find((s) => s.status === "overdue")?.count ?? 0);
+  }, [realTasks, kpis, dashRes]);
 
   const taskCompletionRate = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
@@ -595,7 +647,8 @@ export default function CompanyDashboard() {
     }
     if (taskTableFilter === "pending") {
       return realTasks.filter((t) =>
-        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
+        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
+        (t.isTemplate && (t.isActive || t.status === "active"))
       );
     }
     if (taskTableFilter === "completed") {
@@ -606,6 +659,7 @@ export default function CompanyDashboard() {
     if (taskTableFilter === "overdue") {
       const now = Date.now();
       return realTasks.filter((t) => {
+        if (t.isTemplate) return false;
         const st = (t.status || "").toLowerCase();
         const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
         if (isDone) return false;

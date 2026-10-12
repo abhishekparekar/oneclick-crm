@@ -120,7 +120,9 @@ const getDashboardStats = async (req, res, next) => {
             // Real Project counts
             totalProjectsCount,
             activeProjectsCount,
-            completedProjectsCount
+            completedProjectsCount,
+            // Real Lead count
+            totalLeadsCount
         ] = await Promise.all([
             Department.countDocuments({ companyId }),
             Designation.countDocuments({ companyId }),
@@ -178,13 +180,11 @@ const getDashboardStats = async (req, res, next) => {
             Project.countDocuments({ companyId, status: "completed" }),
             // Lead count definitions
             Lead.countDocuments({
-                $or: [
-                    { companyId: new mongoose.Types.ObjectId(companyId) },
-                    { companyId: companyId ? companyId.toString() : null },
-                    { companyId: null }
-                ],
+                ...(companyId && mongoose.Types.ObjectId.isValid(companyId)
+                    ? { $or: [{ companyId: new mongoose.Types.ObjectId(companyId) }, { companyId: null }] }
+                    : {}),
                 deletedAt: null
-            })
+            }).catch(() => 0)
         ]);
 
         const daysInPeriod = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
@@ -669,6 +669,7 @@ const getCompanyDashboard = async (req, res, next) => {
             overdueTasks,
             activeProjects,
             activeTemplates,
+            totalLeads,
             salaryAgg,
             attendanceSummary,
             recentEmployees,
@@ -684,7 +685,6 @@ const getCompanyDashboard = async (req, res, next) => {
             onLeave,
             leaveSummaryAgg,
             upcomingBirthdaysRaw,
-            totalLeads,
         ] = await Promise.all([
             Employee.countDocuments({ companyId }),
             Employee.countDocuments({ companyId, status: "active" }),
@@ -692,10 +692,10 @@ const getCompanyDashboard = async (req, res, next) => {
             Attendance.countDocuments({ companyId, date: today, status: "late" }),
             Attendance.countDocuments({ companyId, date: today, status: "half-day" }),
             Leave.countDocuments({ companyId, status: "pending" }),
-            Task.countDocuments({ companyId, isLive: true, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] } }),
-            Task.countDocuments({ companyId, isLive: true, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: new Date() } }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] } }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: new Date() } }),
             Project.countDocuments({ companyId, status: "active" }),
-            TaskTemplate.countDocuments({ companyId, isActive: true }),
+            TaskTemplate.countDocuments({ companyId }),
             Lead.countDocuments({
                 $or: [
                     { companyId: compObjId },
@@ -728,7 +728,7 @@ const getCompanyDashboard = async (req, res, next) => {
                 .sort({ createdAt: -1 })
                 .limit(5)
                 .lean(),
-            Task.find({ companyId, isLive: true, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: new Date() } })
+            Task.find({ companyId, isLive: { $ne: false }, status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: new Date() } })
                 .populate("assignedTo", "firstName lastName employeeCode")
                 .sort({ endDateTime: 1 })
                 .limit(5)
@@ -752,7 +752,12 @@ const getCompanyDashboard = async (req, res, next) => {
                 { $group: { _id: "$departmentId", count: { $sum: 1 } } }
             ]),
             Task.aggregate([
-                { $match: { companyId: compObjId, isLive: true } },
+                {
+                    $match: {
+                        $or: [{ companyId: compObjId }, { companyId: companyId ? companyId.toString() : null }],
+                        isLive: { $ne: false }
+                    }
+                },
                 {
                     $group: {
                         _id: null,
@@ -820,12 +825,12 @@ const getCompanyDashboard = async (req, res, next) => {
         // Task Stats
         const taskCounts = (taskAgg && taskAgg.length > 0) ? taskAgg[0] : { all: 0, pending: 0, inProcess: 0, completed: 0, lateCompleted: 0, overdue: 0 };
         const taskStats = [
-            { status: "todo", count: taskCounts.pending || 0 },
+            { status: "todo", count: (taskCounts.pending || 0) + (activeTemplates || 0) },
             { status: "in-progress", count: taskCounts.inProcess || 0 },
             { status: "review", count: 0 },
-            { status: "done", count: taskCounts.completed || 0 },
+            { status: "done", count: (taskCounts.completed || 0) + (taskCounts.lateCompleted || 0) },
             { status: "late-complete", count: taskCounts.lateCompleted || 0 },
-            { status: "all", count: (taskCounts.all || 0) + activeTemplates },
+            { status: "all", count: (taskCounts.all || 0) + (activeTemplates || 0) },
             { status: "overdue", count: taskCounts.overdue || 0 }
         ];
 
@@ -885,6 +890,7 @@ const getCompanyDashboard = async (req, res, next) => {
                     activeProjects,
                     monthlyPayrollCost,
                     totalLeads: totalLeads || 0,
+                    totalTasks: (taskCounts.all || 0) + (activeTemplates || 0),
                 },
                 attendanceSummary,
                 recentEmployees,

@@ -101,6 +101,41 @@ const formatDateTime = (dateStr) => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${timeStr}`;
 };
 
+const formatDateTimeDisplay = (dateVal, explicitTimeStr = "") => {
+  if (!dateVal) return "—";
+  const isPureDateStr = typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim());
+  let dateFormatted = "";
+  let d = null;
+
+  if (isPureDateStr) {
+    const [y, m, day] = dateVal.trim().split("-");
+    dateFormatted = `${day}/${m}/${y}`;
+  } else {
+    d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    const pad = (n) => String(n).padStart(2, "0");
+    dateFormatted = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
+  if (explicitTimeStr && typeof explicitTimeStr === "string" && explicitTimeStr.trim()) {
+    const rawT = explicitTimeStr.trim();
+    if (/^\d{1,2}:\d{2}$/.test(rawT)) {
+      const [h, m] = rawT.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      return `${dateFormatted}, ${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    }
+    return `${dateFormatted}, ${rawT}`;
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    const timeFormatted = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${dateFormatted}, ${timeFormatted}`;
+  }
+
+  return dateFormatted;
+};
+
 const MiniAvatar = ({ name, size = "w-6 h-6", textSize = "text-[9.5px]" }) => {
   return (
     <div className={`${size} rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 text-white flex items-center justify-center font-black ${textSize} shrink-0 shadow-2xs`}>
@@ -663,16 +698,20 @@ export default function TaskDetailsPage() {
                 </div>
 
                 <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Start Date</span>
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block flex items-center gap-1">
+                    <Calendar size={11} className="text-slate-400" /> Start Date & Time
+                  </span>
                   <span className="font-mono font-black text-slate-900 dark:text-white block text-xs">
-                    {formatDate(task.startDateTime || task.startDate)}
+                    {formatDateTimeDisplay(task.startDateTime || task.startDate)}
                   </span>
                 </div>
 
                 <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Deadline</span>
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block flex items-center gap-1">
+                    <Clock size={11} className="text-rose-500" /> End Date & Time
+                  </span>
                   <span className="font-mono font-black text-rose-700 dark:text-rose-400 block text-xs">
-                    {formatDate(task.endDateTime || task.endDate || task.finishDate)}
+                    {formatDateTimeDisplay(task.endDateTime || task.endDate || task.dueDate || task.finishDate, task.deadlineTime)}
                   </span>
                 </div>
 

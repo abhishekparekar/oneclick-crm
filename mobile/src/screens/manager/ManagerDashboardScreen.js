@@ -130,7 +130,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      if (refreshUserProfile) refreshUserProfile().catch(() => {});
+      if (refreshUserProfile) refreshUserProfile().catch(() => { });
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
       fetchDashboard(false, params);
       fetchTodayAttendance();
@@ -143,7 +143,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      if (refreshUserProfile) await refreshUserProfile().catch(() => {});
+      if (refreshUserProfile) await refreshUserProfile().catch(() => { });
       await fetchDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {});
       await fetchTodayAttendance();
       if (canAccessLeads) {
@@ -248,7 +248,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const onLeave = leaveSummary.onLeaveToday || 0;
   const staffTotal = teamSummary.teamCount || (present + absent + halfDay + onLeave) || 0;
   const pct = (v) => (staffTotal > 0 ? `${Math.round((v / staffTotal) * 100)}%` : "0%");
-  
+
   const donutData = [
     { label: "Present", value: present, color: "#10B981" },
     { label: "Absent", value: absent, color: "#EF4444" },
@@ -267,6 +267,8 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const overdueTeamTasksCount = taskSummary.overdueTeamTasks || 0;
   const myOverdueTasksCount = taskSummary.myOverdueTasks || 0;
   const overdueTasksCount = overdueTeamTasksCount + myOverdueTasksCount;
+  const teamTasksCount = taskSummary.totalTeamTasks ?? taskSummary.openTeamTasks ?? 0;
+  const myTasksCount = taskSummary.totalMyTasks ?? taskSummary.myPendingTasks ?? 0;
 
   return (
     <ManagerLayout navigation={navigation} title="Dashboard" unreadCount={unreadCount}>
@@ -334,7 +336,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 style={{ position: "absolute", right: 10, top: 10 }}
               />
             </View>
-            
+
             <View style={styles.shiftBadge}>
               <View style={[styles.dot, { backgroundColor: isPunchedIn ? "#4ADE80" : "#fff" }]} />
               <Text style={styles.shiftText}>{isPunchedIn ? "ACTIVE SHIFT" : "SHIFT INACTIVE"}</Text>
@@ -388,7 +390,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
         {/* ── MAIN DASHBOARD BODY ── */}
         <View style={styles.bodySection}>
-          
+
           {/* Department Filter Pills (if multiple accessible depts) */}
           {departmentsList.length > 1 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
@@ -611,51 +613,35 @@ const ManagerDashboardScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.kpiGrid}>
+                {/* Team Tasks */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
+                    onPress={() => navigation.navigate("ManagerTasks", { activeTab: "teamTasks" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
+                      <Text style={styles.kpiLabel}>total Tasks</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#7C3AED" }]}>{loadingDashboard ? "..." : teamTasksCount}</Text>
+                    <Text style={styles.kpiSub}>All  Tasks</Text>
+                  </TouchableOpacity>
+                )}
+
                 {/* My Tasks */}
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#10B981" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { filter: "my" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { filter: "my", activeTab: "myTasks" })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
                       <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
                       <Text style={styles.kpiLabel}>My Tasks</Text>
                     </View>
-                    <Text style={styles.kpiValue}>{loadingDashboard ? "..." : (taskSummary.myPendingTasks ?? 0)}</Text>
+                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{loadingDashboard ? "..." : myTasksCount}</Text>
                     <Text style={styles.kpiSub}>Pending Action</Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Team Tasks */}
-                {canAccessTasks && (
-                  <TouchableOpacity
-                    style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
-                    onPress={() => navigation.navigate("ManagerTasks")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.kpiTopRow}>
-                      <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
-                      <Text style={styles.kpiLabel}>Team Tasks</Text>
-                    </View>
-                    <Text style={styles.kpiValue}>{loadingDashboard ? "..." : (taskSummary.openTeamTasks ?? 0)}</Text>
-                    <Text style={styles.kpiSub}>Active & Open</Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* My Overdue */}
-                {canAccessTasks && (
-                  <TouchableOpacity
-                    style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.kpiTopRow}>
-                      <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
-                      <Text style={styles.kpiLabel}>My Overdue</Text>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{loadingDashboard ? "..." : (taskSummary.myOverdueTasks ?? 0)}</Text>
-                    <Text style={styles.kpiSub}>Action Needed</Text>
                   </TouchableOpacity>
                 )}
 
@@ -670,8 +656,24 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#F97316" }]} />
                       <Text style={styles.kpiLabel}>Team Overdue</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#EA580C" }]}>{loadingDashboard ? "..." : (taskSummary.overdueTeamTasks ?? 0)}</Text>
+                    <Text style={[styles.kpiValue, { color: "#EA580C" }]}>{loadingDashboard ? "..." : overdueTeamTasksCount}</Text>
                     <Text style={styles.kpiSub}>Urgent Followup</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* My Overdue */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
+                      <Text style={styles.kpiLabel}>My Overdue</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{loadingDashboard ? "..." : myOverdueTasksCount}</Text>
+                    <Text style={styles.kpiSub}>Action Needed</Text>
                   </TouchableOpacity>
                 )}
 

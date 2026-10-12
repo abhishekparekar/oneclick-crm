@@ -155,21 +155,6 @@ const seedDefaultsForCompany = async (companyId) => {
       defaultSources.map((name) => ({ name, companyId }))
     );
   }
-
-  const defaultProducts = [
-    { name: "Website Development", description: "Custom Corporate & Ecommerce Web Development", price: 25000 },
-    { name: "HRMS & Payroll System", description: "Automated Staff, Attendance & Payroll Management", price: 45000 },
-    { name: "CRM & WhatsApp Marketing", description: "Lead Management & Automated Meta Cloud WhatsApp Integration", price: 30000 },
-    { name: "Mobile App Development", description: "Android & iOS Native/Cross-platform Apps", price: 50000 },
-    { name: "Digital Marketing & SEO", description: "Search Engine & Social Media Performance Marketing", price: 15000 },
-    { name: "Cloud & ERP Solutions", description: "Custom Business ERP & Cloud Infrastructure", price: 60000 },
-  ];
-  const productCount = await LeadProduct.countDocuments({ companyId });
-  if (productCount === 0) {
-    await LeadProduct.insertMany(
-      defaultProducts.map((p) => ({ ...p, companyId }))
-    );
-  }
 };
 
 // ── PRODUCTS & SERVICES ──

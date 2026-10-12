@@ -82,7 +82,7 @@ const NATIVE_SECTIONS = [
         module: "teamMembers",
       },
       {
-        label: "Attendance Tracker",
+        label: "Attendance",
         screen: "CompanyAttendance",
         icon: "calendar-outline",
         activeIcon: "calendar",
@@ -235,7 +235,7 @@ const CompanyDrawerContent = (props) => {
     activeTabVal === item.label ||
     activeTabVal === item.screen ||
     (activeTabVal === "Team Members" && item.label === "Team Members") ||
-    (activeTabVal === "Attendance" && item.label === "Attendance Tracker") ||
+    (activeTabVal === "Attendance" && (item.label === "Attendance" || item.label === "Attendance Tracker")) ||
     (activeTabVal === "Leaves" && item.label === "Leave Management") ||
     (activeTabVal === "Tasks" && item.label === "Task Management") ||
     (activeTabVal === "Projects" && item.label === "All Projects");

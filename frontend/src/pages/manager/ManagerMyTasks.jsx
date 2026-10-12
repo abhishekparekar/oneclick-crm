@@ -25,18 +25,46 @@ const formatDateDDMMYYYY = (val) => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+export const isTaskOverdue = (t) => {
+  if (!t) return false;
+  const status = (t.status || "").toLowerCase();
+  if (status === "overdue") return true;
+  const isDoneOrCancelled = [
+    "complete",
+    "completed",
+    "done",
+    "late_complete",
+    "re_complete",
+    "re_late_complete",
+    "cancelled",
+  ].includes(status);
+  if (isDoneOrCancelled) return false;
+
+  const raw = t.finishDate || t.endDateTime || t.endDate || t.dueDate || t.repeatUntilDate;
+  if (!raw) return false;
+
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return false;
+
+  if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+    d.setHours(23, 59, 59, 999);
+  }
+
+  return Date.now() > d.getTime();
+};
+
 const getTaskFormattedDueDate = (t) => {
+  const isOverdue = isTaskOverdue(t);
   if (t.isTemplate) {
     const raw = t.finishDate || t.endDate;
     const until = raw ? `Until ${formatDateDDMMYYYY(raw)}` : "Ongoing";
-    return { text: t.repeatType ? `${t.repeatType.toUpperCase()} • ${until}` : until, isOverdue: false };
+    return { text: t.repeatType ? `${t.repeatType.toUpperCase()} • ${until}` : until, isOverdue };
   }
   const raw = t.endDateTime || t.endDate || t.dueDate || t.finishDate || t.startDate;
   if (!raw) return { text: "No Due Date", isOverdue: false };
   const d = new Date(raw);
   if (isNaN(d.getTime())) return { text: "No Due Date", isOverdue: false };
   const formatted = formatDateDDMMYYYY(d);
-  const isOverdue = !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && Date.now() >= d.getTime();
   return { text: formatted, isOverdue };
 };
 
@@ -78,7 +106,16 @@ const PriorityBadge = ({ priority }) => {
   );
 };
 
-const StatusBadge = ({ status, isTemplate, isActive = true }) => {
+const StatusBadge = ({ status, isTemplate, isActive = true, isOverdue = false }) => {
+  if (isOverdue) {
+    const cfg = STATUS_CONFIG.overdue;
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+        {cfg.label}
+      </span>
+    );
+  }
   if (isTemplate) {
     return (
       <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold border ${
@@ -499,17 +536,23 @@ export default function ManagerMyTasks() {
   const activeStatus = statusFilter || filters.status || "";
   const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
     if (activeStatus) {
-      const s = (task.status || "pending").toLowerCase();
+      const taskIsOverdue = isTaskOverdue(task);
+      const effectiveSt = taskIsOverdue ? "overdue" : (task.status || "pending").toLowerCase();
       // "overdue" pill: match tasks that are past due and not completed
       if (activeStatus === "overdue") {
-        const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "re_complete", "cancelled"].includes(s);
-        const due = task.dueDate || task.endDateTime || task.endDate;
-        const isOverdue = !done && due && new Date(due) < new Date();
-        if (!isOverdue) return false;
+        if (!taskIsOverdue) return false;
+      } else if (activeStatus === "pending") {
+        if (taskIsOverdue) return false;
+        if (!["pending", "re_pending"].includes(effectiveSt) && !(task.isTemplate && (task.isActive || task.status === "active"))) return false;
+      } else if (activeStatus === "in_process") {
+        if (taskIsOverdue) return false;
+        if (!["in_process", "re_in_process", "in progress"].includes(effectiveSt)) return false;
+      } else if (activeStatus === "complete") {
+        if (!["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes(effectiveSt)) return false;
       } else if (activeStatus === "re_open" || activeStatus === "re_pending,re_in_process,re_complete,re_late_complete") {
-        if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s)) return false;
+        if (!["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(effectiveSt)) return false;
       } else {
-        if (s !== activeStatus.toLowerCase()) return false;
+        if (effectiveSt !== activeStatus.toLowerCase()) return false;
       }
     }
     if (search) {
@@ -551,15 +594,10 @@ export default function ManagerMyTasks() {
   }, [tabFilteredTasks]);
 
   const totalCount = allTasks.length;
-  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active"))).length;
-  const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
+  const overdueCount = tabFilteredTasks.filter(t => isTaskOverdue(t)).length;
+  const pendingCount = tabFilteredTasks.filter(t => !isTaskOverdue(t) && (["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active")))).length;
+  const inProgressCount = tabFilteredTasks.filter(t => !isTaskOverdue(t) && ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
   const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
-  const overdueCount = tabFilteredTasks.filter(t => {
-    const st = (t.status || "").toLowerCase();
-    const done = ["complete", "completed", "done"].includes(st);
-    const due = t.dueDate || t.endDateTime ? new Date(t.dueDate || t.endDateTime) : null;
-    return !done && due && due < new Date();
-  }).length;
   const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
   const recurringTasksList = useMemo(() => {
     return allTasks.filter(t => {
@@ -627,10 +665,10 @@ export default function ManagerMyTasks() {
   };
 
   const kanbanColumns = [
-    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active")) },
-    { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase()) },
-    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (!t.isActive || t.status === "stopped")) },
-    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => !t.isTemplate && !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && (t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < new Date() },
+    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => !isTaskOverdue(t) && (["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active"))) },
+    { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => !isTaskOverdue(t) && ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase()) },
+    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (!t.isActive || t.status === "stopped") && !isTaskOverdue(t)) },
+    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => isTaskOverdue(t) },
   ];
 
   return (
@@ -1447,7 +1485,7 @@ export default function ManagerMyTasks() {
 
                       {/* Status */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} />
+                        <StatusBadge status={t.status} isTemplate={t.isTemplate} isActive={t.isActive} isOverdue={deadlineInfo.isOverdue} />
                       </td>
 
                       {/* Action */}

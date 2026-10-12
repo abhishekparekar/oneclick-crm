@@ -208,8 +208,16 @@ export default function ManagerDashboard() {
   const { data: teamTasksRes, isLoading: isLoadingTasks } = useQuery({
     queryKey: ["managerDashboardTeamTasks", timeRange],
     queryFn: async () => {
-      const res = await getManagerTeamTasksApi({ limit: 1000 });
-      return res.data?.tasks || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const [regRes, tplRes] = await Promise.all([
+        getManagerTeamTasksApi({ limit: 1000 }).catch(() => ({ data: { data: [] } })),
+        getManagerTeamTasksApi({ isTemplate: true, limit: 1000 }).catch(() => ({ data: { data: [] } })),
+      ]);
+      const reg = regRes.data?.tasks || regRes.data?.data || (Array.isArray(regRes.data) ? regRes.data : []);
+      const tpls = (tplRes.data?.tasks || tplRes.data?.data || (Array.isArray(tplRes.data) ? tplRes.data : [])).map((t) => ({
+        ...t,
+        isTemplate: true,
+      }));
+      return [...reg, ...tpls];
     },
     staleTime: 10000,
   });
@@ -286,10 +294,38 @@ export default function ManagerDashboard() {
   const projects = d.projectSummary || {};
 
   const realTasks = useMemo(() => {
-    if (Array.isArray(teamTasksRes)) return teamTasksRes;
-    if (Array.isArray(teamTasksRes?.tasks)) return teamTasksRes.tasks;
-    if (Array.isArray(teamTasksRes?.data)) return teamTasksRes.data;
-    return [];
+    const raw = Array.isArray(teamTasksRes)
+      ? teamTasksRes
+      : Array.isArray(teamTasksRes?.tasks)
+      ? teamTasksRes.tasks
+      : Array.isArray(teamTasksRes?.data)
+      ? teamTasksRes.data
+      : [];
+    const now = Date.now();
+    return raw.map((t) => {
+      if (t.isTemplate) {
+        return {
+          ...t,
+          status: t.isActive ? "active" : "stopped",
+        };
+      }
+      const st = (t.status || "pending").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+      if (!isDone) {
+        const rawEnd = t.endDateTime || t.endDate || t.dueDate;
+        if (rawEnd) {
+          const due = new Date(rawEnd);
+          if (!isNaN(due.getTime())) {
+            if (now >= due.getTime()) {
+              return { ...t, status: "overdue" };
+            } else if (st === "overdue") {
+              return { ...t, status: t.isReopened ? "re_pending" : "pending" };
+            }
+          }
+        }
+      }
+      return t;
+    });
   }, [teamTasksRes]);
 
   const realLeads = useMemo(() => {
@@ -458,7 +494,8 @@ export default function ManagerDashboard() {
 
   const pendingTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
-      ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
+      ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
+      (t.isTemplate && (t.isActive || t.status === "active"))
     ).length;
     return Math.max(count, tasks.myPendingTasks ?? 0);
   }, [realTasks, tasks]);
@@ -491,7 +528,8 @@ export default function ManagerDashboard() {
     }
     if (taskTableFilter === "pending") {
       return realTasks.filter((t) =>
-        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
+        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
+        (t.isTemplate && (t.isActive || t.status === "active"))
       );
     }
     if (taskTableFilter === "completed") {
@@ -502,6 +540,7 @@ export default function ManagerDashboard() {
     if (taskTableFilter === "overdue") {
       const now = Date.now();
       return realTasks.filter((t) => {
+        if (t.isTemplate) return false;
         const st = (t.status || "").toLowerCase();
         const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
         if (isDone) return false;
@@ -663,10 +702,10 @@ export default function ManagerDashboard() {
               <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 Manager Dashboard
               </h1>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              {/* <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Zap size={12} className="text-amber-500 fill-amber-500" />
                 Team performance, tasks, attendance &amp; progress
-              </p>
+              </p> */}
             </div>
           </div>
 

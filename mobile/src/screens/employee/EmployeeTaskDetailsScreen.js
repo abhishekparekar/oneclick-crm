@@ -673,7 +673,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nativeGridLabel}>Start Date & Time</Text>
                   <Text style={styles.nativeGridVal}>
-                    {task.startDateTime ? formatDateTimeToDDMMYYYY(task.startDateTime) : (task.startDate ? formatDateToDDMMYYYY(task.startDate) : "-")}
+                    {task.startDateTime ? formatDateTimeToDDMMYYYY(task.startDateTime) : (task.startDate ? formatDateTimeToDDMMYYYY(task.startDate) : "-")}
                   </Text>
                 </View>
               </View>
@@ -681,9 +681,9 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
               <View style={[styles.nativeGridCell, isOverdueTime && { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
                 <Ionicons name="alarm-outline" size={15} color={isOverdueTime ? "#EF4444" : "#F59E0B"} style={styles.gridCellIcon} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.nativeGridLabel, isOverdueTime && { color: "#EF4444" }]}>Due Deadline</Text>
+                  <Text style={[styles.nativeGridLabel, isOverdueTime && { color: "#EF4444" }]}>End Date & Time</Text>
                   <Text style={[styles.nativeGridVal, isOverdueTime && { color: "#DC2626", fontFamily: FONTS.bodyBold }]}>
-                    {task.endDateTime ? formatDateTimeToDDMMYYYY(task.endDateTime) : (task.endDate ? formatDateToDDMMYYYY(task.endDate) : "No deadline")}
+                    {task.endDateTime ? formatDateTimeToDDMMYYYY(task.endDateTime, task.deadlineTime) : (task.endDate ? formatDateTimeToDDMMYYYY(task.endDate, task.deadlineTime) : "No deadline")}
                   </Text>
                 </View>
               </View>

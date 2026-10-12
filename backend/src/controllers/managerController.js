@@ -292,13 +292,21 @@ const getManagerDashboardSummary = async (req, res, next) => {
       if (mongoose.Types.ObjectId.isValid(uid)) allTeamAssigneeIds.push(new mongoose.Types.ObjectId(uid));
     });
 
+    const managerTargetIds = [userId?.toString(), managerEmployeeId?.toString()].filter(Boolean);
+    if (req.user?.employeeId && !managerTargetIds.includes(req.user.employeeId.toString())) {
+      managerTargetIds.push(req.user.employeeId.toString());
+    }
+
+    const allRelevantAssigneeIds = [...allTeamAssigneeIds, ...managerTargetIds];
+
     const targetDeptMatchList = departmentId
       ? [departmentId.toString(), ...(mongoose.Types.ObjectId.isValid(departmentId) ? [new mongoose.Types.ObjectId(departmentId)] : [])]
       : deptMatchList;
 
     let dashboardTeamTaskOr = [
-      { assignedTo: { $in: allTeamAssigneeIds } },
-      { assignedBy: userId }
+      { assignedTo: { $in: allRelevantAssigneeIds } },
+      { assignedBy: userId },
+      { createdBy: userId }
     ];
     if (targetDeptMatchList.length > 0) {
       dashboardTeamTaskOr.push({ departmentId: { $in: targetDeptMatchList } });
@@ -320,16 +328,10 @@ const getManagerDashboardSummary = async (req, res, next) => {
       rawAnnouncements,
       rawTimesheets,
       
-      totalTeamTasks,
-      openTeamTasks,
-      completedTeamTasks,
-      overdueTeamTasks,
-      myPendingTasks,
-      myOverdueTasks,
+      allRawTasks,
+      allRawTemplates,
       recentMyTasks,
       recentTeamTasks,
-      teamTemplatesCount,
-      myTemplatesCount,
       totalLeadsCount,
     ] = await Promise.all([
       Attendance.find({ companyId, employeeId: { $in: teamEmployeeIds }, date: todayStr })
@@ -364,23 +366,27 @@ const getManagerDashboardSummary = async (req, res, next) => {
         startTime: { $gte: now },
       }).lean(),
 
-      Task.countDocuments(teamTaskBaseFilter),
-      Task.countDocuments({ ...teamTaskBaseFilter, status: { $ne: "cancelled" } }),
-      Task.countDocuments({ ...teamTaskBaseFilter, $or: [{ status: { $in: ["done", "complete", "late_complete", "re_complete", "re_late_complete"] } }, { statusKey: { $in: ["completed", "done"] } }] }),
-      Task.countDocuments({ ...teamTaskBaseFilter, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: now } }),
-      Task.countDocuments({ companyId, assignedTo: managerEmployeeId, status: { $ne: "cancelled" }, ...(departmentId ? { departmentId } : {}) }),
-      Task.countDocuments({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, endDateTime: { $lt: now }, ...(departmentId ? { departmentId } : {}) }),
-      
-      Task.find({ companyId, assignedTo: managerEmployeeId, statusKey: { $nin: ["completed", "done"] }, status: { $nin: ["done", "complete", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, ...(departmentId ? { departmentId } : {}) })
+      Task.find({
+        ...teamTaskBaseFilter,
+        status: { $ne: "cancelled" },
+        ...(departmentId ? { $or: [{ departmentId }, { departmentIds: departmentId }] } : {})
+      }).select("assignedTo assignedBy assignmentType status statusKey endDateTime endDate dueDate finishDate")
+        .populate({ path: "assignedTo", select: "_id" })
+        .lean(),
+      TaskTemplate.find({
+        ...teamTaskBaseFilter,
+        ...(departmentId ? { $or: [{ departmentId }, { departmentIds: departmentId }] } : {})
+      }).select("assignedTo assignedBy assignmentType finishDate endDate repeatType")
+        .populate({ path: "assignedTo", select: "_id" })
+        .lean(),
+      Task.find({ companyId, assignedTo: { $in: [managerEmployeeId, userId] }, status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, ...(departmentId ? { departmentId } : {}) })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .sort({ endDateTime: 1 }).limit(5).lean(),
-      Task.find({ ...teamTaskBaseFilter, status: { $ne: "cancelled" } })
+      Task.find({ ...teamTaskBaseFilter, status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] } })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ path: "assignedTo", select: "firstName lastName fullName photo employeeCode" })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .sort({ endDateTime: 1 }).limit(10).lean(),
-      TaskTemplate.countDocuments({ companyId, $or: dashboardTeamTaskOr }),
-      TaskTemplate.countDocuments({ companyId, assignedTo: managerEmployeeId, ...(departmentId ? { departmentId } : {}) }),
       Lead.countDocuments({
         $or: [
           { companyId: new mongoose.Types.ObjectId(companyId) },
@@ -390,6 +396,53 @@ const getManagerDashboardSummary = async (req, res, next) => {
         deletedAt: null
       }),
     ]);
+
+    const isDoneStatus = (st) =>
+      ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((st || "").toLowerCase());
+    const isOverdueTask = (t) => {
+      const st = (t.status || "").toLowerCase();
+      if (st === "overdue") return true;
+      if (isDoneStatus(st)) return false;
+      const raw = t.endDateTime || t.endDate || t.dueDate || t.finishDate;
+      return Boolean(raw && new Date(raw) < new Date());
+    };
+
+    // My tasks (assigned to manager or created by manager for self)
+    const myTasks = (allRawTasks || []).filter(t => {
+      const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
+      const isAssigned = assignees.some(id => managerTargetIds.includes(id));
+      const isSelf = managerTargetIds.includes((t.assignedBy?._id || t.assignedBy || "").toString()) && t.assignmentType === "self";
+      return isAssigned || isSelf;
+    });
+    const myTemplates = (allRawTemplates || []).filter(t => {
+      const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
+      return assignees.some(id => managerTargetIds.includes(id)) || (managerTargetIds.includes((t.assignedBy?._id || t.assignedBy || "").toString()) && t.assignmentType === "self");
+    });
+
+    // Team tasks (has team members assigned, or unassigned in department, excluding tasks where ALL assignees are the manager)
+    const teamTasks = (allRawTasks || []).filter(t => {
+      const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
+      if (assignees.length === 0) return true;
+      const allAreManager = assignees.every(id => managerTargetIds.includes(id));
+      return !allAreManager;
+    });
+    const teamTemplates = (allRawTemplates || []).filter(t => {
+      const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
+      if (assignees.length === 0) return true;
+      const allAreManager = assignees.every(id => managerTargetIds.includes(id));
+      return !allAreManager;
+    });
+
+    const totalMyTasks = myTasks.length + myTemplates.length;
+    const myPendingTasks = myTasks.filter(t => !isDoneStatus(t.status)).length + myTemplates.length;
+    const myOverdueTasks = myTasks.filter(t => isOverdueTask(t)).length;
+
+    const totalTeamTasksCount = teamTasks.length + teamTemplates.length;
+    const openTeamTasksCount = teamTasks.filter(t => !isDoneStatus(t.status)).length + teamTemplates.length;
+    const overdueTeamTasksCount = teamTasks.filter(t => isOverdueTask(t)).length;
+    const completedTeamTasksCount = teamTasks.filter(t => isDoneStatus(t.status)).length;
+
+    const totalAllTasks = totalMyTasks + totalTeamTasksCount;
 
     recentMyTasks.forEach(t => t.assignees = t.assignedTo);
     recentTeamTasks.forEach(t => t.assignees = t.assignedTo);
@@ -460,13 +513,17 @@ const getManagerDashboardSummary = async (req, res, next) => {
         },
         leaveSummary: { pendingTeamLeaves: pendingTeamLeaves.length, onLeaveToday },
         taskSummary: {
-          openTeamTasks: openTeamTasks + teamTemplatesCount,
-          overdueTeamTasks,
+          totalTasks: totalAllTasks,
+          totalAllTasks,
+          totalCombinedTasks: totalAllTasks,
+          totalTeamTasks: totalTeamTasksCount,
+          openTeamTasks: openTeamTasksCount,
+          overdueTeamTasks: overdueTeamTasksCount,
+          completedTeamTasks: completedTeamTasksCount,
+          teamTaskDoneCount: completedTeamTasksCount,
+          totalMyTasks,
+          myPendingTasks,
           myOverdueTasks,
-          completedTeamTasks,
-          myPendingTasks: myPendingTasks + myTemplatesCount,
-          totalTeamTasks: totalTeamTasks + teamTemplatesCount,
-          teamTaskDoneCount: completedTeamTasks,
         },
         workHoursSummary,
         projectSummary: { activeProjects: activeProjects.length },
@@ -1821,10 +1878,14 @@ const getTeamTasks = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .lean();
         
+      const now = new Date();
       templates.forEach(t => {
         t.isTemplate = true;
         t.repeatEnabled = true;
-        t.status = t.status || (t.isActive ? "active" : "stopped");
+        const rawDue = t.finishDate || t.endDate;
+        const isOverdue = Boolean(rawDue && new Date(rawDue) < now);
+        t.isOverdue = isOverdue;
+        t.status = isOverdue ? "overdue" : (t.status && t.status !== "pending" ? t.status : (t.isActive ? "active" : "stopped"));
         t.assignees = t.assignedTo || [];
       });
 
@@ -1911,7 +1972,16 @@ const getTeamTasks = async (req, res, next) => {
         .lean()
     ]);
 
-    tasks.forEach(t => t.assignees = t.assignedTo || []);
+    const now = new Date();
+    tasks.forEach(t => {
+      t.assignees = t.assignedTo || [];
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase());
+      const rawDue = t.endDateTime || t.endDate || t.dueDate;
+      if (!isDone && rawDue && new Date(rawDue) < now) {
+        t.status = "overdue";
+        t.isOverdue = true;
+      }
+    });
 
     // Exclude tasks assigned SOLELY to the manager (personal tasks).
     // Tasks assigned to team members, unassigned department tasks, or "Myself & Team" tasks remain visible.
@@ -2069,15 +2139,18 @@ const createTask = async (req, res, next) => {
         finalMonthlyDates = [startDt.getDate()];
       }
       
-      const Company = require("../models/Company");
-      const company = await Company.findById(companyId);
-      const seqNumber = (company.taskSequence || 0) + 1;
-      company.taskSequence = seqNumber;
-      await company.save();
+      const CompanyTaskCounter = require("../models/CompanyTaskCounter");
+      const counter = await CompanyTaskCounter.findOneAndUpdate(
+        { companyId },
+        { $inc: { currentSequence: 1 } },
+        { new: true, upsert: true }
+      );
+      const seqNumber = counter.currentSequence;
+      const generatedTaskId = `T-${seqNumber}`;
 
       const newTemplate = new TaskTemplate({
         companyId,
-        taskId: `TASK-${seqNumber.toString().padStart(4, "0")}`,
+        taskId: generatedTaskId,
         createdBy: req.user._id,
         assignedBy: req.user._id,
         assignmentType: assignmentType || "multiple",

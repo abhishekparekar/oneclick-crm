@@ -84,8 +84,11 @@ const CompanyDashboard = ({ navigation }) => {
     queryKey: ['companyDashboard', timeRange],
     queryFn: async () => {
       const [statsRes, notifRes, logsRes, tasksRes, templatesRes, projsRes, leadsRes] = await Promise.all([
-        getCompanyDashboardStatsApi({ timeRange }),
-        getMyNotificationsApi(),
+        getCompanyDashboardStatsApi({ timeRange }).catch((err) => {
+          console.warn("getCompanyDashboardStatsApi fallback:", err?.message);
+          return { data: {} };
+        }),
+        getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } })),
         getCompanyAuditLogsApi().catch(() => ({ data: [] })),
         getTasksApi().catch(() => ({ data: { tasks: [] } })),
         getTasksApi({ isTemplate: true }).catch(() => ({ data: { tasks: [] } })),
@@ -127,9 +130,6 @@ const CompanyDashboard = ({ navigation }) => {
         return [];
       };
 
-      const rawLogs = extractArray(logsRes, "logs");
-      const activityLogs = rawLogs.slice(0, 5);
-
       const tasksData = extractArray(tasksRes, "tasks");
       const templatesData = extractArray(templatesRes, "tasks");
 
@@ -142,17 +142,25 @@ const CompanyDashboard = ({ navigation }) => {
         .slice(0, 5);
 
       const totalTasks = rawTasks.length;
-      const completedTasks = rawTasks.filter(
-        (t) => t.status === "complete" || t.status === "late_complete"
+      const completedTasks = rawTasks.filter((t) =>
+        ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes(
+          (t.status || "").toLowerCase()
+        )
       ).length;
-      const overdueTasks = rawTasks.filter(
+      const overdueTasks = rawTasks.filter((t) => {
+        if (t.isTemplate) return false;
+        const st = (t.status || "").toLowerCase();
+        const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+        if (isDone) return false;
+        if (st === "overdue") return true;
+        const raw = t.endDateTime || t.endDate || t.dueDate;
+        return raw && new Date(raw) < new Date();
+      }).length;
+      const pendingTasks = rawTasks.filter(
         (t) =>
-          t.endDateTime &&
-          new Date(t.endDateTime) < new Date() &&
-          t.status !== "complete" &&
-          t.status !== "late_complete"
+          ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
+          (t.isTemplate && (t.isActive || t.status === "active"))
       ).length;
-      const pendingTasks = totalTasks - completedTasks;
       const taskStatsObj = { totalTasks, pendingTasks, completedTasks, overdueTasks };
 
       const rawProjs = extractArray(projsRes, "projects");
@@ -172,6 +180,43 @@ const CompanyDashboard = ({ navigation }) => {
         winRatio: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
       };
       const recentLeads = rawLeads.slice(0, 3);
+
+      // Activity Logs processing
+      const rawLogs = extractArray(logsRes, "logs");
+      let activityLogs = rawLogs.slice(0, 8);
+
+      // If raw audit logs are empty, dynamically synthesize from real tasks & leads
+      if (activityLogs.length === 0) {
+        const dynamicActivities = [];
+        recentTasks.slice(0, 4).forEach((t) => {
+          dynamicActivities.push({
+            _id: t._id || t.id,
+            action: t.status === "complete" || t.status === "late_complete" ? "Completed task" : "Assigned task",
+            module: "Tasks",
+            details: t.title || "Task update",
+            performedBy: {
+              name: t.assignedTo?.name || t.assignedTo?.firstName || (typeof t.assignedTo === "string" ? t.assignedTo : "") || "Team Member",
+            },
+            timestamp: t.updatedAt || t.createdAt || new Date().toISOString(),
+          });
+        });
+
+        recentLeads.slice(0, 3).forEach((l) => {
+          dynamicActivities.push({
+            _id: l._id || l.id,
+            action: "New lead prospect",
+            module: "Leads",
+            details: l.name || l.company || "Lead inquiry",
+            performedBy: {
+              name: l.assignedTo?.name || "CRM Engine",
+            },
+            timestamp: l.createdAt || new Date().toISOString(),
+          });
+        });
+
+        dynamicActivities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        activityLogs = dynamicActivities.slice(0, 6);
+      }
 
       return {
         stats: statsRes?.data || {},
@@ -258,11 +303,74 @@ const CompanyDashboard = ({ navigation }) => {
     return `${Math.floor(h / 24)}d ago`;
   };
 
-  const totalEmp = stats?.totalEmployees || 0;
-  const presentEmp = stats?.presentToday || 0;
-  const absentEmp = stats?.absentToday || 0;
-  const leaveEmp = stats?.onLeaveToday || 0;
-  const pendingLeaves = stats?.pendingLeaveRequests || 0;
+  const getLogMeta = (log) => {
+    const rawAction = log?.action || "";
+    const actLower = rawAction.toLowerCase();
+    const module = log?.module || "";
+
+    let iconName = "flash-outline";
+    let iconColor = COLORS.primary;
+    let iconBg = "rgba(18, 104, 217, 0.1)";
+
+    if (actLower.includes("create") || actLower.includes("add")) {
+      iconName = "add-circle-outline";
+      iconColor = "#10B981";
+      iconBg = "rgba(16, 185, 129, 0.12)";
+    } else if (actLower.includes("complete") || actLower.includes("approve") || actLower.includes("won")) {
+      iconName = "checkmark-done-circle-outline";
+      iconColor = "#059669";
+      iconBg = "rgba(5, 150, 105, 0.12)";
+    } else if (actLower.includes("reject") || actLower.includes("delete") || actLower.includes("cancel")) {
+      iconName = "close-circle-outline";
+      iconColor = "#EF4444";
+      iconBg = "rgba(239, 68, 68, 0.12)";
+    } else if (actLower.includes("update") || actLower.includes("edit") || actLower.includes("shift")) {
+      iconName = "create-outline";
+      iconColor = "#2563EB";
+      iconBg = "rgba(37, 99, 235, 0.12)";
+    } else if (actLower.includes("punch") || actLower.includes("attendance")) {
+      iconName = "time-outline";
+      iconColor = "#F59E0B";
+      iconBg = "rgba(245, 158, 11, 0.12)";
+    } else if (actLower.includes("lead")) {
+      iconName = "magnet-outline";
+      iconColor = "#8B5CF6";
+      iconBg = "rgba(139, 92, 246, 0.12)";
+    }
+
+    let formattedAction = rawAction;
+    if (rawAction.includes("_")) {
+      formattedAction = rawAction
+        .split("_")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+    } else if (rawAction === rawAction.toUpperCase() && rawAction.length > 3) {
+      formattedAction = rawAction.charAt(0).toUpperCase() + rawAction.slice(1).toLowerCase();
+    }
+
+    if (log?.details && typeof log.details === "string" && !formattedAction.includes(log.details)) {
+      formattedAction += `: ${log.details}`;
+    }
+
+    const performerName =
+      log?.performedBy?.name ||
+      log?.performedBy?.firstName ||
+      (typeof log?.performedBy === "string" ? log.performedBy : "System Admin");
+
+    return { iconName, iconColor, iconBg, formattedAction, performerName, module };
+  };
+
+  const totalEmp = stats?.totalEmployees ?? stats?.activeEmployees ?? 0;
+  const presentEmp = stats?.presentToday ?? stats?.attendance?.presentToday ?? 0;
+  const absentEmp = stats?.absentToday ?? stats?.attendance?.absentToday ?? 0;
+  const leaveEmp = stats?.onLeave ?? stats?.onLeaveToday ?? stats?.leaves?.approved ?? 0;
+  const pendingLeaves = stats?.pendingLeaveRequests ?? stats?.leaves?.pending ?? 0;
+  const totalDepts = stats?.totalDepartments ?? 0;
+  const totalBranches = stats?.totalBranches ?? 0;
+  const totalProjectsCount = stats?.projects?.totalProjects ?? stats?.totalProjects ?? totalFilteredProjects;
+  const totalTasksCount = stats?.tasks?.totalTasks ?? taskStatsObj?.totalTasks ?? 0;
+  const pendingTasksCount = stats?.tasks?.pendingTasks ?? taskStatsObj?.pendingTasks ?? 0;
+  const totalLeadsCount = stats?.leads?.totalLeads ?? stats?.totalLeads ?? leadStatsObj?.totalLeads ?? 0;
 
   return (
     <CompanyAdminLayout
@@ -406,117 +514,186 @@ const CompanyDashboard = ({ navigation }) => {
             </View>
 
             {/* Metrics Overview Section */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginTop: 12, marginBottom: 8 }}>
-              <Text style={[styles.sectionHeaderTitle, { marginHorizontal: 0, marginTop: 0, marginBottom: 0 }]}>ORGANIZATION METRICS</Text>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="bar-chart-outline" size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.sectionHeaderTitle}>ORGANIZATION METRICS</Text>
+              </View>
               {isRefetching && <ActivityIndicator size="small" color={COLORS.primary} />}
             </View>
 
             <View style={styles.metricsGrid}>
               {/* Total Staff */}
               <TouchableOpacity
-                style={styles.metricCard}
+                style={styles.compactMetricCard}
                 onPress={() => navigation.navigate("DashboardStack", { screen: "EmployeeList" })}
-                activeOpacity={0.85}
+                activeOpacity={0.8}
               >
-                <View style={styles.metricTopRow}>
-                  <View style={[styles.metricIconBox, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
-                    <Ionicons name="people-outline" size={20} color={COLORS.primary} />
+                <View style={styles.compactMetricTop}>
+                  <View style={[styles.compactIconBox, { backgroundColor: "rgba(249, 115, 22, 0.12)" }]}>
+                    <Ionicons name="people" size={16} color={COLORS.primary} />
                   </View>
-                  <Text style={styles.metricValue}>{totalEmp}</Text>
+                  <Text style={styles.compactMetricValue}>{totalEmp}</Text>
                 </View>
-                <Text style={styles.metricLabel}>Total Employees</Text>
-                <Text style={styles.metricSub}>Active workforce count</Text>
+                <Text style={styles.compactMetricLabel} numberOfLines={1}>Total Staff</Text>
+                <View style={styles.compactSubRow}>
+                  <View style={[styles.statusDot, { backgroundColor: COLORS.primary }]} />
+                  <Text style={styles.compactMetricSub} numberOfLines={1}>Active workforce</Text>
+                </View>
               </TouchableOpacity>
 
               {/* Present Today */}
               {canAccessAttendance && (
                 <TouchableOpacity
-                  style={styles.metricCard}
+                  style={styles.compactMetricCard}
                   onPress={() => setAttendanceModal({ visible: true, status: "present" })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.metricTopRow}>
-                    <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
-                      <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "#ECFDF5" }]}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                     </View>
-                    <Text style={[styles.metricValue, { color: "#10B981" }]}>{presentEmp}</Text>
+                    <Text style={[styles.compactMetricValue, { color: "#10B981" }]}>{presentEmp}</Text>
                   </View>
-                  <Text style={styles.metricLabel}>Present Today</Text>
-                  <Text style={styles.metricSub}>Clocked-in employees</Text>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>Present Today</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#10B981" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>
+                      {totalEmp > 0 ? `${Math.round((presentEmp / totalEmp) * 100)}% attendance` : "Clocked in"}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               )}
 
               {/* On Leave */}
               {canAccessLeaves && (
                 <TouchableOpacity
-                  style={styles.metricCard}
+                  style={styles.compactMetricCard}
                   onPress={() => navigation.navigate("DashboardStack", { screen: "LeaveRequests" })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.metricTopRow}>
-                    <View style={[styles.metricIconBox, { backgroundColor: "#EFF6FF" }]}>
-                      <Ionicons name="airplane-outline" size={20} color="#2563EB" />
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "#EFF6FF" }]}>
+                      <Ionicons name="airplane" size={16} color="#2563EB" />
                     </View>
-                    <Text style={[styles.metricValue, { color: "#2563EB" }]}>{leaveEmp}</Text>
+                    <Text style={[styles.compactMetricValue, { color: "#2563EB" }]}>{leaveEmp}</Text>
                   </View>
-                  <Text style={styles.metricLabel}>On Leave</Text>
-                  <Text style={styles.metricSub}>{pendingLeaves} pending approvals</Text>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>On Leave</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#2563EB" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>
+                      {pendingLeaves > 0 ? `${pendingLeaves} pending` : "All approved"}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               )}
 
               {/* Absent Today */}
               {canAccessAttendance && (
                 <TouchableOpacity
-                  style={styles.metricCard}
+                  style={styles.compactMetricCard}
                   onPress={() => setAttendanceModal({ visible: true, status: "absent" })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.metricTopRow}>
-                    <View style={[styles.metricIconBox, { backgroundColor: "#FEF2F2" }]}>
-                      <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "#FEF2F2" }]}>
+                      <Ionicons name="close-circle" size={16} color="#EF4444" />
                     </View>
-                    <Text style={[styles.metricValue, { color: "#EF4444" }]}>{absentEmp}</Text>
+                    <Text style={[styles.compactMetricValue, { color: "#EF4444" }]}>{absentEmp}</Text>
                   </View>
-                  <Text style={styles.metricLabel}>Absent Today</Text>
-                  <Text style={styles.metricSub}>Unaccounted staff</Text>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>Absent Today</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#EF4444" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>Off-duty staff</Text>
+                  </View>
                 </TouchableOpacity>
               )}
 
-              {/* Projects Tile (if projects accessible) */}
-              {canAccessProjects && (
-                <TouchableOpacity
-                  style={styles.metricCard}
-                  onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.metricTopRow}>
-                    <View style={[styles.metricIconBox, { backgroundColor: "#E0F2FE" }]}>
-                      <Ionicons name="folder-open-outline" size={20} color="#0284C7" />
-                    </View>
-                    <Text style={[styles.metricValue, { color: "#0284C7" }]}>{totalFilteredProjects}</Text>
-                  </View>
-                  <Text style={styles.metricLabel}>Projects</Text>
-                  <Text style={styles.metricSub}>Active portfolio</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Total Tasks Tile */}
+              {/* Total Tasks */}
               {canAccessTasks && (
                 <TouchableOpacity
-                  style={styles.metricCard}
+                  style={styles.compactMetricCard}
                   onPress={() => navigation.navigate("DashboardStack", { screen: "TaskBoard" })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.metricTopRow}>
-                    <View style={[styles.metricIconBox, { backgroundColor: "#F3E8FF" }]}>
-                      <Ionicons name="checkbox-outline" size={20} color="#9333EA" />
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "#F3E8FF" }]}>
+                      <Ionicons name="checkbox" size={16} color="#9333EA" />
                     </View>
-                    <Text style={[styles.metricValue, { color: "#9333EA" }]}>{taskStatsObj?.totalTasks || 0}</Text>
+                    <Text style={[styles.compactMetricValue, { color: "#9333EA" }]}>{totalTasksCount}</Text>
                   </View>
-                  <Text style={styles.metricLabel}>Total Tasks</Text>
-                  <Text style={styles.metricSub}>{taskStatsObj?.pendingTasks || 0} active / pending</Text>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>Tasks</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#9333EA" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>{pendingTasksCount} pending</Text>
+                  </View>
                 </TouchableOpacity>
               )}
+
+              {/* Projects */}
+              {canAccessProjects && (
+                <TouchableOpacity
+                  style={styles.compactMetricCard}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "#E0F2FE" }]}>
+                      <Ionicons name="folder-open" size={16} color="#0284C7" />
+                    </View>
+                    <Text style={[styles.compactMetricValue, { color: "#0284C7" }]}>{totalProjectsCount}</Text>
+                  </View>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>Projects</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#0284C7" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>Active portfolio</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Lead CRM */}
+              {canAccessLeads && (
+                <TouchableOpacity
+                  style={styles.compactMetricCard}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.compactMetricTop}>
+                    <View style={[styles.compactIconBox, { backgroundColor: "rgba(18, 104, 217, 0.12)" }]}>
+                      <Ionicons name="magnet" size={16} color="#1268D9" />
+                    </View>
+                    <Text style={[styles.compactMetricValue, { color: "#1268D9" }]}>{totalLeadsCount}</Text>
+                  </View>
+                  <Text style={styles.compactMetricLabel} numberOfLines={1}>Leads</Text>
+                  <View style={styles.compactSubRow}>
+                    <View style={[styles.statusDot, { backgroundColor: "#1268D9" }]} />
+                    <Text style={styles.compactMetricSub} numberOfLines={1}>
+                      {leadStatsObj?.wonLeads ? `${leadStatsObj.wonLeads} won deals` : "CRM pipeline"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Departments & Branches */}
+              <TouchableOpacity
+                style={styles.compactMetricCard}
+                onPress={() => navigation.navigate("DashboardStack", { screen: "DepartmentList" })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.compactMetricTop}>
+                  <View style={[styles.compactIconBox, { backgroundColor: "#FEF3C7" }]}>
+                    <Ionicons name="business" size={16} color="#D97706" />
+                  </View>
+                  <Text style={[styles.compactMetricValue, { color: "#D97706" }]}>{totalDepts}</Text>
+                </View>
+                <Text style={styles.compactMetricLabel} numberOfLines={1}>Departments</Text>
+                <View style={styles.compactSubRow}>
+                  <View style={[styles.statusDot, { backgroundColor: "#D97706" }]} />
+                  <Text style={styles.compactMetricSub} numberOfLines={1}>
+                    {totalBranches > 0 ? `${totalBranches} branches` : "Org units"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Task Overview Card */}
@@ -661,28 +838,50 @@ const CompanyDashboard = ({ navigation }) => {
                   <Text style={styles.cardHeaderTitle}>Recent System Activities</Text>
                 </View>
                 <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyAuditLogs" })}>
-                  <Text style={styles.cardHeaderLink}>View Logs</Text>
+                  <Text style={styles.cardHeaderLink}>View All Logs →</Text>
                 </TouchableOpacity>
               </View>
 
               {activityLogs.length === 0 ? (
-                <Text style={styles.emptyText}>No recent activity logs recorded.</Text>
+                <View style={styles.emptyLogsBox}>
+                  <Ionicons name="time-outline" size={32} color="#CBD5E1" style={{ marginBottom: 6 }} />
+                  <Text style={styles.emptyText}>No recent activity logs recorded yet.</Text>
+                </View>
               ) : (
-                activityLogs.map((log, idx) => (
-                  <View key={log._id || idx} style={styles.logRowItem}>
-                    <View style={styles.logAvatar}>
-                      <Text style={styles.logAvatarText}>
-                        {(log.performedBy?.name?.[0] || "A").toUpperCase()}
-                      </Text>
+                activityLogs.map((log, idx) => {
+                  const meta = getLogMeta(log);
+                  const isLast = idx === activityLogs.length - 1;
+                  return (
+                    <View
+                      key={log._id || log.id || idx}
+                      style={[styles.activityLogRow, isLast && { borderBottomWidth: 0 }]}
+                    >
+                      <View style={[styles.activityLogIcon, { backgroundColor: meta.iconBg }]}>
+                        <Ionicons name={meta.iconName} size={15} color={meta.iconColor} />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={styles.activityLogAction} numberOfLines={1}>
+                            {meta.formattedAction}
+                          </Text>
+                          <Text style={styles.activityLogTime}>
+                            {timeAgo(log.timestamp || log.createdAt)}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2, gap: 6 }}>
+                          <Text style={styles.activityLogPerformer} numberOfLines={1}>
+                            by {meta.performerName}
+                          </Text>
+                          {meta.module ? (
+                            <View style={styles.activityLogModuleBadge}>
+                              <Text style={styles.activityLogModuleText}>{meta.module}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.logText} numberOfLines={1}>
-                        {log.performedBy?.name || "System Admin"} {log.action?.replace(/_/g, " ").toLowerCase()}
-                      </Text>
-                      <Text style={styles.logTime}>{timeAgo(log.timestamp || log.createdAt)}</Text>
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </View>
 
@@ -885,19 +1084,76 @@ const styles = StyleSheet.create({
     color: COLORS.darkNavy,
     textAlign: "center",
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
   sectionHeaderTitle: {
     fontFamily: FONTS.bodyBold,
     fontSize: 11.5,
     color: COLORS.text.muted,
     letterSpacing: 0.8,
-    marginBottom: 10,
-    marginLeft: 4,
   },
   metricsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 16,
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  compactMetricCard: {
+    width: "48.5%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    ...SHADOWS.sm,
+  },
+  compactMetricTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  compactIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactMetricValue: {
+    fontFamily: FONTS.displayBold,
+    fontSize: 18,
+    color: COLORS.darkNavy,
+  },
+  compactMetricLabel: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11.5,
+    color: COLORS.darkNavy,
+    marginTop: 5,
+  },
+  compactSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    gap: 4,
+  },
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  compactMetricSub: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    color: COLORS.text.muted,
+    flex: 1,
   },
   metricCard: {
     width: "48%",
@@ -907,35 +1163,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     ...SHADOWS.sm,
-  },
-  metricTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  metricIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  metricValue: {
-    fontFamily: FONTS.displayBold,
-    fontSize: 22,
-    color: COLORS.darkNavy,
-  },
-  metricLabel: {
-    fontFamily: FONTS.bodyBold,
-    fontSize: 13,
-    color: COLORS.darkNavy,
-  },
-  metricSub: {
-    fontFamily: FONTS.body,
-    fontSize: 10.5,
-    color: COLORS.text.muted,
-    marginTop: 2,
   },
   cardContainer: {
     backgroundColor: "#FFFFFF",
@@ -968,7 +1195,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   taskStatCell: {
-    alignItems: "center",
+    alignItems: "center"
   },
   taskStatVal: {
     fontFamily: FONTS.displayBold,
@@ -980,6 +1207,54 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: COLORS.text.muted,
     marginTop: 2,
+  },
+  activityLogRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  activityLogIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityLogAction: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 12,
+    color: COLORS.darkNavy,
+    flex: 1,
+    marginRight: 6,
+  },
+  activityLogTime: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    color: COLORS.text.muted,
+  },
+  activityLogPerformer: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 10.5,
+    color: COLORS.text.muted,
+  },
+  activityLogModuleBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  activityLogModuleText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 9,
+    color: "#475569",
+    textTransform: "uppercase",
+  },
+  emptyLogsBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
   },
   logRowItem: {
     flexDirection: "row",

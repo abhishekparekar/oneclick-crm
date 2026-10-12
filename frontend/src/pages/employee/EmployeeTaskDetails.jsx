@@ -64,6 +64,41 @@ const formatDateDDMMYYYY = (val) => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+const formatDateTimeDisplay = (dateVal, explicitTimeStr = "") => {
+  if (!dateVal) return "—";
+  const isPureDateStr = typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim());
+  let dateFormatted = "";
+  let d = null;
+
+  if (isPureDateStr) {
+    const [y, m, day] = dateVal.trim().split("-");
+    dateFormatted = `${day}/${m}/${y}`;
+  } else {
+    d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    const pad = (n) => String(n).padStart(2, "0");
+    dateFormatted = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
+  if (explicitTimeStr && typeof explicitTimeStr === "string" && explicitTimeStr.trim()) {
+    const rawT = explicitTimeStr.trim();
+    if (/^\d{1,2}:\d{2}$/.test(rawT)) {
+      const [h, m] = rawT.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      return `${dateFormatted}, ${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    }
+    return `${dateFormatted}, ${rawT}`;
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    const timeFormatted = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${dateFormatted}, ${timeFormatted}`;
+  }
+
+  return dateFormatted;
+};
+
 const formatFollowUpDateTime = (dateStr) => {
   if (!dateStr) return "Not Set";
   const d = new Date(dateStr);
@@ -773,19 +808,23 @@ export default function EmployeeTaskDetails() {
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-1.5 text-xs">
-                {/* Start Date */}
+                {/* Start Date & Time */}
                 <div className="p-2 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Start Date</span>
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block flex items-center gap-1">
+                    <Calendar size={11} className="text-slate-400" /> Start Date & Time
+                  </span>
                   <span className="font-mono font-black text-slate-900 dark:text-white block text-xs">
-                    {formatDateDDMMYYYY(task.startDate || task.startDateTime)}
+                    {formatDateTimeDisplay(task.startDateTime || task.startDate)}
                   </span>
                 </div>
 
-                {/* Due Date */}
+                {/* End Date & Time */}
                 <div className={`p-2 rounded-lg border space-y-0.5 shadow-2xs ${isOverdueTime ? "bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800" : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80"}`}>
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Due Date</span>
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block flex items-center gap-1">
+                    <Clock size={11} className={isOverdueTime ? "text-rose-500" : "text-amber-500"} /> End Date & Time
+                  </span>
                   <span className={`font-mono font-black block text-xs ${isOverdueTime ? "text-rose-700 dark:text-rose-300" : "text-slate-900 dark:text-white"}`}>
-                    {formatDateDDMMYYYY(task.dueDate || task.endDateTime || task.finishDate)}
+                    {formatDateTimeDisplay(task.endDateTime || task.dueDate || task.finishDate, task.deadlineTime)}
                   </span>
                 </div>
 

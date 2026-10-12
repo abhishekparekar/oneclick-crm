@@ -32,6 +32,41 @@ const formatDate = (dateStr) => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+const formatDateTimeDisplay = (dateVal, explicitTimeStr = "") => {
+  if (!dateVal) return "—";
+  const isPureDateStr = typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim());
+  let dateFormatted = "";
+  let d = null;
+
+  if (isPureDateStr) {
+    const [y, m, day] = dateVal.trim().split("-");
+    dateFormatted = `${day}/${m}/${y}`;
+  } else {
+    d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    const pad = (n) => String(n).padStart(2, "0");
+    dateFormatted = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
+  if (explicitTimeStr && typeof explicitTimeStr === "string" && explicitTimeStr.trim()) {
+    const rawT = explicitTimeStr.trim();
+    if (/^\d{1,2}:\d{2}$/.test(rawT)) {
+      const [h, m] = rawT.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      return `${dateFormatted}, ${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    }
+    return `${dateFormatted}, ${rawT}`;
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    const timeFormatted = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${dateFormatted}, ${timeFormatted}`;
+  }
+
+  return dateFormatted;
+};
+
 export default function TaskOverviewDrawer({ taskId, onClose, departments = [], employees = [] }) {
   const { user } = useAuth();
   
@@ -135,12 +170,12 @@ export default function TaskOverviewDrawer({ taskId, onClose, departments = [], 
                     <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">{task.assignedBy?.name || "System"}</span>
                   </div>
                   <div>
-                    <span className="text-[9.5px] text-slate-400 font-bold uppercase block">Start Date</span>
-                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block">{formatDate(task.startDateTime || task.startDate)}</span>
+                    <span className="text-[9.5px] text-slate-400 font-bold uppercase block">Start Date & Time</span>
+                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 block">{formatDateTimeDisplay(task.startDateTime || task.startDate)}</span>
                   </div>
                   <div>
-                    <span className="text-[9.5px] text-slate-400 font-bold uppercase block">Deadline</span>
-                    <span className="font-mono font-black text-rose-600 dark:text-rose-400 block">{formatDate(task.endDateTime || task.endDate || task.finishDate)}</span>
+                    <span className="text-[9.5px] text-slate-400 font-bold uppercase block">End Date & Time</span>
+                    <span className="font-mono font-black text-rose-600 dark:text-rose-400 block">{formatDateTimeDisplay(task.endDateTime || task.endDate || task.dueDate || task.finishDate, task.deadlineTime)}</span>
                   </div>
                 </div>
               </div>
