@@ -538,7 +538,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const handlePickStageDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: SUPPORTED_DOCUMENT_MIMES,
+        type: "*/*",
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -546,18 +546,10 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
         setStageDocUploading(true);
         let finalUrl = file.uri;
         try {
-          const response = await fetch(file.uri);
-          const blob = await response.blob();
-          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
-          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const sRef = ref(storage, fileName);
-          await uploadBytes(sRef, blob);
-          finalUrl = await getDownloadURL(sRef);
-        } catch (_) {
-          try {
-            const upRes = await leadsService.uploadLeadDocument(file);
-            if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) { }
+          const upRes = await leadsService.uploadLeadDocument(file);
+          if (upRes?.url || upRes?.fileUrl) finalUrl = upRes.url || upRes.fileUrl;
+        } catch (uploadErr) {
+          console.warn("[EmployeeLeadDetailsScreen] stage uploadLeadDocument error, using local file URI:", uploadErr);
         }
         setStageAttachedDoc({
           name: file.name || "Attached Document",
@@ -568,7 +560,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       }
     } catch (err) {
       console.warn("Stage doc pick error:", err);
-      Alert.alert("Notice", "Could not pick document.");
+      Alert.alert("Notice", "Could not pick document. Please check device permissions.");
     } finally {
       setStageDocUploading(false);
     }
@@ -723,7 +715,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const handleAttachDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: SUPPORTED_DOCUMENT_MIMES,
+        type: "*/*",
         copyToCacheDirectory: true,
       });
 
@@ -733,18 +725,10 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
 
         let finalUrl = file.uri;
         try {
-          const response = await fetch(file.uri);
-          const blob = await response.blob();
-          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
-          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const sRef = ref(storage, fileName);
-          await uploadBytes(sRef, blob);
-          finalUrl = await getDownloadURL(sRef);
-        } catch (storageErr) {
-          try {
-            const upRes = await leadsService.uploadLeadDocument(file);
-            if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) { }
+          const upRes = await leadsService.uploadLeadDocument(file);
+          if (upRes?.url || upRes?.fileUrl) finalUrl = upRes.url || upRes.fileUrl;
+        } catch (uploadErr) {
+          console.warn("Direct upload error, falling back to uri:", uploadErr?.message || uploadErr);
         }
 
         const docData = {

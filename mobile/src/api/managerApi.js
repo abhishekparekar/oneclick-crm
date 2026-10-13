@@ -196,6 +196,11 @@ export const shiftTaskApi = async (id, data) => {
   return res.data;
 };
 
+export const reopenTaskApi = async (id, data) => {
+  const res = await api.patch(`/tasks/${id}/reopen`, data);
+  return res.data;
+};
+
 export const startTaskTimer = async (id, projectId) => {
   const res = await api.post(`/manager/tasks/${id}/time/start`, { taskId: id, projectId });
   return res.data;

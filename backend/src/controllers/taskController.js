@@ -1687,7 +1687,7 @@ exports.shiftTask = async (req, res) => {
             return res.status(403).json({ success: false, message: "You are not allowed to shift tasks" });
         }
 
-        const { newAssigneeId, shiftReason } = req.body;
+        const { newAssigneeId, shiftReason, startDateTime, endDateTime, startDate, endDate, deadlineTime } = req.body;
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
@@ -1695,6 +1695,12 @@ exports.shiftTask = async (req, res) => {
         task.assignedTo = [newAssigneeId];
         task.assignmentType = "employee";
         task.shiftReason = shiftReason;
+
+        if (startDateTime) task.startDateTime = startDateTime;
+        if (startDate) task.startDate = startDate;
+        if (endDateTime) task.endDateTime = endDateTime;
+        if (endDate) task.endDate = endDate;
+        if (deadlineTime) task.deadlineTime = deadlineTime;
 
         // Add automated comment for history
         if (!task.comments) task.comments = [];

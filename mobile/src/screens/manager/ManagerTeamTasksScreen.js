@@ -475,17 +475,32 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
   const visibleEmployees = useMemo(() => {
     const list = teamData || [];
-    const accessibleDeptIds = departmentsList.map(d => d._id);
-    
+    const getEmpAllDeptIds = (emp) => {
+      if (!emp) return [];
+      const ids = [];
+      const add = (d) => {
+        if (!d) return;
+        const s = String(typeof d === "object" ? (d._id || d.id || "") : d).trim();
+        if (s && !ids.includes(s)) ids.push(s);
+      };
+      add(emp.departmentId);
+      add(emp.department);
+      if (Array.isArray(emp.departmentIds)) emp.departmentIds.forEach(add);
+      if (Array.isArray(emp.accessibleDepartments)) emp.accessibleDepartments.forEach(add);
+      if (Array.isArray(emp.departments)) emp.departments.forEach(add);
+      return ids;
+    };
+
     let filtered = list.filter(emp => {
-      const empDeptId = emp.departmentId?._id || emp.departmentId;
-      return empDeptId && accessibleDeptIds.includes(empDeptId);
+      const empDeptIds = getEmpAllDeptIds(emp);
+      return empDeptIds.some(id => accessibleDeptIds.map(String).includes(id));
     });
 
     if (selectedDepts.length > 0) {
+      const selStr = selectedDepts.map(String);
       filtered = filtered.filter(emp => {
-        const empDeptId = emp.departmentId?._id || emp.departmentId;
-        return empDeptId && selectedDepts.includes(empDeptId);
+        const empDeptIds = getEmpAllDeptIds(emp);
+        return empDeptIds.some(id => selStr.includes(id));
       });
     }
     return filtered;

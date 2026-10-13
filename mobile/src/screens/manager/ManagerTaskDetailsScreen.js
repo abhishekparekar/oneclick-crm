@@ -35,10 +35,12 @@ import {
   toggleTaskTemplateApi,
   getManagerTeam,
   shiftTaskApi,
+  reopenTaskApi,
 } from "../../api/managerApi";
-import { formatDateToDDMMYYYY, formatDateTimeToDDMMYYYY } from "../../utils/dateFormatter";
+import { formatDateToDDMMYYYY, formatDateTimeToDDMMYYYY, formatTimeToHHMMA } from "../../utils/dateFormatter";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 import { openDocument } from "../../utils/documentViewer";
+import DatePickerModal from "../../components/DatePickerModal";
 
 const STATUS_COLORS = {
   pending:          { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", darkBg: "#B45309", label: "Pending" },
@@ -233,24 +235,126 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   const [actionType, setActionType] = useState("");
   const [statusPickerModalVisible, setStatusPickerModalVisible] = useState(false);
 
+  // Re-open Modal state
+  const [reopenModalVisible, setReopenModalVisible] = useState(false);
+  const [reopenRemarks, setReopenRemarks] = useState("");
+  const [reopenEndDate, setReopenEndDate] = useState("");
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarTarget, setCalendarTarget] = useState("reopen"); // 'reopen' | 'shiftStart' | 'shiftEnd'
+
   // Shift Task State
   const [shiftModalVisible, setShiftModalVisible] = useState(false);
   const [shiftReason, setShiftReason] = useState("");
   const [newAssigneeId, setNewAssigneeId] = useState("");
   const [teamMembers, setTeamMembers] = useState([]);
+  const [shiftStartDate, setShiftStartDate] = useState("");
+  const [shiftEndDate, setShiftEndDate] = useState("");
+
+  const loadTeam = useCallback(async () => {
+    try {
+      const res = await getManagerTeam();
+      let list =
+        res?.data?.teamMembers ||
+        res?.teamMembers ||
+        res?.data?.members ||
+        res?.members ||
+        res?.data?.team ||
+        (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+
+      // Fallback if empty: fetch employees via employee service
+      if (!list || list.length === 0) {
+        try {
+          const { getEmployeesApi } = require("../../api/employeeService");
+          const empRes = await getEmployeesApi({ limit: 200 });
+          list = empRes?.data?.employees || empRes?.employees || empRes?.data || [];
+        } catch (_) {}
+      }
+
+      setTeamMembers(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.log("Failed to load team for shift task:", e);
+      try {
+        const { getEmployeesApi } = require("../../api/employeeService");
+        const empRes = await getEmployeesApi({ limit: 200 });
+        const list = empRes?.data?.employees || empRes?.employees || empRes?.data || [];
+        setTeamMembers(Array.isArray(list) ? list : []);
+      } catch (_) {}
+    }
+  }, []);
 
   useEffect(() => {
-    const loadTeam = async () => {
-      try {
-        const res = await getManagerTeam();
-        const list = res?.data?.members || res?.members || res?.data || (Array.isArray(res) ? res : []);
-        setTeamMembers(list);
-      } catch (e) {
-        console.log("Failed to load team for shift task:", e);
-      }
-    };
     loadTeam();
-  }, []);
+  }, [loadTeam]);
+
+  useEffect(() => {
+    if (shiftModalVisible && (!teamMembers || teamMembers.length === 0)) {
+      loadTeam();
+    }
+  }, [shiftModalVisible, teamMembers, loadTeam]);
+
+  useEffect(() => {
+    if (shiftModalVisible && task) {
+      const s = task.startDateTime || task.startDate;
+      const e = task.endDateTime || task.endDate || task.dueDate;
+      setShiftStartDate(s ? formatDateToDDMMYYYY(s) : "");
+      setShiftEndDate(e ? formatDateToDDMMYYYY(e) : "");
+    }
+  }, [shiftModalVisible, task]);
+
+  useEffect(() => {
+    if (reopenModalVisible) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setReopenEndDate(formatDateToDDMMYYYY(tomorrow));
+    }
+  }, [reopenModalVisible]);
+
+  const executeReopenTask = async () => {
+    if (!reopenEndDate) {
+      Alert.alert("Required", "Please specify a new deadline.");
+      return;
+    }
+    if (!reopenRemarks.trim()) {
+      Alert.alert("Required", "Please provide a reason for reopening this task.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const parts = reopenEndDate.split("/");
+      let isoDate;
+      if (parts.length === 3) {
+        const dateObj = new Date(
+          parseInt(parts[2], 10),
+          parseInt(parts[1], 10) - 1,
+          parseInt(parts[0], 10),
+          23, 59, 59
+        );
+        isoDate = dateObj.toISOString();
+      } else {
+        isoDate = new Date(reopenEndDate).toISOString();
+      }
+
+      const payload = {
+        newEndDate: isoDate,
+        remarks: reopenRemarks.trim(),
+      };
+
+      const res = await reopenTaskApi(taskId, payload);
+      if (res?.success || res?.data) {
+        Alert.alert("Success", "Task reopened successfully.");
+        setReopenModalVisible(false);
+        setReopenRemarks("");
+        setReopenEndDate("");
+        await fetchTask();
+      } else {
+        Alert.alert("Error", res?.message || "Reopen failed.");
+      }
+    } catch (err) {
+      Alert.alert("Error", err?.response?.data?.message || err.message || "Reopen failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const openActionModal = (type) => {
     setActionType(type);
@@ -268,20 +372,50 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
     }
     try {
       setSubmitting(true);
-      const res = await shiftTaskApi(taskId, {
+      const payload = {
         newAssigneeId,
         shiftReason: shiftReason.trim(),
-      });
+      };
+
+      if (shiftStartDate) {
+        const sParts = shiftStartDate.split("/");
+        if (sParts.length === 3) {
+          const sDateObj = new Date(
+            parseInt(sParts[2], 10),
+            parseInt(sParts[1], 10) - 1,
+            parseInt(sParts[0], 10),
+            10, 0, 0
+          );
+          payload.startDateTime = sDateObj.toISOString();
+          payload.startDate = sDateObj.toISOString();
+        }
+      }
+
+      if (shiftEndDate) {
+        const eParts = shiftEndDate.split("/");
+        if (eParts.length === 3) {
+          const eDateObj = new Date(
+            parseInt(eParts[2], 10),
+            parseInt(eParts[1], 10) - 1,
+            parseInt(eParts[0], 10),
+            23, 59, 59
+          );
+          payload.endDateTime = eDateObj.toISOString();
+          payload.endDate = eDateObj.toISOString();
+        }
+      }
+
+      const res = await shiftTaskApi(taskId, payload);
       if (res?.success || res?.data) {
         Alert.alert("Success", "Task successfully shifted to new assignee.");
         setShiftModalVisible(false);
         setShiftReason("");
         setNewAssigneeId("");
-        fetchTask();
+        await fetchTask();
       } else {
         Alert.alert("Success", "Task shift processed.");
         setShiftModalVisible(false);
-        fetchTask();
+        await fetchTask();
       }
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message || "Failed to shift task");
@@ -679,6 +813,10 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   const isCancelled = ["cancel", "cancelled", "canceled"].includes(normalizedSt);
   const isInProcess = ["in_process", "re_in_process", "in-progress"].includes(normalizedSt);
   const isPending = ["pending", "re_pending", "todo"].includes(normalizedSt) || (!isCompleted && !isCancelled && !isInProcess);
+
+  const hasReopenPerm = user?.permissions?.tasks?.reopen !== false &&
+    (Boolean(hasPermission("tasks", "reopen")) || user?.role === "Manager" || user?.role === "CompanyAdmin" || user?.role === "Admin");
+  const canReopen = isCompleted && !task?.isTemplate && hasReopenPerm;
 
   const isOverdueTime = task.endDateTime && new Date(task.endDateTime) < new Date() && !isCompleted && !isCancelled;
   const isOverdueActive = task.status === "overdue" || task.status === "re_overdue";
@@ -1135,6 +1273,32 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             )}
 
+            {/* ── Reopen Task Button for Completed Tasks (when permission granted) ── */}
+            {canReopen && (
+              <TouchableOpacity
+                style={styles.nativeReopenBtn}
+                onPress={() => setReopenModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.nativeReopenInner}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <View style={styles.nativeReopenIconCircle}>
+                      <Ionicons name="refresh" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={styles.nativeReopenTitle}>
+                        Reopen Task
+                      </Text>
+                      <Text style={styles.nativeReopenSub}>
+                        Reopen this completed task with a new deadline
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#4F46E5" />
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* ── Shift Task (Reassign) Button for Pending / Active Tasks ── */}
             {!isCompleted && !isCancelled && (
               <TouchableOpacity
@@ -1516,6 +1680,26 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                   <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
                 </TouchableOpacity>
               )}
+              {/* Option: Re-Open Task (SHOW WHEN TASK IS COMPLETED AND USER HAS REOPEN PERMISSION) */}
+              {canReopen && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#C7D2FE", backgroundColor: "#EEF2FF" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    setReopenModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#E0E7FF" }]}>
+                    <Ionicons name="refresh" size={22} color="#4F46E5" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#3730A3" }]}>Re-Open Task</Text>
+                    <Text style={styles.statusOptionDesc}>Set a new deadline & resume workflow</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#4F46E5" />
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -1524,7 +1708,7 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
       {/* ── Shift Task Modal ── */}
       <Modal visible={shiftModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16), maxHeight: "90%" }]}>
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={[styles.modalHeaderIconBox, { backgroundColor: "#EFF6FF" }]}>
@@ -1540,71 +1724,227 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalLabel}>SELECT NEW ASSIGNEE *</Text>
-            <ScrollView style={{ maxHeight: 210, marginBottom: 12 }} showsVerticalScrollIndicator={false}>
-              {teamMembers && teamMembers.length > 0 ? (
-                teamMembers.map(emp => {
-                  const empId = emp._id || emp.id || emp.userId;
-                  const isSelected = newAssigneeId === empId;
-                  const empName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.name || "Team Member");
-                  const roleOrDept = emp.designation || emp.role || emp.departmentId?.name || "Staff";
-                  return (
-                    <TouchableOpacity
-                      key={empId}
-                      style={[styles.modalItemRow, isSelected && styles.modalItemRowSelected]}
-                      onPress={() => setNewAssigneeId(empId)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.modalAvatarBox}>
-                        <Text style={styles.modalAvatarText}>{empName.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={[styles.modalItemTitle, isSelected && { color: "#1268D9", fontWeight: "800" }]}>
-                          {empName}
-                        </Text>
-                        <Text style={styles.modalItemSub}>{roleOrDept}</Text>
-                      </View>
-                      {isSelected ? (
-                        <Ionicons name="checkmark-circle" size={22} color="#1268D9" />
-                      ) : (
-                        <Ionicons name="ellipse-outline" size={20} color="#CBD5E1" />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <Text style={{ fontSize: 13, color: "#64748B", padding: 12, textAlign: "center" }}>
-                  No team members found
-                </Text>
-              )}
-            </ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+              {/* ── Task Schedule & Timing Card ── */}
+              <View style={styles.modalScheduleCard}>
+                <View style={styles.modalScheduleHeader}>
+                  <Ionicons name="time-outline" size={14} color="#1268D9" />
+                  <Text style={styles.modalScheduleHeaderTitle}>TASK SCHEDULE & TIMELINE</Text>
+                </View>
 
-            <Text style={styles.modalLabel}>REASON FOR SHIFTING *</Text>
+                <View style={styles.modalScheduleGrid}>
+                  {/* Start Date & Time */}
+                  <TouchableOpacity
+                    style={styles.modalScheduleItem}
+                    onPress={() => {
+                      setCalendarTarget("shiftStart");
+                      setShowCalendarModal(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={styles.modalScheduleLabel}>START DATE & TIME</Text>
+                      <Ionicons name="create-outline" size={12} color="#10B981" />
+                    </View>
+                    <View style={styles.modalScheduleValueRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#10B981" />
+                      <Text style={styles.modalScheduleValue} numberOfLines={1}>
+                        {shiftStartDate
+                          ? (task?.startDateTime
+                              ? `${shiftStartDate} • ${formatTimeToHHMMA(task.startDateTime)}`
+                              : shiftStartDate)
+                          : (task?.startDateTime
+                              ? formatDateTimeToDDMMYYYY(task.startDateTime)
+                              : (task?.startDate
+                                  ? formatDateTimeToDDMMYYYY(task.startDate)
+                                  : "Not specified"))}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* End Date & Time */}
+                  <TouchableOpacity
+                    style={[styles.modalScheduleItem, { borderColor: "#FED7AA", backgroundColor: "#FFF7ED" }]}
+                    onPress={() => {
+                      setCalendarTarget("shiftEnd");
+                      setShowCalendarModal(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={[styles.modalScheduleLabel, { color: "#C2410C" }]}>END DATE & TIME</Text>
+                      <Ionicons name="create-outline" size={12} color="#EA580C" />
+                    </View>
+                    <View style={styles.modalScheduleValueRow}>
+                      <Ionicons name="alarm-outline" size={14} color="#EA580C" />
+                      <Text style={[styles.modalScheduleValue, { color: "#C2410C", fontWeight: "700" }]} numberOfLines={1}>
+                        {shiftEndDate
+                          ? (task?.deadlineTime
+                              ? `${shiftEndDate} • ${formatTimeToHHMMA(task.deadlineTime)}`
+                              : (task?.endDateTime
+                                  ? `${shiftEndDate} • ${formatTimeToHHMMA(task.endDateTime)}`
+                                  : shiftEndDate))
+                          : (task?.endDateTime
+                              ? formatDateTimeToDDMMYYYY(task.endDateTime, task?.deadlineTime)
+                              : (task?.endDate
+                                  ? formatDateTimeToDDMMYYYY(task.endDate, task?.deadlineTime)
+                                  : "No deadline"))}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.modalScheduleHint}>
+                  Timeline is retained for the new assignee. Tap either date box to adjust schedule.
+                </Text>
+              </View>
+
+              <Text style={styles.modalLabel}>SELECT NEW ASSIGNEE *</Text>
+              <ScrollView style={{ maxHeight: 180, marginBottom: 12 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+                {teamMembers && teamMembers.length > 0 ? (
+                  teamMembers.map(emp => {
+                    const empId = emp._id || emp.id || emp.userId;
+                    const isSelected = newAssigneeId === empId;
+                    const empName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.name || "Team Member");
+                    const roleOrDept = emp.designation || emp.role || emp.departmentId?.name || "Staff";
+                    return (
+                      <TouchableOpacity
+                        key={empId}
+                        style={[styles.modalItemRow, isSelected && styles.modalItemRowSelected]}
+                        onPress={() => setNewAssigneeId(empId)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.modalAvatarBox}>
+                          <Text style={styles.modalAvatarText}>{empName.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text style={[styles.modalItemTitle, isSelected && { color: "#1268D9", fontWeight: "800" }]}>
+                            {empName}
+                          </Text>
+                          <Text style={styles.modalItemSub}>{roleOrDept}</Text>
+                        </View>
+                        {isSelected ? (
+                          <Ionicons name="checkmark-circle" size={22} color="#1268D9" />
+                        ) : (
+                          <Ionicons name="ellipse-outline" size={20} color="#CBD5E1" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <Text style={{ fontSize: 13, color: "#64748B", padding: 12, textAlign: "center" }}>
+                    No team members found
+                  </Text>
+                )}
+              </ScrollView>
+
+              <Text style={styles.modalLabel}>REASON FOR SHIFTING *</Text>
+              <TextInput
+                style={styles.modalTextarea}
+                placeholder="Explain why this task is being reassigned..."
+                placeholderTextColor="#94A3B8"
+                value={shiftReason}
+                onChangeText={setShiftReason}
+                multiline
+                numberOfLines={3}
+              />
+
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                onPress={executeShiftTask}
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Confirm Shift Assignment</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Reopen Task Modal ── */}
+      <Modal visible={reopenModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={[styles.modalHeaderIconBox, { backgroundColor: "#EEF2FF" }]}>
+                  <Ionicons name="refresh" size={18} color="#4F46E5" />
+                </View>
+                <View style={{ marginLeft: 10 }}>
+                  <Text style={styles.modalTitle}>Reopen Task</Text>
+                  <Text style={styles.modalSubTitle}>Set a new deadline & resume workflow</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setReopenModalVisible(false)} style={styles.modalCloseIconBtn}>
+                <Ionicons name="close" size={20} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>NEW DEADLINE (DD/MM/YYYY) *</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setCalendarTarget("reopen");
+                setShowCalendarModal(true);
+              }}
+              style={styles.modalDateBox}
+            >
+              <Text style={styles.modalDateBoxText}>{reopenEndDate || "Select Date"}</Text>
+              <Ionicons name="calendar-outline" size={18} color="#4F46E5" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalLabel}>REASON FOR REOPENING *</Text>
             <TextInput
               style={styles.modalTextarea}
-              placeholder="Explain why this task is being reassigned..."
+              placeholder="Explain why this task is being reopened..."
               placeholderTextColor="#94A3B8"
-              value={shiftReason}
-              onChangeText={setShiftReason}
+              value={reopenRemarks}
+              onChangeText={setReopenRemarks}
               multiline
               numberOfLines={3}
             />
 
             <TouchableOpacity
-              style={styles.modalSubmitBtn}
-              onPress={executeShiftTask}
+              style={[styles.modalSubmitBtn, { backgroundColor: "#4F46E5" }]}
+              onPress={executeReopenTask}
               disabled={submitting}
               activeOpacity={0.8}
             >
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Confirm Shift Assignment</Text>
+                <Text style={styles.modalSubmitBtnText}>Confirm Reopen Task</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      <DatePickerModal
+        visible={showCalendarModal}
+        onClose={() => setShowCalendarModal(false)}
+        initialDate={
+          calendarTarget === "shiftStart"
+            ? shiftStartDate
+            : calendarTarget === "shiftEnd"
+            ? shiftEndDate
+            : reopenEndDate
+        }
+        onSelectDate={(formattedDate) => {
+          if (calendarTarget === "shiftStart") {
+            setShiftStartDate(formattedDate);
+          } else if (calendarTarget === "shiftEnd") {
+            setShiftEndDate(formattedDate);
+          } else {
+            setReopenEndDate(formattedDate);
+          }
+          setShowCalendarModal(false);
+        }}
+      />
 
       <TaskActionModal
         visible={actionModalVisible}
@@ -2414,6 +2754,121 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyBold,
     fontSize: 13.5,
     fontWeight: "800",
+  },
+  // ── Reopen Task Styles ──
+  nativeReopenBtn: {
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#C7D2FE",
+    backgroundColor: "#EEF2FF",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    elevation: 2,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  nativeReopenInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  nativeReopenIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#4F46E5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nativeReopenTitle: {
+    color: "#3730A3",
+    fontSize: 13.5,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "700",
+  },
+  nativeReopenSub: {
+    color: "#4F46E5",
+    fontSize: 10.5,
+    fontFamily: FONTS.body,
+    marginTop: 1,
+  },
+  modalDateBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  modalDateBoxText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 13,
+    color: "#0F172A",
+  },
+  modalScheduleCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 12,
+    marginBottom: 14,
+  },
+  modalScheduleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  modalScheduleHeaderTitle: {
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "800",
+    color: "#1E293B",
+    letterSpacing: 0.6,
+    marginLeft: 6,
+  },
+  modalScheduleGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalScheduleItem: {
+    flex: 0.485,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    borderRadius: 10,
+    padding: 8,
+  },
+  modalScheduleLabel: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "800",
+    color: "#15803D",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  modalScheduleValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalScheduleValue: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+    flex: 1,
+    marginLeft: 5,
+  },
+  modalScheduleHint: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: "#64748B",
+    marginTop: 8,
+    lineHeight: 14,
   },
 });
 

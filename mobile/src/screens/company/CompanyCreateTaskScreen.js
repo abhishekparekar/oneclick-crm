@@ -201,12 +201,23 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
     if (!emp || !deptId) return false;
     const targetIdStr = String(deptId).trim();
 
-    const checkMatch = (dept) => {
-      if (!dept) return false;
-      if (typeof dept === "string") return dept.trim() === targetIdStr;
-      if (typeof dept === "object") {
-        const id = dept._id || dept.id;
+    // Look up target department name for fallback name-matching
+    const deptObj = (departments || []).find(d => String(d._id || d.id) === targetIdStr);
+    const targetName = (deptObj?.name || "").trim().toLowerCase();
+
+    const checkMatch = (item) => {
+      if (!item) return false;
+      if (typeof item === "string") {
+        const s = item.trim();
+        if (s === targetIdStr) return true;
+        if (targetName && s.toLowerCase() === targetName) return true;
+        return false;
+      }
+      if (typeof item === "object") {
+        const id = item._id || item.id;
         if (id && String(id).trim() === targetIdStr) return true;
+        const name = (item.name || item.departmentName || "").trim().toLowerCase();
+        if (targetName && name && name === targetName) return true;
       }
       return false;
     };
@@ -214,18 +225,31 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
     // 1. Primary department
     if (checkMatch(emp.departmentId)) return true;
 
-    // 2. Multiple departmentIds
+    // 2. Direct department (could be string name, ID, or object)
+    if (checkMatch(emp.department)) return true;
+
+    // 3. String departmentName field
+    if (targetName && typeof emp.departmentName === "string" && emp.departmentName.trim().toLowerCase() === targetName) {
+      return true;
+    }
+
+    // 4. Multiple departmentIds (array of IDs or objects)
     if (Array.isArray(emp.departmentIds) && emp.departmentIds.some(checkMatch)) {
       return true;
     }
 
-    // 3. Accessible departments
+    // 5. Accessible departments (array of IDs or objects)
     if (Array.isArray(emp.accessibleDepartments) && emp.accessibleDepartments.some(checkMatch)) {
       return true;
     }
 
+    // 6. Generic departments array
+    if (Array.isArray(emp.departments) && emp.departments.some(checkMatch)) {
+      return true;
+    }
+
     return false;
-  }, []);
+  }, [departments]);
 
   const getEmployeeDepartmentNames = React.useCallback((emp) => {
     if (!emp) return "Main Department";
@@ -662,7 +686,16 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           {assignmentType === "multiple" && (
             <TouchableOpacity 
               style={[styles.actionTriggerCard, { flex: 1 }]} 
-              onPress={() => setEmpModalVisible(true)}
+              onPress={() => {
+                if (selectedDeptIds.length === 0) {
+                  Alert.alert("Select Department", "Please select a department first before choosing staff members.", [
+                    { text: "Select Department", onPress: () => setDeptModalVisible(true) },
+                    { text: "Cancel", style: "cancel" }
+                  ]);
+                  return;
+                }
+                setEmpModalVisible(true);
+              }}
               activeOpacity={0.8}
             >
               <View style={styles.actionTriggerLeft}>
@@ -1070,17 +1103,6 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
                           setAssigneeIds(prev => prev.filter(id => id !== emp._id));
                         } else {
                           setAssigneeIds(prev => [...prev, emp._id]);
-                          // Automatically add employee's department(s) to selected departments!
-                          const empDeptIds = getEmployeeDepartmentIds(emp);
-                          if (empDeptIds.length > 0) {
-                            setSelectedDeptIds(prev => {
-                              const next = [...prev];
-                              empDeptIds.forEach(id => {
-                                if (!next.includes(id)) next.push(id);
-                              });
-                              return next;
-                            });
-                          }
                         }
                       }}
                       activeOpacity={0.8}

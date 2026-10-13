@@ -168,34 +168,43 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
   const [deptSearch, setDeptSearch] = useState("");
 
   const allowedDepartments = React.useMemo(() => {
-    if (!dashboardData?.manager) return [];
-    const primary = {
-      _id: dashboardData.manager.departmentId?._id || dashboardData.manager.departmentId || "",
-      name: dashboardData.manager.departmentId?.name || dashboardData.manager.department || "My Department"
+    const list = [];
+    const addDept = (id, name) => {
+      if (!id) return;
+      const idStr = String(typeof id === "object" ? (id._id || id.id || "") : id).trim();
+      if (!idStr) return;
+      if (!list.some(x => String(x._id) === idStr)) {
+        list.push({ _id: idStr, name: name || "Department" });
+      }
     };
-    const list = [primary];
-    
-    if (dashboardData.manager.departmentIds && dashboardData.manager.departmentIds.length > 0) {
-      dashboardData.manager.departmentIds.forEach(d => {
-        const id = typeof d === "object" ? d?._id : d;
-        const name = typeof d === "object" ? d?.name : "Department";
-        if (id && !list.some(x => x._id && String(x._id) === String(id))) {
-          list.push({ _id: id, name });
+
+    if (dashboardData?.manager) {
+      const mgr = dashboardData.manager;
+      if (mgr.departmentId) {
+        addDept(mgr.departmentId, mgr.departmentId?.name || mgr.department || "My Department");
+      }
+      if (Array.isArray(mgr.departmentIds)) {
+        mgr.departmentIds.forEach(d => addDept(d, typeof d === "object" ? d.name : "Department"));
+      }
+      if (Array.isArray(mgr.accessibleDepartments)) {
+        mgr.accessibleDepartments.forEach(d => addDept(d, typeof d === "object" ? d.name : "Accessible Dept"));
+      }
+    }
+
+    if (Array.isArray(teamData)) {
+      teamData.forEach(emp => {
+        if (emp.departmentId) addDept(emp.departmentId, emp.departmentId?.name || emp.department || emp.departmentName);
+        if (Array.isArray(emp.departmentIds)) {
+          emp.departmentIds.forEach(d => addDept(d, typeof d === "object" ? d.name : "Department"));
+        }
+        if (Array.isArray(emp.accessibleDepartments)) {
+          emp.accessibleDepartments.forEach(d => addDept(d, typeof d === "object" ? d.name : "Department"));
         }
       });
     }
 
-    if (dashboardData.manager.accessibleDepartments && dashboardData.manager.accessibleDepartments.length > 0) {
-      dashboardData.manager.accessibleDepartments.forEach(d => {
-        const id = typeof d === "object" ? d?._id : d;
-        const name = typeof d === "object" ? d?.name : "Accessible Dept";
-        if (id && !list.some(x => x._id && String(x._id) === String(id))) {
-          list.push({ _id: id, name });
-        }
-      });
-    }
     return list.filter(d => d && d._id);
-  }, [dashboardData]);
+  }, [dashboardData, teamData]);
 
   useEffect(() => {
     if (allowedDepartments.length === 1 && selectedDeptIds.length === 0) {
@@ -232,12 +241,23 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
     if (!emp || !deptId) return false;
     const targetIdStr = String(deptId).trim();
 
-    const checkMatch = (dept) => {
-      if (!dept) return false;
-      if (typeof dept === "string") return dept.trim() === targetIdStr;
-      if (typeof dept === "object") {
-        const id = dept._id || dept.id;
+    // Look up target department name for fallback name-matching
+    const deptObj = (allowedDepartments || []).find(d => String(d._id || d.id) === targetIdStr);
+    const targetName = (deptObj?.name || "").trim().toLowerCase();
+
+    const checkMatch = (item) => {
+      if (!item) return false;
+      if (typeof item === "string") {
+        const s = item.trim();
+        if (s === targetIdStr) return true;
+        if (targetName && s.toLowerCase() === targetName) return true;
+        return false;
+      }
+      if (typeof item === "object") {
+        const id = item._id || item.id;
         if (id && String(id).trim() === targetIdStr) return true;
+        const name = (item.name || item.departmentName || "").trim().toLowerCase();
+        if (targetName && name && name === targetName) return true;
       }
       return false;
     };
@@ -245,18 +265,31 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
     // 1. Primary department
     if (checkMatch(emp.departmentId)) return true;
 
-    // 2. Multiple departmentIds
+    // 2. Direct department (could be string name, ID, or object)
+    if (checkMatch(emp.department)) return true;
+
+    // 3. String departmentName field
+    if (targetName && typeof emp.departmentName === "string" && emp.departmentName.trim().toLowerCase() === targetName) {
+      return true;
+    }
+
+    // 4. Multiple departmentIds (array of IDs or objects)
     if (Array.isArray(emp.departmentIds) && emp.departmentIds.some(checkMatch)) {
       return true;
     }
 
-    // 3. Accessible departments
+    // 5. Accessible departments (array of IDs or objects)
     if (Array.isArray(emp.accessibleDepartments) && emp.accessibleDepartments.some(checkMatch)) {
       return true;
     }
 
+    // 6. Generic departments array
+    if (Array.isArray(emp.departments) && emp.departments.some(checkMatch)) {
+      return true;
+    }
+
     return false;
-  }, []);
+  }, [allowedDepartments]);
 
   const getEmployeeDepartmentNames = React.useCallback((emp) => {
     if (!emp) return "My Department";
@@ -719,7 +752,16 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
             {/* 2. Select Members Button */}
             <TouchableOpacity 
               style={[styles.actionTriggerCard, { flex: 1 }]} 
-              onPress={() => setEmpModalVisible(true)}
+              onPress={() => {
+                if (selectedDeptIds.length === 0) {
+                  Alert.alert("Select Department", "Please select a department first before choosing team members.", [
+                    { text: "Select Department", onPress: () => setDeptModalVisible(true) },
+                    { text: "Cancel", style: "cancel" }
+                  ]);
+                  return;
+                }
+                setEmpModalVisible(true);
+              }}
               activeOpacity={0.8}
             >
               <View style={styles.actionTriggerLeft}>
@@ -1159,17 +1201,6 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
                           setAssigneeIds(prev => prev.filter(id => id !== emp._id));
                         } else {
                           setAssigneeIds(prev => [...prev, emp._id]);
-                          // Automatically add employee's department(s) to selected departments!
-                          const empDeptIds = getEmployeeDepartmentIds(emp);
-                          if (empDeptIds.length > 0) {
-                            setSelectedDeptIds(prev => {
-                              const next = [...prev];
-                              empDeptIds.forEach(id => {
-                                if (!next.includes(id)) next.push(id);
-                              });
-                              return next;
-                            });
-                          }
                         }
                       }}
                       activeOpacity={0.8}

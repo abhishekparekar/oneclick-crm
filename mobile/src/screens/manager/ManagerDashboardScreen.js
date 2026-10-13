@@ -622,10 +622,10 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   >
                     <View style={styles.kpiTopRow}>
                       <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
-                      <Text style={styles.kpiLabel}>total Tasks</Text>
+                      <Text style={styles.kpiLabel}>team Tasks</Text>
                     </View>
                     <Text style={[styles.kpiValue, { color: "#7C3AED" }]}>{loadingDashboard ? "..." : teamTasksCount}</Text>
-                    <Text style={styles.kpiSub}>All  Tasks</Text>
+                    <Text style={styles.kpiSub}>All team Tasks</Text>
                   </TouchableOpacity>
                 )}
 

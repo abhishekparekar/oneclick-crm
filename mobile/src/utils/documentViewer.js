@@ -3,19 +3,7 @@ import RNFS from "react-native-fs";
 import * as Sharing from "expo-sharing";
 import api, { getApiBaseUrl } from "../api/api";
 
-export const SUPPORTED_DOCUMENT_MIMES = [
-  "*/*",
-  "application/pdf",
-  "image/*",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/csv",
-  "text/plain",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-];
+export const SUPPORTED_DOCUMENT_MIMES = "*/*";
 
 export const resolveDocumentUrl = (rawUrl) => {
   if (!rawUrl || typeof rawUrl !== "string") return "";

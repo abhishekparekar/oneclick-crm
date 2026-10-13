@@ -1,5 +1,6 @@
-import api from "./api";
+import api, { getApiBaseUrl } from "./api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 
 const STORAGE_KEYS = {
   LEADS: "@oneclick_leads",
@@ -370,6 +371,36 @@ export const leadsService = {
   },
 
   uploadLeadDocument: async (file) => {
+    // 1. Try FileSystem.uploadAsync if native file URI is available
+    if (file?.uri && typeof file.uri === "string") {
+      try {
+        const baseUrl = getApiBaseUrl();
+        let token = api.defaults.headers.common?.Authorization || api.defaults.headers.common?.authorization;
+        if (!token) {
+          const stored = await AsyncStorage.getItem("hrms_token");
+          if (stored) token = `Bearer ${stored}`;
+        }
+        const uploadType = FileSystem.FileSystemUploadType?.MULTIPART ?? FileSystem.UploadType?.MULTIPART ?? 1;
+        const uploadResult = await FileSystem.uploadAsync(
+          `${baseUrl}/leads-engine/leads/upload-document`,
+          file.uri,
+          {
+            fieldName: "file",
+            httpMethod: "POST",
+            uploadType: uploadType,
+            headers: token ? { Authorization: token } : {},
+          }
+        );
+        const parsed = JSON.parse(uploadResult.body);
+        if (uploadResult.status >= 200 && uploadResult.status < 300) {
+          return parsed;
+        }
+      } catch (fsErr) {
+        console.warn("[leadsService] FileSystem upload failed, trying FormData:", fsErr?.message || fsErr);
+      }
+    }
+
+    // 2. Standard FormData via Axios
     try {
       const formData = new FormData();
       formData.append("file", {
