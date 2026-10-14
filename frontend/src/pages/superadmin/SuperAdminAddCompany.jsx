@@ -327,6 +327,7 @@ const SuperAdminAddCompany = () => {
     }
     const finalPayload = {
       ...formData,
+      planId: (formData.planId && formData.planId !== "") ? formData.planId : null,
       employeeLimit: Number(formData.employeeLimit) || 10,
       storageLimit: Number(formData.storageLimit) || 5,
       trialDays: Number(formData.trialDays) || 7,

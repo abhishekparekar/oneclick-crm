@@ -73,7 +73,7 @@ const createCompany = async (req, res, next) => {
 
     try {
       let selectedPlan = null;
-      if (planId) {
+      if (planId && mongoose.Types.ObjectId.isValid(planId)) {
         selectedPlan = await Plan.findById(planId);
       }
 
@@ -371,10 +371,15 @@ const updateCompany = async (req, res, next) => {
 
     fields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        company[field] =
-          field === "email" || field === "ownerEmail"
-            ? req.body[field].toLowerCase()
-            : req.body[field];
+        if (field === "email" || field === "ownerEmail") {
+          company[field] = req.body[field].toLowerCase();
+        } else if (field === "planId") {
+          company[field] = (req.body.planId && mongoose.Types.ObjectId.isValid(req.body.planId))
+            ? req.body.planId
+            : null;
+        } else {
+          company[field] = req.body[field];
+        }
       }
     });
 
@@ -385,7 +390,7 @@ const updateCompany = async (req, res, next) => {
       company.subscriptionEndDate = new Date(req.body.endDate);
     }
 
-    if (req.body.planId && req.body.subscribedModules === undefined) {
+    if (req.body.planId && mongoose.Types.ObjectId.isValid(req.body.planId) && req.body.subscribedModules === undefined) {
       const plan = await Plan.findById(req.body.planId);
       if (plan) {
         company.planName = plan.planName;

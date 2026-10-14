@@ -5,6 +5,8 @@ import {
   getCompanyAttendanceApi,
   getEmployeeAttendanceApi,
   getDepartmentsApi,
+  getEmployeesApi,
+  getHolidaysApi,
 } from "../../api/companyAdminApi";
 import {
   Search, Calendar, CalendarCheck, Users, CheckCircle2, Clock,
@@ -132,6 +134,20 @@ export default function AttendanceReport() {
   });
   const departments = deptData || [];
 
+  const { data: allEmployeesRes } = useQuery({
+    queryKey: ["all-employees-list-report"],
+    queryFn: () => getEmployeesApi({ status: "active", limit: 500 }),
+    select: (r) => r.data?.employees || r.data || [],
+  });
+  const allEmployees = allEmployeesRes || [];
+
+  const { data: holidayData } = useQuery({
+    queryKey: ["holidays-report"],
+    queryFn: () => getHolidaysApi(),
+    select: (r) => r.data?.holidays || r.data || [],
+  });
+  const holidaysList = holidayData || [];
+
   // Daily attendance
   const { data: dailyRes, isLoading: dailyLoading, refetch: refetchDaily } = useQuery({
     queryKey: ["att-daily-report", date],
@@ -158,8 +174,46 @@ export default function AttendanceReport() {
   });
 
   // ── Derived Daily Data ───────────────────────────────────────────────────
+  const processedDaily = useMemo(() => {
+    const isSun = new Date(date).getDay() === 0;
+    const isHol = (holidaysList || []).some((h) => h.date && h.date.slice(0, 10) === date);
+    const isFuture = date > todayStr;
+    const recMap = new Map();
+    dailyRaw.forEach((r) => {
+      const eId = r.employeeId?._id?.toString() || r.employeeId?.toString();
+      if (eId) recMap.set(eId, r);
+    });
+
+    const list = [...dailyRaw];
+
+    (allEmployees || []).forEach((emp) => {
+      const eId = emp._id?.toString();
+      if (eId && !recMap.has(eId)) {
+        let status = "absent";
+        if (isSun) status = "weekly-off";
+        else if (isHol) status = "holiday";
+        else if (isFuture) status = "";
+
+        if (status) {
+          list.push({
+            _id: `synth-${eId}-${date}`,
+            date,
+            employeeId: emp,
+            status,
+            punchInTime: null,
+            punchOutTime: null,
+            totalHours: 0,
+            source: "system",
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [dailyRaw, allEmployees, date, todayStr, holidaysList]);
+
   const filteredDaily = useMemo(() => {
-    return dailyRaw.filter((rec) => {
+    return processedDaily.filter((rec) => {
       const emp = rec.employeeId;
       if (!emp) return false;
       const st = (rec.status || "absent").toLowerCase();
@@ -178,30 +232,66 @@ export default function AttendanceReport() {
       }
       return true;
     });
-  }, [dailyRaw, statusFilter, deptFilter, search]);
+  }, [processedDaily, statusFilter, deptFilter, search]);
 
   // Daily KPIs
   const dailyKPIs = useMemo(() => {
     const byStatus = (s) =>
-      dailyRaw.filter((r) => {
+      processedDaily.filter((r) => {
         const st = (r.status || "absent").toLowerCase().replace(/_/g, "-");
         return st === s || (s === "on-leave" && st.includes("leave"));
       }).length;
 
     return {
-      total: dailyRaw.length,
+      total: processedDaily.length,
       present: byStatus("present"),
       late: byStatus("late"),
       absent: byStatus("absent"),
       halfDay: byStatus("half-day"),
       onLeave: byStatus("on-leave"),
     };
-  }, [dailyRaw]);
+  }, [processedDaily]);
 
   // ── Monthly Grouped by Employee ──────────────────────────────────────────
   const daysInMonth = new Date(year, month, 0).getDate();
   const monthlyByEmp = useMemo(() => {
+    const isCurrentMonth = year === now.getFullYear() && month === (now.getMonth() + 1);
+
+    const holidayDateSet = new Set();
+    (holidaysList || []).forEach((h) => {
+      if (h.date) {
+        holidayDateSet.add(h.date.slice(0, 10));
+      }
+    });
+
     const map = {};
+
+    // Seed map with all active employees
+    (allEmployees || []).forEach((emp) => {
+      if (!emp || !emp._id) return;
+      const key = emp._id.toString();
+      map[key] = {
+        _id: emp._id,
+        name: `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.fullName || "Employee",
+        code: emp.employeeCode || "—",
+        dept: emp.departmentId?.name || "—",
+        deptId: emp.departmentId?._id || emp.departmentId,
+        desig: emp.designationId?.name || emp.role || "Staff",
+        joiningDate: emp.joiningDate || null,
+        records: [],
+        present: 0,
+        late: 0,
+        absent: 0,
+        halfDay: 0,
+        onLeave: 0,
+        weeklyOff: 0,
+        holiday: 0,
+        overtime: 0,
+        totalHours: 0,
+      };
+    });
+
+    // Merge in monthly attendance records
     monthlyRaw.forEach((rec) => {
       const emp = rec.employeeId;
       if (!emp || !emp._id) return;
@@ -209,10 +299,12 @@ export default function AttendanceReport() {
       if (!map[key]) {
         map[key] = {
           _id: emp._id,
-          name: `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Employee",
+          name: `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.fullName || "Employee",
           code: emp.employeeCode || "—",
           dept: emp.departmentId?.name || "—",
+          deptId: emp.departmentId?._id || emp.departmentId,
           desig: emp.designationId?.name || emp.role || "Staff",
+          joiningDate: emp.joiningDate || null,
           records: [],
           present: 0,
           late: 0,
@@ -226,44 +318,87 @@ export default function AttendanceReport() {
         };
       }
       map[key].records.push(rec);
-      const st = (rec.status || "absent").toLowerCase().replace(/_/g, "-");
-      if (st === "present") {
-        map[key].present++;
-      } else if (st === "late") {
-        map[key].late++;
-        map[key].present++; // Late arrival is counted as present day
-      } else if (st === "absent") {
-        map[key].absent++;
-      } else if (st === "half-day") {
-        map[key].halfDay++;
-      } else if (st.includes("leave")) {
-        map[key].onLeave++;
-      } else if (st === "weekly-off") {
-        map[key].weeklyOff++;
-      } else if (st === "holiday") {
-        map[key].holiday++;
-      }
-
-      const hrs = Number(rec.totalHours || 0);
-      map[key].totalHours += hrs;
-      if (hrs > 8) {
-        map[key].overtime += hrs - 8;
-      }
     });
 
     return Object.values(map)
       .map((emp) => {
+        const recByDate = {};
+        emp.records.forEach((r) => {
+          const dKey = r.date || (r.createdAt ? r.createdAt.slice(0, 10) : null);
+          if (dKey) recByDate[dKey] = r;
+        });
+
+        const joinStr = emp.joiningDate ? emp.joiningDate.slice(0, 10) : null;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateObj = new Date(year, month - 1, d);
+          const dStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const isSunday = dateObj.getDay() === 0;
+          const isHol = holidayDateSet.has(dStr);
+          const isFuture = dStr > todayStr;
+          const isBeforeJoin = joinStr && dStr < joinStr;
+
+          if (isBeforeJoin) {
+            continue;
+          }
+
+          const rec = recByDate[dStr];
+          if (rec) {
+            const st = (rec.status || "").toLowerCase().replace(/_/g, "-");
+            if (st === "present") {
+              emp.present++;
+            } else if (st === "late") {
+              emp.late++;
+              emp.present++; // Late arrival is counted as present day
+            } else if (st === "absent") {
+              emp.absent++;
+            } else if (st === "half-day") {
+              emp.halfDay++;
+            } else if (st.includes("leave")) {
+              emp.onLeave++;
+            } else if (st === "weekly-off") {
+              emp.weeklyOff++;
+            } else if (st === "holiday") {
+              emp.holiday++;
+            } else {
+              const hrs = Number(rec.totalHours || 0);
+              if (hrs >= 8) emp.present++;
+              else if (hrs >= 4) emp.halfDay++;
+              else emp.absent++;
+            }
+
+            const hrs = Number(rec.totalHours || 0);
+            emp.totalHours += hrs;
+            if (hrs > 8) {
+              emp.overtime += hrs - 8;
+            }
+          } else {
+            // No record for this date
+            if (isSunday) {
+              emp.weeklyOff++;
+            } else if (isHol) {
+              emp.holiday++;
+            } else if (isFuture) {
+              // Future working day - not marked absent yet
+            } else {
+              // Past/today unrecorded working day: marked absent
+              emp.absent++;
+            }
+          }
+        }
+
         const workingDays = Math.max(0, daysInMonth - emp.weeklyOff - emp.holiday);
-        const effectiveWorkingDays =
-          workingDays > 0
-            ? workingDays
-            : (emp.present + emp.absent + emp.halfDay + emp.onLeave) || daysInMonth;
+        const effectiveWorkingDays = workingDays > 0 ? workingDays : daysInMonth;
+
+        const elapsedWorkingDays = emp.present + emp.absent + emp.halfDay + emp.onLeave;
+        const divisor = isCurrentMonth && elapsedWorkingDays > 0 ? elapsedWorkingDays : effectiveWorkingDays;
+
         const attPct =
-          effectiveWorkingDays > 0
+          divisor > 0
             ? Math.min(
                 100,
                 Math.round(
-                  ((emp.present + emp.halfDay * 0.5) / effectiveWorkingDays) * 100
+                  ((emp.present + emp.halfDay * 0.5) / divisor) * 100
                 )
               )
             : 0;
@@ -277,20 +412,20 @@ export default function AttendanceReport() {
         };
       })
       .sort((a, b) => b.present - a.present);
-  }, [monthlyRaw, daysInMonth]);
+  }, [monthlyRaw, allEmployees, holidaysList, daysInMonth, year, month, todayStr]);
 
   const monthlyKPIs = useMemo(() => {
     const uniqueEmps = monthlyByEmp.length;
     const totalEntries = monthlyRaw.length;
-    const present = monthlyRaw.filter((r) => r.status === "present").length;
-    const late = monthlyRaw.filter((r) => r.status === "late").length;
-    const absent = monthlyRaw.filter((r) => r.status === "absent").length;
+    const present = monthlyByEmp.reduce((sum, e) => sum + (e.present || 0), 0);
+    const late = monthlyByEmp.reduce((sum, e) => sum + (e.late || 0), 0);
+    const absent = monthlyByEmp.reduce((sum, e) => sum + (e.absent || 0), 0);
     const avgAtt =
-      uniqueEmps > 0 && daysInMonth > 0
-        ? Math.round(((present + late) / (uniqueEmps * daysInMonth)) * 100)
+      uniqueEmps > 0
+        ? Math.round(monthlyByEmp.reduce((sum, e) => sum + (e.attPct || 0), 0) / uniqueEmps)
         : 0;
     return { uniqueEmps, totalEntries, present, late, absent, avgAtt };
-  }, [monthlyRaw, monthlyByEmp, daysInMonth]);
+  }, [monthlyRaw, monthlyByEmp]);
 
   // ── Helper: Format Date DD/MM/YYYY ──────────────────────────────────────
   const formatDateDDMMYYYY = (d) => {

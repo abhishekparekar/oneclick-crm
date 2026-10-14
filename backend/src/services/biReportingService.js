@@ -600,7 +600,7 @@ const getAttendanceMetrics = async (companyId, query, user) => {
     const pres = empAtt.filter(a => a.status === "present" || a.status === "late").length;
     const lates = empAtt.filter(a => a.status === "late").length;
     const halfs = empAtt.filter(a => a.status === "half-day" || a.status === "half_day").length;
-    const abs = empAtt.filter(a => a.status === "absent").length;
+    const explicitAbs = empAtt.filter(a => a.status === "absent").length;
     const leaves = empAtt.filter(a => a.status && a.status.toLowerCase().includes("leave")).length;
     const weeklyOff = empAtt.filter(a => a.status === "weekly_off" || a.status === "weekly-off").length;
     const holiday = empAtt.filter(a => a.status === "holiday").length;
@@ -611,6 +611,8 @@ const getAttendanceMetrics = async (companyId, query, user) => {
     }, 0);
 
     const workingDays = Math.max(0, daysInRange - weeklyOff - holiday) || daysInRange;
+    const computedAbs = Math.max(0, workingDays - pres - halfs - leaves);
+    const abs = explicitAbs > 0 ? explicitAbs : computedAbs;
     const effectiveDays = pres + (halfs * 0.5);
     const attPct = workingDays > 0 ? Math.min(100, Math.round((effectiveDays / workingDays) * 100)) : 0;
 
@@ -667,7 +669,7 @@ const getAttendanceMetrics = async (companyId, query, user) => {
       present: presentCount,
       late: lateCount,
       halfDay: halfDayCount,
-      absent: absentCount,
+      absent: absentCount > 0 ? absentCount : monthlySummary.reduce((sum, m) => sum + m.absentDays, 0),
       totalHours: Math.round(totalHoursAll * 10) / 10,
       totalOvertime: Math.round(totalOvertimeAll * 10) / 10,
       totalRecords,

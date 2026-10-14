@@ -75,6 +75,8 @@ const companySchema = new mongoose.Schema(
     planId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Plan",
+      set: (v) => (v === "" ? null : v),
+      default: null,
     },
     employeeLimit: {
       type: Number,

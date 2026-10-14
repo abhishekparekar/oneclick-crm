@@ -272,6 +272,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
     }
     const finalPayload = {
       ...formData,
+      planId: (formData.planId && formData.planId !== "") ? formData.planId : null,
       employeeLimit: Number(formData.employeeLimit) || 50,
       storageLimit: Number(formData.storageLimit) || 5,
       moduleLimits: sanitizedModuleLimits,
