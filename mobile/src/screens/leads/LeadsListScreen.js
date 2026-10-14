@@ -23,8 +23,7 @@ import leadsService from "../../api/leadsService";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateFormatter";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../../config/firebase";
+import * as DocumentPicker from "expo-document-picker";
 import { SUPPORTED_DOCUMENT_MIMES } from "../../utils/documentViewer";
 
 const THEME = {

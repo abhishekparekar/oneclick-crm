@@ -522,6 +522,7 @@ const createEmployee = async (req, res, next) => {
       departmentIds,
       designationId,
       branchId,
+      branchIds,
       employmentType,
       workMode,
       salary,
