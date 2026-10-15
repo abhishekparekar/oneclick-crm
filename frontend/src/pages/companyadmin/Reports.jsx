@@ -787,7 +787,7 @@ export default function Reports() {
           ) : execRes ? (
             <>
               {/* Top Headline Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <KPICard
                   label="Total Staff"
                   metric={execRes.kpis?.totalEmployees}
@@ -837,10 +837,10 @@ export default function Reports() {
                     color={THEME.amber}
                   />
                 )}
-              </div>
+              </div> */}
 
               {/* Operational Health & Performance Summary */}
-              {execRes.healthIntelligence && (
+              {/* {execRes.healthIntelligence && (
                 <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -886,7 +886,7 @@ export default function Reports() {
                     </div>
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Tasks Overview Section */}
               <div className="space-y-1.5 pt-1">
@@ -2549,8 +2549,8 @@ export default function Reports() {
                                 <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{e.rate}%</td>
                                 <td className="px-4 py-2 text-center">
                                   <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${e.rate >= 80 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" :
-                                      e.rate >= 60 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" :
-                                        "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                    e.rate >= 60 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" :
+                                      "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
                                     }`}>
                                     {e.rate >= 80 ? "High Performer" : e.rate >= 60 ? "Good" : "Needs Support"}
                                   </span>
