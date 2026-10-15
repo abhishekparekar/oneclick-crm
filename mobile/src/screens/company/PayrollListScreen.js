@@ -135,7 +135,8 @@ const PayrollListScreen = ({ navigation, route }) => {
     queryFn: async () => {
       const params = { month: selectedMonth, year: selectedYear };
       const res = await getCompanyPayrollApi(params);
-      return res.data?.payrolls || [];
+      const list = res.data?.data || res.data?.payrolls || (Array.isArray(res.data) ? res.data : []);
+      return Array.isArray(list) ? list : [];
     },
     enabled: activeSubTab === "history",
   });
@@ -1095,6 +1096,7 @@ const PayrollListScreen = ({ navigation, route }) => {
                   onPress={() => {
                     setSelectedMonth(genMonth);
                     setSelectedYear(genYear);
+                    queryClient.invalidateQueries(["companyPayroll"]);
                     setActiveSubTab("history");
                     setStep(1);
                   }}

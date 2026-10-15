@@ -68,8 +68,9 @@ const fmtNumber = (v) => {
     if (v.startsWith("₹") || v.includes(",") || isNaN(Number(v))) return v;
     v = Number(v);
   }
-  if (isNaN(v)) return "0";
-  return new Intl.NumberFormat("en-IN").format(v || 0);
+  const num = Number(v) || 0;
+  const rounded = num % 1 === 0 ? num : Number(num.toFixed(1));
+  return new Intl.NumberFormat("en-IN").format(rounded);
 };
 
 const fmtDate = (d) => {

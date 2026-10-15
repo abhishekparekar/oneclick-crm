@@ -95,8 +95,8 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
         return false;
       }
 
-      // Teleportation & impossible jump filter (e.g. > 85 km/h in city/suburban)
-      if (distMeters > 35 && calculatedSpeedKmh > 85) {
+      // Teleportation & impossible jump filter (e.g. > 115 km/h for bike/car transit)
+      if (distMeters > 50 && calculatedSpeedKmh > 115) {
         return false;
       }
     }
@@ -106,10 +106,9 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   const hardwareSpeedKmh = (Number(point.speed) || 0) * 3.6;
   const effectiveSpeedKmh = Math.max(hardwareSpeedKmh, calculatedSpeedKmh);
 
-  // Strict Hardware Satellite GPS Filter: Phone GPS satellite chip gives <= 25 meters accuracy.
-  // Cell Tower triangulation produces 50m - 1500m which causes wild jumps across town.
-  // Drop all cell tower points completely!
-  const PURE_GPS_MAX_ACCURACY = 25.0;
+  // Strict Hardware Satellite GPS Filter: Direct GPS chip fixes typically give 3m - 35m accuracy outdoors.
+  // Cell Tower triangulation produces 60m - 1500m which causes wild jumps across town.
+  const PURE_GPS_MAX_ACCURACY = 35.0;
   if (!isNaN(accuracy) && accuracy > PURE_GPS_MAX_ACCURACY) {
     return false;
   }

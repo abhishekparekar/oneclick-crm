@@ -38,10 +38,17 @@ const PerformanceReportScreen = () => {
       const res = await getBIPerformanceReportApi({ month, year, refresh }).catch(() => null);
       if (res?.data?.data) {
         const bi = res.data.data;
+        const rankingsList = bi.employeeScorecards || bi.rankings || [];
+        const avgScore =
+          bi.averageCompanyScore ??
+          bi.averageScore ??
+          (rankingsList.length
+            ? Math.round(rankingsList.reduce((s, r) => s + (r.score ?? r.performanceScore ?? 0), 0) / rankingsList.length)
+            : 88);
         setSummary({
-          averageScore: bi.averageCompanyScore || 88,
-          list: bi.employeeScorecards || [],
-          departmentRankings: bi.departmentRankings || [],
+          averageScore: avgScore,
+          list: rankingsList,
+          departmentRankings: bi.departmentRankings || bi.departmentScorecard || [],
           tierDistribution: bi.tierDistribution || {},
         });
       } else {
@@ -65,7 +72,7 @@ const PerformanceReportScreen = () => {
   const filteredList = useMemo(() => {
     const list = summary?.list || [];
     return list.filter((p) => {
-      const empName = (p.name || `${p.employee?.firstName || ""} ${p.employee?.lastName || ""}`).toLowerCase();
+      const empName = (p.name || `${p.firstName || p.employee?.firstName || ""} ${p.lastName || p.employee?.lastName || ""}`).toLowerCase();
       const s = search.toLowerCase();
       return !s || empName.includes(s);
     });
@@ -87,10 +94,10 @@ const PerformanceReportScreen = () => {
       const headers = ["#", "Staff Name", "Overall Score", "Task Completion Rate", "Attendance Rate"];
       const rows = filteredList.map((p, idx) => [
         idx + 1,
-        `${p.employee?.firstName || ""} ${p.employee?.lastName || ""}`.trim(),
-        `${(p.performanceScore || 0).toFixed(1)}%`,
-        `${(p.taskCompletionRate || 0).toFixed(1)}%`,
-        `${(p.attendanceRate || 0).toFixed(1)}%`,
+        p.name || `${p.firstName || p.employee?.firstName || ""} ${p.lastName || p.employee?.lastName || ""}`.trim() || "Staff Member",
+        `${(p.performanceScore ?? p.score ?? 0).toFixed(1)}%`,
+        `${(p.efficiencyRate ?? p.taskCompletionRate ?? 0).toFixed(1)}%`,
+        `${(p.attendanceRate ?? 0).toFixed(1)}%`,
       ]);
 
       await exportToExcel({
@@ -231,8 +238,9 @@ const PerformanceReportScreen = () => {
           <View style={styles.listContainer}>
             {filteredList.map((p, idx) => {
               const emp = p.employee || {};
-              const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
-              const score = (p.performanceScore || 0).toFixed(1);
+              const empName = p.name || `${p.firstName || emp.firstName || ""} ${p.lastName || emp.lastName || ""}`.trim() || "Staff Member";
+              const score = (p.performanceScore ?? p.score ?? 0).toFixed(1);
+              const taskRate = (p.efficiencyRate ?? p.taskCompletionRate ?? (p.totalAssigned > 0 ? (p.completed / p.totalAssigned) * 100 : 0)).toFixed(1);
 
               return (
                 <View key={p._id || idx} style={styles.perfCard}>
@@ -242,7 +250,9 @@ const PerformanceReportScreen = () => {
                     </View>
                     <View style={{ flex: 1, marginLeft: 8 }}>
                       <Text style={styles.empNameText} numberOfLines={1}>{empName}</Text>
-                      <Text style={styles.empSubText}>Performance Index</Text>
+                      <Text style={styles.empSubText}>
+                        {p.code ? `${p.code} • ` : ""}{p.department || "Performance Index"}
+                      </Text>
                     </View>
                     <View style={styles.scoreBadge}>
                       <Text style={styles.scoreText}>{score}%</Text>
@@ -254,11 +264,11 @@ const PerformanceReportScreen = () => {
                   <View style={styles.cardFooter}>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>TASK COMPLETION</Text>
-                      <Text style={styles.metaVal}>{(p.taskCompletionRate || 0).toFixed(1)}%</Text>
+                      <Text style={styles.metaVal}>{taskRate}%</Text>
                     </View>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>ATTENDANCE RATE</Text>
-                      <Text style={styles.metaVal}>{(p.attendanceRate || 0).toFixed(1)}%</Text>
+                      <Text style={styles.metaVal}>{(p.attendanceRate ?? 0).toFixed(1)}%</Text>
                     </View>
                   </View>
                 </View>

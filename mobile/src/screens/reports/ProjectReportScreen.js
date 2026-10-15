@@ -41,10 +41,10 @@ const ProjectReportScreen = () => {
       if (res?.data?.data) {
         const bi = res.data.data;
         setSummary({
-          totalProjects: bi.kpis?.totalProjects || 0,
-          activeProjects: bi.kpis?.activeProjects || 0,
-          completedProjects: bi.kpis?.completedProjects || 0,
-          overdueProjects: bi.kpis?.overdueProjects || 0,
+          totalProjects: bi.kpis?.totalProjects ?? bi.kpis?.total ?? 0,
+          activeProjects: bi.kpis?.activeProjects ?? bi.kpis?.active ?? 0,
+          completedProjects: bi.kpis?.completedProjects ?? bi.kpis?.completed ?? 0,
+          overdueProjects: bi.kpis?.overdueProjects ?? bi.kpis?.overdue ?? 0,
           list: bi.records || [],
           statusBreakdown: bi.statusBreakdown || [],
           priorityBreakdown: bi.priorityBreakdown || [],

@@ -353,7 +353,13 @@ const getEmployees = async (req, res, next) => {
         companyId: req.companyId,
       }).lean();
 
-      if (managerEmp) {
+      const isCompanyLevel =
+        managerEmp?.managerAccessLevel === "company" ||
+        req.user?.managerAccessLevel === "company" ||
+        req.user?.permissions?.payroll === true ||
+        (Array.isArray(req.user?.assignedModules) && req.user.assignedModules.includes("payroll"));
+
+      if (managerEmp && !isCompanyLevel) {
         const primaryDeptId = managerEmp.departmentId;
         const allowedDeptIds = (managerEmp.accessibleDepartments || []).map((id) => id.toString());
         const managerDeptIds = [];
@@ -370,7 +376,6 @@ const getEmployees = async (req, res, next) => {
             { accessibleDepartments: { $in: managerDeptIds } }
           );
         }
-        
 
         if (!filter.$and) {
           filter.$and = [];

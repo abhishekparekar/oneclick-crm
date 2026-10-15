@@ -81,8 +81,10 @@ const parseDateRange = (query = {}) => {
 
 // ── Comparison Metric Calculator ──────────────────────────────────────────────
 const calcDelta = (curr = 0, prev = 0) => {
-  const current = Number(curr) || 0;
-  const previous = Number(prev) || 0;
+  const rawCurrent = Number(curr) || 0;
+  const rawPrevious = Number(prev) || 0;
+  const current = Number(rawCurrent.toFixed(1));
+  const previous = Number(rawPrevious.toFixed(1));
   const absoluteChange = current - previous;
   let percentageChange = 0;
 
@@ -274,8 +276,8 @@ const getExecutiveMetrics = async (companyId, query, user) => {
 
   const presentCurr = attCurr.filter(a => a.status === "present" || a.status === "late" || a.status === "half-day").length;
   const presentPrev = attPrev.filter(a => a.status === "present" || a.status === "late" || a.status === "half-day").length;
-  const attRateCurr = attCurr.length > 0 ? (presentCurr / attCurr.length) * 100 : 94.2;
-  const attRatePrev = attPrev.length > 0 ? (presentPrev / attPrev.length) * 100 : 91.0;
+  const attRateCurr = attCurr.length > 0 ? Number(((presentCurr / attCurr.length) * 100).toFixed(1)) : 94.2;
+  const attRatePrev = attPrev.length > 0 ? Number(((presentPrev / attPrev.length) * 100).toFixed(1)) : 91.0;
 
   // Task Metrics
   const totalTasksCurr = tasksCurr.length;
@@ -287,16 +289,16 @@ const getExecutiveMetrics = async (companyId, query, user) => {
   const overdueTasksCurr = tasksCurr.filter(t => (t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < new Date() && t.status !== "completed" && t.status !== "done" && t.status !== "complete" && t.status !== "late_complete").length;
   const overdueTasksPrev = tasksPrev.filter(t => (t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < previous.end && t.status !== "completed" && t.status !== "done" && t.status !== "complete" && t.status !== "late_complete").length;
 
-  const taskRateCurr = tasksCurr.length > 0 ? (completedTasksCurr / tasksCurr.length) * 100 : 0;
-  const taskRatePrev = tasksPrev.length > 0 ? (completedTasksPrev / tasksPrev.length) * 100 : 0;
+  const taskRateCurr = tasksCurr.length > 0 ? Number(((completedTasksCurr / tasksCurr.length) * 100).toFixed(1)) : 0;
+  const taskRatePrev = tasksPrev.length > 0 ? Number(((completedTasksPrev / tasksPrev.length) * 100).toFixed(1)) : 0;
 
   // Leads Metrics
   const totalLeadsCurr = leadsCurr.length;
   const totalLeadsPrev = leadsPrev.length;
   const convertedLeadsCurr = leadsCurr.filter(l => (l.statusId?.isConverted) || (l.statusId && /won|converted|closed won/i.test(l.statusId.name))).length;
   const convertedLeadsPrev = leadsPrev.filter(l => (l.statusId?.isConverted) || (l.statusId && /won|converted|closed won/i.test(l.statusId.name))).length;
-  const leadConversionRateCurr = totalLeadsCurr > 0 ? (convertedLeadsCurr / totalLeadsCurr) * 100 : 0;
-  const leadConversionRatePrev = totalLeadsPrev > 0 ? (convertedLeadsPrev / totalLeadsPrev) * 100 : 0;
+  const leadConversionRateCurr = totalLeadsCurr > 0 ? Number(((convertedLeadsCurr / totalLeadsCurr) * 100).toFixed(1)) : 0;
+  const leadConversionRatePrev = totalLeadsPrev > 0 ? Number(((convertedLeadsPrev / totalLeadsPrev) * 100).toFixed(1)) : 0;
   const pipelineValueCurr = leadsCurr.reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
   const pipelineValuePrev = leadsPrev.reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
 
@@ -307,8 +309,8 @@ const getExecutiveMetrics = async (companyId, query, user) => {
   const activeProjectsPrev = projectsPrev.filter(p => p.status === "active" || p.status === "working" || p.status === "in_progress" || p.status === "in-progress" || p.status === "planning" || p.status === "ongoing").length;
   const completedProjectsCurr = projectsCurr.filter(p => p.status === "completed").length;
   const completedProjectsPrev = projectsPrev.filter(p => p.status === "completed").length;
-  const projectDeliveryRateCurr = totalProjectsCurr > 0 ? (completedProjectsCurr / totalProjectsCurr) * 100 : 0;
-  const projectDeliveryRatePrev = totalProjectsPrev > 0 ? (completedProjectsPrev / totalProjectsPrev) * 100 : 0;
+  const projectDeliveryRateCurr = totalProjectsCurr > 0 ? Number(((completedProjectsCurr / totalProjectsCurr) * 100).toFixed(1)) : 0;
+  const projectDeliveryRatePrev = totalProjectsPrev > 0 ? Number(((completedProjectsPrev / totalProjectsPrev) * 100).toFixed(1)) : 0;
 
   // Department Distribution Map
   const deptMap = new Map(departmentsList.map(d => [d._id.toString(), d.name]));
@@ -531,18 +533,31 @@ const getWorkforceMetrics = async (companyId, query, user) => {
     },
     employmentTypeDistribution,
     departmentBreakdown,
-    employeesList: employees.map(e => ({
-      _id: e._id,
-      name: e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim(),
-      code: e.employeeCode,
-      email: e.email,
-      department: e.departmentId?.name || "—",
-      departmentId: e.departmentId?._id || e.departmentId,
-      designation: e.designationId?.name || e.role || "Staff",
-      branch: e.branchId?.name || "Main Office",
-      joiningDate: e.joiningDate,
-      status: e.status,
-    })),
+    employeesList: employees.map(e => {
+      const name = e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Staff Member";
+      const desig = e.designationId?.name || e.designationName || e.role || "Staff Member";
+      const dept = e.departmentId?.name || e.departmentName || "General";
+      return {
+        _id: e._id,
+        name,
+        fullName: name,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        code: e.employeeCode || "—",
+        employeeCode: e.employeeCode || "—",
+        email: e.email,
+        department: dept,
+        departmentName: dept,
+        departmentId: e.departmentId?._id ? e.departmentId : { name: dept },
+        designation: desig,
+        designationName: desig,
+        designationId: e.designationId?._id ? e.designationId : { name: desig },
+        branch: e.branchId?.name || "Main Office",
+        joiningDate: e.joiningDate || e.createdAt,
+        createdAt: e.createdAt || e.joiningDate,
+        status: e.status || "active",
+      };
+    }),
   };
 
   setCachedReport(cacheKey, result);
@@ -744,7 +759,9 @@ const getLeaveMetrics = async (companyId, query, user) => {
 
   const result = {
     kpis: {
+      total: total,
       totalRequests: total,
+      totalLeaves: total,
       approved,
       pending,
       rejected,
@@ -754,18 +771,24 @@ const getLeaveMetrics = async (companyId, query, user) => {
     typeDistribution,
     departmentBreakdown,
     employeeBreakdown,
-    records: leaves.map(l => ({
-      _id: l._id,
-      employeeName: l.employeeId?.fullName || "Employee",
-      employeeCode: l.employeeId?.employeeCode || "—",
-      department: l.employeeId?.departmentId?.name || "General",
-      leaveType: l.leaveType,
-      startDate: l.startDate,
-      endDate: l.endDate,
-      days: l.numberOfDays,
-      reason: l.reason,
-      status: l.status,
-    })),
+    records: leaves.map(l => {
+      const empName = l.employeeId?.fullName || (l.employeeId?.firstName ? `${l.employeeId.firstName} ${l.employeeId.lastName || ""}`.trim() : null) || "Employee";
+      return {
+        _id: l._id,
+        employeeName: empName,
+        name: empName,
+        employeeId: l.employeeId,
+        employeeCode: l.employeeId?.employeeCode || "—",
+        department: l.employeeId?.departmentId?.name || "General",
+        leaveType: l.leaveType,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        days: l.numberOfDays || 1,
+        numberOfDays: l.numberOfDays || 1,
+        reason: l.reason,
+        status: l.status,
+      };
+    }),
   };
 
   setCachedReport(cacheKey, result);
@@ -1113,11 +1136,18 @@ const getTaskMetrics = async (companyId, query, user) => {
 
   const result = {
     kpis: {
+      total: total,
       totalTasks: total,
       completed,
+      onTimeTasks: completed,
+      onTime: completed,
+      delayedTasks: lateCompleted,
+      delayed: lateCompleted,
       inProgress,
       pending,
+      pendingTasks: pending,
       overdue,
+      overdueTasks: overdue,
       lateCompleted,
       reopened,
       cancelled,
@@ -1138,17 +1168,25 @@ const getTaskMetrics = async (companyId, query, user) => {
     departmentPerformance,
     managerPerformance,
     trendDaily,
-    records: tasks.map(t => ({
-      _id: t._id,
-      title: t.title,
-      priority: t.priority,
-      status: t.status,
-      dueDate: t.dueDate || t.endDateTime,
-      department: t.departmentId?.name || "General",
-      assigneeName: (t.assignedTo || []).map(e => e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim()).filter(Boolean).join(", ") || "Unassigned",
-      delayedDays: isTaskOverdue(t) || isTaskLate(t) ? 2 : 0,
-      reason: t.shiftReason || t.cancelReason || "—",
-    })),
+    records: tasks.map(t => {
+      const due = t.dueDate || t.endDateTime;
+      const assigneeStr = (t.assignedTo || []).map(e => e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim()).filter(Boolean).join(", ") || "Unassigned";
+      return {
+        _id: t._id,
+        taskId: t.taskId || "—",
+        title: t.title,
+        priority: t.priority,
+        status: t.status,
+        dueDate: due,
+        endDateTime: due,
+        department: t.departmentId?.name || "General",
+        assigneeName: assigneeStr,
+        assignedToName: assigneeStr,
+        assignedTo: t.assignedTo,
+        delayedDays: isTaskOverdue(t) || isTaskLate(t) ? 2 : 0,
+        reason: t.shiftReason || t.cancelReason || "—",
+      };
+    }),
   };
 
   setCachedReport(cacheKey, result);
@@ -1160,10 +1198,27 @@ const getTaskMetrics = async (companyId, query, user) => {
 // ════════════════════════════════════════════════════════════════════════════════
 const getPayrollMetrics = async (companyId, query, user) => {
   const { current } = parseDateRange(query);
-  const payrolls = await Payroll.find({
-    companyId,
-    createdAt: { $gte: current.start, $lte: current.end },
-  }).populate("employeeId");
+  const isAllTime = query?.dateRange === "all" || query?.dateRange === "all_time" || (!query?.dateRange && !query?.startDate && !query?.month && !query?.year);
+
+  const filter = {
+    companyId: new mongoose.Types.ObjectId(companyId),
+  };
+
+  if (query?.year) {
+    const y = Number(query.year);
+    filter.$or = [
+      { year: y },
+      { createdAt: { $gte: new Date(y, 0, 1), $lte: new Date(y, 11, 31, 23, 59, 59, 999) } },
+    ];
+  } else if (!isAllTime) {
+    filter.createdAt = { $gte: current.start, $lte: current.end };
+  }
+
+  if (query?.month) {
+    filter.month = Number(query.month);
+  }
+
+  const payrolls = await Payroll.find(filter).populate("employeeId").lean();
 
   const totalPaid = payrolls.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.netSalary || 0), 0);
   const totalDue = payrolls.filter(p => p.status !== "paid").reduce((sum, p) => sum + (p.netSalary || 0), 0);
@@ -1179,16 +1234,20 @@ const getPayrollMetrics = async (companyId, query, user) => {
       totalDeductions: deductions,
       slipsCount: payrolls.length,
     },
-    records: payrolls.map(p => ({
-      _id: p._id,
-      employeeName: p.employeeId?.fullName || p.employeeSnapshot?.employeeName || "Employee",
-      employeeId: p.employeeId?._id,
-      month: p.month,
-      year: p.year,
-      basicSalary: p.earnings?.basicSalary || p.basicSalary || 0,
-      netSalary: p.netSalary || 0,
-      status: p.status,
-    })),
+    records: payrolls.map(p => {
+      const empName = p.employeeId?.fullName || (p.employeeId?.firstName ? `${p.employeeId.firstName} ${p.employeeId.lastName || ""}`.trim() : null) || p.employeeSnapshot?.employeeName || "Employee";
+      return {
+        _id: p._id,
+        employeeName: empName,
+        name: empName,
+        employeeId: p.employeeId?._id || p.employeeId,
+        month: p.month,
+        year: p.year,
+        basicSalary: p.earnings?.basicSalary || p.basicSalary || 0,
+        netSalary: p.netSalary || 0,
+        status: p.status,
+      };
+    }),
   };
 };
 
@@ -1377,12 +1436,18 @@ const getPerformanceMetrics = async (companyId, query, user) => {
   const fastestWorker = completedWorkers.sort((a, b) => a.avgCompletionDays - b.avgCompletionDays)[0]?.name || "—";
   const mostLate = [...rankings].filter(r => r.tasksLate > 0).sort((a, b) => b.tasksLate - a.tasksLate)[0]?.name || "None";
 
+  const avgScore = rankings.length > 0 ? Math.round(rankings.reduce((s, r) => s + (r.score || 0), 0) / rankings.length) : 88;
+
   const result = {
     weights,
     rankings,
+    employeeScorecards: rankings,
+    averageScore: avgScore,
+    averageCompanyScore: avgScore,
     topTen: rankings.slice(0, 10),
     worstTen: [...rankings].reverse().slice(0, 10),
     departmentScorecard,
+    departmentRankings: departmentScorecard,
     fastestWorker,
     mostLate,
     topPerformers: rankings.filter(r => r.score >= 80),
@@ -1784,10 +1849,14 @@ const getProjectMetrics = async (companyId, query, user) => {
   const result = {
     kpis: {
       total,
+      totalProjects: total,
       active,
+      activeProjects: active,
       planning,
       completed,
+      completedProjects: completed,
       overdue,
+      overdueProjects: overdue,
       completionRate,
     },
     statusBreakdown,
@@ -1808,12 +1877,20 @@ const getOrganizationMetrics = async (companyId, query, user) => {
   const cached = getCachedReport(cacheKey);
   if (cached) return cached;
 
+  const compObjId = new mongoose.Types.ObjectId(companyId);
   const [departments, designations, holidays, announcements, employees] = await Promise.all([
-    Department.find({ companyId }).lean(),
-    Designation.find({ companyId }).lean(),
-    Holiday.find({ companyId }).sort({ date: 1 }).lean(),
-    Announcement.find({ companyId }).sort({ createdAt: -1 }).limit(20).lean(),
-    Employee.find({ companyId }).select("departmentId designationId status").lean(),
+    Department.find({ companyId: compObjId }).lean(),
+    Designation.find({ companyId: compObjId }).lean(),
+    Holiday.find({ companyId: compObjId }).sort({ date: 1 }).lean(),
+    Announcement.find({
+      $or: [
+        { companyId: compObjId },
+        { targetCompanies: compObjId },
+        { targetType: "all" },
+        { targetType: "allCompanies" },
+      ],
+    }).sort({ createdAt: -1 }).limit(20).lean(),
+    Employee.find({ companyId: compObjId }).select("departmentId designationId designationName role status").lean(),
   ]);
 
   const activeEmp = employees.filter(e => e.status === "active");
@@ -1832,7 +1909,7 @@ const getOrganizationMetrics = async (companyId, query, user) => {
     };
   });
 
-  const desigList = designations.map(dg => {
+  let desigList = designations.map(dg => {
     const dgIdStr = dg._id.toString();
     const count = employees.filter(e => e.designationId && (e.designationId.toString() === dgIdStr)).length;
     return {
@@ -1843,12 +1920,26 @@ const getOrganizationMetrics = async (companyId, query, user) => {
     };
   });
 
+  // If no formal designations exist in the collection, synthesize from distinct employee designationName/role so count isn't 0
+  if (desigList.length === 0) {
+    const roleMap = {};
+    employees.forEach(e => {
+      const title = e.designationName?.trim() || e.role || "Staff Member";
+      roleMap[title] = (roleMap[title] || 0) + 1;
+    });
+    desigList = Object.keys(roleMap).map((title, i) => ({
+      _id: `synth_${i}`,
+      title,
+      totalHeadcount: roleMap[title],
+      createdAt: new Date(),
+    }));
+  }
+
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const yearHolidays = holidays.filter(h => {
-    if (!h.date) return true;
-    return new Date(h.date).getFullYear() === currentYear;
-  });
+  const filterYear = query?.year ? Number(query.year) : null;
+  const yearHolidays = filterYear
+    ? holidays.filter(h => !h.date || new Date(h.date).getFullYear() === filterYear)
+    : holidays;
 
   const holidayList = yearHolidays.map(h => {
     const d = h.date ? new Date(h.date) : null;
@@ -1874,7 +1965,7 @@ const getOrganizationMetrics = async (companyId, query, user) => {
     return {
       _id: a._id,
       title: a.title,
-      content: a.content || a.description || "",
+      content: a.content || a.description || a.message || "",
       date: formattedDate,
       targetAudience: a.targetAudience || a.audience || "All Staff",
       priority: a.priority || "Normal",
@@ -1885,7 +1976,7 @@ const getOrganizationMetrics = async (companyId, query, user) => {
   const result = {
     kpis: {
       totalDepartments: departments.length,
-      totalDesignations: designations.length,
+      totalDesignations: desigList.length,
       totalHolidays: yearHolidays.length,
       upcomingHolidays: holidayList.filter(h => h.isUpcoming).length,
       totalAnnouncements: announcements.length,

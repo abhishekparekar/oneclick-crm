@@ -8,7 +8,7 @@ import {
   Receipt, Check, Send, MailCheck, BellRing,
   UserCheck, UserX, Clock, Umbrella, CalendarCheck, Calculator, Printer
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 
 const getPhotoUrl = (rawPhoto) => {
@@ -134,21 +134,34 @@ const ConfirmBulkDialog = ({ count, monthLabel, onConfirm, onCancel, isPending }
 
 const PayrollHistory = () => {
   const queryClient = useQueryClient();
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const location = useLocation();
+  const [month, setMonth] = useState(location.state?.month || new Date().toISOString().slice(0, 7));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [previewHtml, setPreviewHtml] = useState(null);
   const [confirmSend, setConfirmSend] = useState(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
-  const [y, m] = month.split("-");
-  const monthLabel = MONTH_NAMES[(parseInt(m, 10) || 1) - 1] || m;
+  const [y, m] = month ? month.split("-") : ["", ""];
+  const monthNum = parseInt(m, 10);
+  const yearNum = parseInt(y, 10);
+  const isAllMonths = !month || isNaN(monthNum) || isNaN(yearNum);
+  const monthLabel = isAllMonths ? "All Months" : (MONTH_NAMES[monthNum - 1] || m);
 
   const { data: payrollRes, isLoading } = useQuery({
-    queryKey: ["payrolls", y, m, statusFilter],
-    queryFn: () => api.get(`/payroll/company?month=${parseInt(m, 10)}&year=${parseInt(y, 10)}${statusFilter ? `&status=${statusFilter}` : ""}`)
+    queryKey: ["payrolls", isAllMonths ? "all" : y, isAllMonths ? "all" : m, statusFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (!isAllMonths) {
+        params.append("month", monthNum);
+        params.append("year", yearNum);
+      }
+      if (statusFilter) params.append("status", statusFilter);
+      const queryStr = params.toString() ? `?${params.toString()}` : "";
+      return api.get(`/payroll/company${queryStr}`);
+    }
   });
-  const payrolls = payrollRes?.data?.data || [];
+  const payrolls = payrollRes?.data?.data || payrollRes?.data?.payrolls || (Array.isArray(payrollRes?.data) ? payrollRes?.data : []);
 
   const markPaidMutation = useMutation({
     mutationFn: (id) => api.patch(`/payroll/${id}/mark-paid`),
@@ -196,8 +209,11 @@ const PayrollHistory = () => {
   };
 
   const filteredPayrolls = payrolls.filter(p => {
-    if (!p.employeeSnapshot) return true;
-    return `${p.employeeSnapshot.employeeName} ${p.employeeSnapshot.employeeCode} ${p.employeeSnapshot.department || ""}`.toLowerCase().includes(search.toLowerCase());
+    const empName = p.employeeSnapshot?.employeeName || (p.employeeId?.firstName ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "");
+    const empCode = p.employeeSnapshot?.employeeCode || p.employeeId?.employeeCode || "";
+    const dept = p.employeeSnapshot?.department || p.employeeId?.departmentId?.name || "";
+    if (!search) return true;
+    return `${empName} ${empCode} ${dept}`.toLowerCase().includes(search.toLowerCase());
   });
 
   const getDisplayGross = (p) => p.grossSalary > 0 ? p.grossSalary : (p.netSalary || 0);
@@ -240,7 +256,7 @@ const PayrollHistory = () => {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">Payroll History &amp; Disbursals</h1>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase">{monthLabel} {y}</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase">{monthLabel}{isAllMonths ? "" : ` ${y}`}</span>
             {sentCount > 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">{sentCount}/{payrolls.length} Sent</span>
             )}
@@ -279,9 +295,28 @@ const PayrollHistory = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
               <input type="text" placeholder="Search employee, code, department..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs" />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">Month:</span>
               <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs cursor-pointer" />
+              {month ? (
+                <button
+                  type="button"
+                  onClick={() => setMonth("")}
+                  className="px-2.5 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                  title="View all generated payroll records across all months"
+                >
+                  Show All Months
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setMonth(new Date().toISOString().slice(0, 7))}
+                  className="px-2.5 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                  title="Filter to current month"
+                >
+                  This Month
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pt-1 border-t border-slate-100 dark:border-slate-800">
@@ -313,11 +348,28 @@ const PayrollHistory = () => {
           ) : filteredPayrolls.length === 0 ? (
             <div className="py-16 text-center space-y-2">
               <Receipt size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No payroll entries for {monthLabel} {y}</p>
-              <p className="text-[11px] text-slate-400">Generate salary entries for this billing period.</p>
-              <div className="pt-2">
-                <Link to={isHR ? "/hr/payroll/generate" : "/company/payroll/generate"} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-2xs transition-all">
-                  <Calculator size={13} strokeWidth={2.5} /><span>Generate Payroll for {monthLabel} {y}</span>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {isAllMonths ? "No payroll entries found" : `No payroll entries for ${monthLabel} ${y}`}
+              </p>
+              <p className="text-[11px] text-slate-400">
+                {isAllMonths ? "Generate salary entries for your team." : "Generate salary entries for this billing period or switch to view all months."}
+              </p>
+              <div className="pt-2 flex items-center justify-center gap-2 flex-wrap">
+                {month && (
+                  <button
+                    type="button"
+                    onClick={() => setMonth("")}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
+                  >
+                    View All Generated Payrolls
+                  </button>
+                )}
+                <Link
+                  to={isManager ? "/manager/payroll/generate" : isHR ? "/hr/payroll/generate" : "/company/payroll/generate"}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-2xs transition-all"
+                >
+                  <Calculator size={13} strokeWidth={2.5} />
+                  <span>Generate Payroll {isAllMonths ? "" : `for ${monthLabel} ${y}`}</span>
                 </Link>
               </div>
             </div>

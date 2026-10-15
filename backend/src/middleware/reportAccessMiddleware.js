@@ -88,7 +88,14 @@ const checkReportAccess = (moduleName) => {
           role === "companyadmin" ||
           role === "admin" ||
           role === "hr" ||
+          (role === "manager" && (
+            req.user.permissions?.payroll === true ||
+            req.user.permissions?.payroll?.view === true ||
+            req.user.permissions?.payroll?.generate === true ||
+            (Array.isArray(req.user.assignedModules) && req.user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll"))
+          )) ||
           req.user.permissions?.payroll?.view === true ||
+          req.user.permissions?.payroll?.generate === true ||
           req.user.permissions?.payroll === true;
 
         if (!canAccessPayroll) {

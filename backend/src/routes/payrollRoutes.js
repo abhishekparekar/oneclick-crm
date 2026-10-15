@@ -39,8 +39,23 @@ const requirePayrollGenerateAccess = async (req, res, next) => {
   const role = req.user?.role;
   if (role === "CompanyAdmin" || role === "HR" || role === "SuperAdmin") return next();
   if (role === "Manager") {
-    const hasPerm = await checkUserPermission(req.user._id, req.companyId, "Manager", "payroll", "generate");
-    if (hasPerm) return next();
+    const hasGenerate = await checkUserPermission(req.user._id, req.companyId, "Manager", "payroll", "generate");
+    if (hasGenerate) return next();
+    const hasView = await checkUserPermission(req.user._id, req.companyId, "Manager", "payroll", "view");
+    if (hasView) return next();
+    if (
+      req.user.permissions?.payroll === true ||
+      req.user.permissions?.payroll?.generate === true ||
+      req.user.permissions?.payroll?.view === true
+    ) {
+      return next();
+    }
+    if (
+      Array.isArray(req.user.assignedModules) &&
+      req.user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll")
+    ) {
+      return next();
+    }
   }
   return res.status(403).json({ success: false, message: "Access denied. Requires Payroll Processing permission." });
 };
@@ -56,8 +71,8 @@ router.put("/company/settings", auth, requireCompany, requireAdminOrHR, updatePa
 // ─────────────────────────────────────────────
 router.post("/company/salary-structures", auth, requireCompany, requirePayrollGenerateAccess, createSalaryStructure);
 router.get("/company/salary-structures/:employeeId", auth, requireCompany, requirePayrollGenerateAccess, getSalaryStructureByEmployee);
-router.put("/company/salary-structures/:employeeId", auth, requireCompany, requireAdminOrHR, updateSalaryStructure);
-router.get("/company/salary-structures/history/:employeeId", auth, requireCompany, requireAdminOrHR, getSalaryStructureHistory);
+router.put("/company/salary-structures/:employeeId", auth, requireCompany, requirePayrollGenerateAccess, updateSalaryStructure);
+router.get("/company/salary-structures/history/:employeeId", auth, requireCompany, requirePayrollGenerateAccess, getSalaryStructureHistory);
 
 // ─────────────────────────────────────────────
 // ATTENDANCE SUMMARY (Admin/HR/Manager bulk view)
@@ -70,9 +85,9 @@ router.get("/company/attendance-summary", auth, requireCompany, requirePayrollGe
 router.post("/company/preview", auth, requireCompany, requirePayrollGenerateAccess, previewPayroll);
 router.post("/company/generate", auth, requireCompany, requirePayrollGenerateAccess, generatePayroll);
 router.get("/company", auth, requireCompany, requirePayrollGenerateAccess, getCompanyPayrolls);
-router.patch("/:id/mark-paid", auth, requireCompany, requireAdminOrHR, markPayrollPaid);
-router.post("/:id/send", auth, requireCompany, requireAdminOrHR, sendPayslip);
-router.post("/company/bulk-send", auth, requireCompany, requireAdminOrHR, bulkSendPayslips);
+router.patch("/:id/mark-paid", auth, requireCompany, requirePayrollGenerateAccess, markPayrollPaid);
+router.post("/:id/send", auth, requireCompany, requirePayrollGenerateAccess, sendPayslip);
+router.post("/company/bulk-send", auth, requireCompany, requirePayrollGenerateAccess, bulkSendPayslips);
 router.post("/:id/recalculate", auth, requireCompany, requirePayrollGenerateAccess, recalculatePayroll);
 
 // ─────────────────────────────────────────────

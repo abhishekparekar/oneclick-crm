@@ -9,7 +9,22 @@ const { getManagerTeamEmployeeIds, resolveManagerEmployee } = require("./manager
 
 const getAllowedEmployeeIdsForManager = async (req) => {
   const managerEmp = await resolveManagerEmployee(req);
+
+  const isCompanyWide =
+    managerEmp?.managerAccessLevel === "company" ||
+    req.user?.managerAccessLevel === "company" ||
+    req.user?.permissions?.payroll === true ||
+    req.user?.permissions?.payroll?.allCompany === true ||
+    (Array.isArray(req.user?.assignedModules) &&
+      req.user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll"));
+
+  if (isCompanyWide) {
+    const allCompanyEmps = await Employee.find({ companyId: req.companyId }).select("_id").lean();
+    return allCompanyEmps.map((e) => e._id);
+  }
+
   if (!managerEmp) return [];
+
   return await getManagerTeamEmployeeIds(managerEmp, req.companyId);
 };
 
@@ -141,7 +156,20 @@ const generatePayroll = async (req, res, next) => {
       console.error("[Generate Payroll Advance Sync Error]:", syncErr.message);
     }
 
-    res.json({ success: true, message: `Successfully generated ${generatedCount} payroll records.`, errors });
+    if (generatedCount === 0 && errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: errors[0]?.message || "Failed to generate payroll records. Please check employee salary setups.",
+        errors,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully generated ${generatedCount} payroll record${generatedCount === 1 ? "" : "s"}.`,
+      generatedCount,
+      errors,
+    });
   } catch (err) {
     next(err);
   }
@@ -216,9 +244,17 @@ const getCompanyPayrolls = async (req, res, next) => {
   try {
     const { month, year, status } = req.query;
     let query = { companyId: req.companyId };
-    if (month) query.month = String(month);
-    if (year) query.year = Number(year);
-    if (status) query.status = status;
+
+    if (month !== undefined && month !== null && month !== "" && month !== "all" && month !== "ALL" && month !== "NaN" && month !== "undefined") {
+      const mStr = String(month);
+      const mNum = Number(month);
+      query.$or = [{ month: mStr }, { month: mNum }];
+    }
+    if (year !== undefined && year !== null && year !== "" && year !== "all" && year !== "ALL" && year !== "NaN" && year !== "undefined") {
+      const yNum = Number(year);
+      query.year = isNaN(yNum) ? year : yNum;
+    }
+    if (status && status !== "all") query.status = status;
 
     if (req.user.role === "Manager") {
       const allowedIds = await getAllowedEmployeeIdsForManager(req);
@@ -247,13 +283,22 @@ const getCompanyPayrolls = async (req, res, next) => {
         "";
       if (!doc.employeeSnapshot) doc.employeeSnapshot = {};
       doc.employeeSnapshot.photo = resolvedPhoto;
+      if (!doc.employeeSnapshot.employeeName && doc.employeeId) {
+        doc.employeeSnapshot.employeeName = `${doc.employeeId.firstName || ""} ${doc.employeeId.lastName || ""}`.trim() || "Employee";
+      }
+      if (!doc.employeeSnapshot.employeeCode && doc.employeeId) {
+        doc.employeeSnapshot.employeeCode = doc.employeeId.employeeCode || "-";
+      }
+      if (!doc.employeeSnapshot.department && doc.employeeId) {
+        doc.employeeSnapshot.department = doc.employeeId.departmentId?.name || "General";
+      }
       if (doc.employeeId) {
         doc.employeeId.photo = resolvedPhoto;
       }
       return doc;
     });
 
-    res.json({ success: true, data: normalizedPayrolls });
+    res.json({ success: true, data: normalizedPayrolls, payrolls: normalizedPayrolls });
   } catch (err) {
     next(err);
   }

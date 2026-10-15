@@ -90,6 +90,12 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
   const cleanTitle = (title || '').trim();
   const cleanBody = (body || '').trim();
 
+  // Guard against dispatching empty notifications
+  if (!cleanTitle && !cleanBody) {
+    console.warn("[FCM] Attempted to dispatch push notification with empty title and body. Skipping.");
+    return null;
+  }
+
   // Deduplicate against duplicate delivery to the same token within 5 seconds
   const uniqueTokens = [];
   for (const t of rawTokens) {

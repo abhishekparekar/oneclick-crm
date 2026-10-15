@@ -74,8 +74,15 @@ const getPayrollReport = async (req, res, next) => {
     const companyId = getCompanyId(req);
     if (!companyId) return res.status(400).json({ message: "Company ID is required" });
     
-    // Only CompanyAdmin and authorized roles can view payroll analytics
-    if (req.user.role !== "CompanyAdmin" && req.user.role !== "SuperAdmin" && req.user.role !== "HR") {
+    // Only CompanyAdmin, SuperAdmin, HR, and authorized Managers can view payroll analytics
+    const isManagerWithPayroll =
+      req.user.role === "Manager" &&
+      (req.user.permissions?.payroll === true ||
+       req.user.permissions?.payroll?.view === true ||
+       req.user.permissions?.payroll?.generate === true ||
+       (Array.isArray(req.user.assignedModules) && req.user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll")));
+
+    if (req.user.role !== "CompanyAdmin" && req.user.role !== "SuperAdmin" && req.user.role !== "HR" && !isManagerWithPayroll) {
       return res.status(403).json({ message: "Access Denied: Payroll reports are restricted to administrators." });
     }
 

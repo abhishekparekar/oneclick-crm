@@ -17,14 +17,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../theme/tokens";
 
-const buildManagerSections = (hasPermission) => {
+const buildManagerSections = (hasPermission, user) => {
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
   const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
-  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+  const canManagePayroll =
+    hasPermission("payroll", "generate") ||
+    hasPermission("payroll", "view") ||
+    hasPermission("payroll") ||
+    (Array.isArray(user?.assignedModules) && user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll"));
 
   return [
     {
@@ -155,18 +159,6 @@ const buildManagerSections = (hasPermission) => {
               },
             ]
           : []),
-        ...(canAccessPayroll
-          ? [
-              {
-                label: "My Payslips",
-                screen: "Payslips",
-                icon: "receipt-outline",
-                activeIcon: "receipt",
-                color: "#16A34A",
-                module: "payroll",
-              },
-            ]
-          : []),
         ...(canAccessReports
           ? [
               {
@@ -188,6 +180,47 @@ const buildManagerSections = (hasPermission) => {
         },
       ],
     },
+    {
+      title: "Payroll & Finance",
+      items: [
+        ...(canManagePayroll
+          ? [
+              {
+                label: "Payroll History",
+                screen: "PayrollList",
+                icon: "receipt-outline",
+                activeIcon: "receipt",
+                color: "#16A34A",
+                module: "payroll",
+              },
+              {
+                label: "Generate Payroll",
+                screen: "GeneratePayroll",
+                icon: "calculator-outline",
+                activeIcon: "calculator",
+                color: "#059669",
+                module: "payroll",
+              },
+              {
+                label: "Salary Structure",
+                screen: "SalaryStructureList",
+                icon: "cash-outline",
+                activeIcon: "cash",
+                color: "#0891B2",
+                module: "payroll",
+              },
+            ]
+          : []),
+        {
+          label: "My Payslips",
+          screen: "Payslips",
+          icon: "document-text-outline",
+          activeIcon: "document-text",
+          color: "#0D9488",
+          module: "payroll",
+        },
+      ],
+    },
   ];
 };
 
@@ -202,7 +235,7 @@ const ManagerDrawerContent = (props) => {
     }
   }, []);
 
-  const MANAGER_SECTIONS = buildManagerSections(hasPermission);
+  const MANAGER_SECTIONS = buildManagerSections(hasPermission, user);
 
   const getActiveRouteName = (navState) => {
     if (!navState) return null;

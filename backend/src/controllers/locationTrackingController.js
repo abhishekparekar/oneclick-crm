@@ -358,7 +358,9 @@ const processGpsTrailAndMetrics = (rawPoints) => {
         // Switch to TRANSIT
         mode = "TRANSIT";
         cleanTrail.push(pt);
-        totalDistanceMeters += dCenter;
+        // Only count true displacement beyond the halt boundary (eliminates ~350m of fake stationary exit creep)
+        const netBreakoutDist = Math.max(0, dCenter - HALT_RADIUS_METERS);
+        totalDistanceMeters += netBreakoutDist;
         lastTransitPoint = pt;
 
         if (effSpeed >= 3 && effSpeed <= 85) {
@@ -378,7 +380,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
       const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
       const effSpeed = Math.max(sensorSpeed, impliedSpeed);
 
-      if (impliedSpeed > 85 && distFromLast > 40) continue; // Outlier skip
+      if (impliedSpeed > 95 && distFromLast > 40) continue; // Outlier skip
 
       // Check if entering a new halt (slowed down and stopping)
       let isStopping = false;
@@ -413,7 +415,8 @@ const processGpsTrailAndMetrics = (rawPoints) => {
         continue;
       }
 
-      if (distFromLast < 15) continue; // Skip sub-15m micro-steps
+      // Filter stationary vibration / micro-steps while in transit (< 18m at low crawl speed)
+      if (distFromLast < 18 && effSpeed < 3.5) continue;
 
       // Anti-spiderweb oscillation filter: suppress rapid 180° back-and-forth ping-pong jumps
       if (cleanTrail.length >= 2 && distFromLast < 55) {
@@ -441,7 +444,7 @@ const processGpsTrailAndMetrics = (rawPoints) => {
       cleanTrail.push(pt);
       lastTransitPoint = pt;
 
-      if (effSpeed >= 3 && effSpeed <= 85) {
+      if (effSpeed >= 3 && effSpeed <= 95) {
         validMovingSpeeds.push(effSpeed);
       }
     }
@@ -1361,81 +1364,58 @@ async function getRoadPathBetweenPoints(pt1, pt2) {
 
 /**
  * Route GPS trail segments along actual road network via OSRM
- * Snaps waypoints to real streets, lanes, and turns; prevents straight lines slicing through buildings
+ * Snaps waypoints to real streets, lanes, and turns; fills large gaps between distant points;
+ * NEVER throws away dense user breadcrumbs; prevents straight lines slicing through buildings.
  */
 async function alignTrailToRoadNetwork(cleanPoints) {
   if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) {
     return { trail: cleanPoints || [], distanceMeters: 0, distanceKm: 0 };
   }
 
-  // Sample waypoints if dense (keep start, end, and representative corridor points)
-  const maxWaypoints = 45;
-  let keyPoints = cleanPoints;
-  if (cleanPoints.length > maxWaypoints) {
-    const step = Math.ceil(cleanPoints.length / maxWaypoints);
-    keyPoints = cleanPoints.filter(
-      (_, idx) => idx === 0 || idx === cleanPoints.length - 1 || idx % step === 0
-    );
-  }
-
-  // Chunk to max 30 waypoints per OSRM query to prevent long URL query strings
-  const chunkSize = 30;
-  const chunks = [];
-  for (let i = 0; i < keyPoints.length; i += chunkSize - 1) {
-    chunks.push(keyPoints.slice(i, i + chunkSize));
-  }
-
-  const snappedRoadPoints = [];
+  const refinedTrail = [];
   let totalRoadMeters = 0;
 
-  for (const chunk of chunks) {
-    if (chunk.length < 2) continue;
-    const coordsStr = chunk
-      .map((p) => `${Number(p.longitude).toFixed(6)},${Number(p.latitude).toFixed(6)}`)
-      .join(";");
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+  for (let i = 0; i < cleanPoints.length; i++) {
+    const cur = cleanPoints[i];
+    if (i === 0) {
+      refinedTrail.push(cur);
+      continue;
+    }
 
-    let success = false;
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
-      if (res && res.ok) {
-        const json = await res.json();
-        if (json.code === "Ok" && json.routes && json.routes[0]?.geometry?.coordinates?.length >= 2) {
-          const roadCoords = json.routes[0].geometry.coordinates.map((c) => ({
-            latitude: c[1],
-            longitude: c[0],
-          }));
-          if (snappedRoadPoints.length === 0) {
-            snappedRoadPoints.push(...roadCoords);
-          } else {
-            snappedRoadPoints.push(...roadCoords.slice(1));
-          }
-          totalRoadMeters += Number(json.routes[0].distance) || 0;
-          success = true;
+    const prev = cleanPoints[i - 1];
+    const directDist = getHaversineDistanceMeters(
+      prev.latitude,
+      prev.longitude,
+      cur.latitude,
+      cur.longitude
+    );
+
+    // If gap between consecutive GPS points is > 160m (e.g. mobile was sleeping or jumped across city)
+    // Snap that gap along real street turns instead of letting it slice through buildings
+    if (directDist > 160 && directDist < 15000) {
+      const roadLeg = await getRoadPathBetweenPoints(prev, cur);
+      // Validate road path: length >= 2, and road distance must not be a wild detour (> 1.45x direct line)
+      if (
+        roadLeg &&
+        Array.isArray(roadLeg.points) &&
+        roadLeg.points.length >= 2 &&
+        roadLeg.distanceMeters <= directDist * 1.45
+      ) {
+        for (let r = 1; r < roadLeg.points.length; r++) {
+          refinedTrail.push(roadLeg.points[r]);
         }
-      }
-    } catch (_) {}
-
-    if (!success) {
-      if (snappedRoadPoints.length === 0) {
-        snappedRoadPoints.push(...chunk);
-      } else {
-        snappedRoadPoints.push(...chunk.slice(1));
-      }
-      for (let j = 0; j < chunk.length - 1; j++) {
-        totalRoadMeters += getHaversineDistanceMeters(
-          chunk[j].latitude,
-          chunk[j].longitude,
-          chunk[j + 1].latitude,
-          chunk[j + 1].longitude
-        );
+        totalRoadMeters += roadLeg.distanceMeters;
+        continue;
       }
     }
+
+    refinedTrail.push(cur);
+    totalRoadMeters += directDist;
   }
 
   const finalDistanceKm = Number((totalRoadMeters / 1000).toFixed(2));
   return {
-    trail: snappedRoadPoints.length >= 2 ? snappedRoadPoints : cleanPoints,
+    trail: refinedTrail.length >= 2 ? refinedTrail : cleanPoints,
     distanceMeters: Math.round(totalRoadMeters),
     distanceKm: finalDistanceKm,
   };
@@ -1638,8 +1618,15 @@ const getEmployeeLocationTrail = async (req, res) => {
     // Align genuine travel legs to real road network via OSRM
     const roadResult = await alignTrailToRoadNetwork(metrics.cleanTrail);
     const finalTrail = roadResult.trail && roadResult.trail.length >= 2 ? roadResult.trail : metrics.cleanTrail;
-    const finalDistanceKm = roadResult.distanceKm > 0 ? roadResult.distanceKm : metrics.distanceKm;
-    const finalDistanceMeters = roadResult.distanceMeters > 0 ? roadResult.distanceMeters : metrics.totalDistanceMeters;
+
+    // Safety check: road snapped distance must not wildly inflate above verified GPS transit distance
+    const isRoadDistReasonable =
+      roadResult.distanceKm > 0 &&
+      roadResult.distanceKm <= metrics.distanceKm * 1.25 &&
+      roadResult.distanceKm >= metrics.distanceKm * 0.75;
+
+    const finalDistanceKm = isRoadDistReasonable ? roadResult.distanceKm : metrics.distanceKm;
+    const finalDistanceMeters = isRoadDistReasonable ? roadResult.distanceMeters : metrics.totalDistanceMeters;
 
     let distanceText = "0 km";
     if (finalDistanceKm >= 1.0) {
@@ -1660,7 +1647,7 @@ const getEmployeeLocationTrail = async (req, res) => {
         cleanCount: finalTrail.length,
         totalPoints: rawTrail.length,
         distanceKm: finalDistanceKm,
-        pureDistanceKm: metrics.distanceKm,
+        pureDistanceKm: finalDistanceKm, // Unified with verified distance
         roadDistanceKm: finalDistanceKm,
         distanceMeters: finalDistanceMeters,
         distanceText: distanceText,

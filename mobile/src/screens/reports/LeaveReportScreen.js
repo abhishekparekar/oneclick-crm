@@ -48,7 +48,7 @@ const LeaveReportScreen = () => {
       if (res?.data?.data) {
         const bi = res.data.data;
         setSummary({
-          totalLeaves: bi.kpis?.total || 0,
+          totalLeaves: bi.kpis?.totalLeaves ?? bi.kpis?.totalRequests ?? bi.kpis?.total ?? 0,
           approved: bi.kpis?.approved || 0,
           pending: bi.kpis?.pending || 0,
           rejected: bi.kpis?.rejected || 0,
@@ -79,7 +79,7 @@ const LeaveReportScreen = () => {
     const list = summary?.list || [];
     return list.filter((l) => {
       const emp = l.employeeId || {};
-      const empName = l.employeeName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+      const empName = l.employeeName || l.name || emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Employee";
       const s = search.toLowerCase();
       const matchSearch = !s || empName.toLowerCase().includes(s) || (l.leaveType || "").toLowerCase().includes(s);
       const matchStatus = statusFilter === "all" || (l.status || "").toLowerCase() === statusFilter;
@@ -287,7 +287,7 @@ const LeaveReportScreen = () => {
           <View style={styles.listContainer}>
             {filteredLeaves.map((leave, idx) => {
               const emp = leave.employeeId || {};
-              const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+              const empName = leave.employeeName || leave.name || emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Employee";
               const st = (leave.status || "pending").toLowerCase();
               const cfg = STATUS_CFG[st] || STATUS_CFG.pending;
 
@@ -314,7 +314,7 @@ const LeaveReportScreen = () => {
                   <View style={styles.cardFooter}>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>DURATION</Text>
-                      <Text style={styles.metaVal}>{leave.numberOfDays || 1} Days</Text>
+                      <Text style={styles.metaVal}>{leave.numberOfDays || leave.days || 1} Days</Text>
                     </View>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>START DATE</Text>

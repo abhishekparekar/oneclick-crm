@@ -62,29 +62,32 @@ class NotificationService {
           await notifee.requestPermission();
         } catch (_) {}
 
-        // Create high importance notification channel with custom mixkit bell sound
-        try {
+        // Create high importance notification channel once with custom mixkit bell sound
+        if (!this._channelsCreated) {
           try {
-            await notifee.deleteChannel('oneclick_alerts_v7');
-            await notifee.deleteChannel('oneclick_alerts_default');
-            await notifee.deleteChannel('oneclick_alerts_v6');
-            await notifee.deleteChannel('oneclick_alerts_v5');
-            await notifee.deleteChannel('oneclick_alerts_v4');
-            await notifee.deleteChannel('notice11-sound');
-          } catch (_) {}
+            try {
+              await notifee.deleteChannel('oneclick_alerts_v7');
+              await notifee.deleteChannel('oneclick_alerts_default');
+              await notifee.deleteChannel('oneclick_alerts_v6');
+              await notifee.deleteChannel('oneclick_alerts_v5');
+              await notifee.deleteChannel('oneclick_alerts_v4');
+              await notifee.deleteChannel('notice11-sound');
+            } catch (_) {}
 
-          await notifee.createChannel({
-            id: 'oneclick_alerts_v8',
-            name: 'HRMS Notifications & Alerts',
-            importance: AndroidImportance.HIGH,
-            sound: 'mixkit_bell_notification_933',
-            vibration: true,
-            vibrationPattern: [300, 500],
-            lights: true,
-            badge: true,
-          });
-        } catch (chanErr) {
-          console.warn("[NotificationService] Channel creation notice:", chanErr?.message);
+            await notifee.createChannel({
+              id: 'oneclick_alerts_v8',
+              name: 'HRMS Notifications & Alerts',
+              importance: AndroidImportance.HIGH,
+              sound: 'mixkit_bell_notification_933',
+              vibration: true,
+              vibrationPattern: [300, 500],
+              lights: true,
+              badge: true,
+            });
+            this._channelsCreated = true;
+          } catch (chanErr) {
+            console.warn("[NotificationService] Channel creation notice:", chanErr?.message);
+          }
         }
       }
       return true;
@@ -191,42 +194,49 @@ class NotificationService {
   static async displayNotification(remoteMessage) {
     const { notification, data } = remoteMessage || {};
     
-    if (notification || data?.title || data?.body) {
-      const title = notification?.title || data?.title || 'One Click HRMS';
-      const body = notification?.body || data?.body || '';
+    // Only display if explicit title or body is provided
+    const explicitTitle = (notification?.title && String(notification.title).trim()) ||
+                          (data?.title && String(data.title).trim()) || '';
+    const explicitBody = (notification?.body && String(notification.body).trim()) ||
+                         (data?.body && String(data.body).trim()) || '';
 
-      const notifId = (data?.notificationId && String(data.notificationId).trim()) 
-        ? String(data.notificationId).trim() 
-        : `hrms_${title.trim()}_${body.trim()}`;
-
-      if (this._recentDisplayIds.has(notifId)) {
-        console.log('[NotificationService] Skipping duplicate display for:', notifId);
-        return;
-      }
-      this._recentDisplayIds.add(notifId);
-      setTimeout(() => this._recentDisplayIds.delete(notifId), 6000);
-
-      await notifee.displayNotification({
-        id: notifId,
-        title,
-        body,
-        data: data || {},
-        android: {
-          channelId: 'oneclick_alerts_v8',
-          importance: AndroidImportance.HIGH,
-          sound: 'mixkit_bell_notification_933',
-          smallIcon: 'ic_notification',
-          color: '#1268D9',
-          vibrationPattern: [300, 500],
-          pressAction: {
-            id: 'default',
-          },
-        },
-        ios: {
-          sound: 'mixkit_bell_notification_933.wav',
-        },
-      });
+    // If both title and body are completely empty, NEVER display a generic fallback notification!
+    if (!explicitTitle && !explicitBody) {
+      console.log('[NotificationService] Skipping notification display: no explicit title or body');
+      return;
     }
+
+    const notifId = (data?.notificationId && String(data.notificationId).trim()) 
+      ? String(data.notificationId).trim() 
+      : `hrms_${explicitTitle}_${explicitBody}`.replace(/\s+/g, '_').slice(0, 60);
+
+    if (this._recentDisplayIds.has(notifId)) {
+      console.log('[NotificationService] Skipping duplicate display for:', notifId);
+      return;
+    }
+    this._recentDisplayIds.add(notifId);
+    setTimeout(() => this._recentDisplayIds.delete(notifId), 6000);
+
+    await notifee.displayNotification({
+      id: notifId,
+      title: explicitTitle,
+      body: explicitBody,
+      data: data || {},
+      android: {
+        channelId: 'oneclick_alerts_v8',
+        importance: AndroidImportance.HIGH,
+        sound: 'mixkit_bell_notification_933',
+        smallIcon: 'ic_notification',
+        color: '#1268D9',
+        vibrationPattern: [300, 500],
+        pressAction: {
+          id: 'default',
+        },
+      },
+      ios: {
+        sound: 'mixkit_bell_notification_933.wav',
+      },
+    });
   }
 
   /**

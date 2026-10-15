@@ -39,25 +39,35 @@ const ReportsDashboardScreen = ({ navigation }) => {
   const canAccessTasks = isSuperAdmin || hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessProjects = isSuperAdmin || hasPermission("projects", "view") || hasPermission("projects");
   const canAccessLeads = isSuperAdmin || hasPermission("leads", "view") || hasPermission("leads");
-  const canAccessWorkforce = isSuperAdmin || isCompanyAdmin || isHR || hasPermission("teamMembers") || hasPermission("employees");
+  const isManager = roleLower === "manager";
+  const canAccessWorkforce = isSuperAdmin || isCompanyAdmin || isHR || isManager || hasPermission("teamMembers") || hasPermission("employees");
   const canAccessPerformance = isSuperAdmin || hasPermission("performance", "view") || hasPermission("performance");
 
   // Payroll: STRICTLY permitted only when explicit payroll permission exists
+  const isManagerWithPayroll =
+    isManager &&
+    (hasPermission("payroll", "view") ||
+      hasPermission("payroll", "generate") ||
+      hasPermission("payroll") ||
+      (Array.isArray(user?.assignedModules) && user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll")));
+
   const canAccessPayroll =
     isSuperAdmin ||
     isCompanyAdmin ||
     (isHR && (hasPermission("payroll", "view") || hasPermission("payroll"))) ||
+    isManagerWithPayroll ||
     user?.permissions?.payroll?.view === true ||
+    user?.permissions?.payroll?.generate === true ||
     user?.permissions?.payroll === true;
 
   // Audit: Only SuperAdmin and CompanyAdmin
   const canAccessAudit = isSuperAdmin || isCompanyAdmin;
 
   // Executive BI: Admins, HR, or users with overall reports access
-  const canAccessExecutive = isSuperAdmin || isCompanyAdmin || isHR || hasPermission("reports");
+  const canAccessExecutive = isSuperAdmin || isCompanyAdmin || isHR || isManager || hasPermission("reports");
 
   // Organization (Departments, Designations, Holidays, Announcements)
-  const canAccessOrganization = isSuperAdmin || isCompanyAdmin || isHR || hasPermission("company");
+  const canAccessOrganization = isSuperAdmin || isCompanyAdmin || isHR || isManager || hasPermission("company");
 
   const loadData = async (refresh = false) => {
     try {
@@ -65,7 +75,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
       else setLoading(true);
       setError("");
 
-      if (isCompanyAdmin || isHR || isSuperAdmin) {
+      if (isCompanyAdmin || isHR || isSuperAdmin || isManager) {
         try {
           const res = await getBIExecutiveReportApi({ refresh });
           if (res?.data?.data) {
@@ -79,7 +89,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
           setSummary(fallback?.data || null);
         }
       } else {
-        // Employee / Manager scope
+        // Employee scope
         const res = await getDashboardSummaryApi({ refresh });
         setSummary(res?.data || null);
       }
@@ -259,7 +269,13 @@ const ReportsDashboardScreen = ({ navigation }) => {
   // Key KPI values
   const kpis = summary?.kpis || {};
   const healthIntelligence = summary?.healthIntelligence || {};
-  const healthScore = healthIntelligence.businessHealthScore || (kpis.attendanceRate?.current ? Math.round(kpis.attendanceRate.current) : 94);
+  const healthScore = Math.round(Number(healthIntelligence.businessHealthScore || (kpis.attendanceRate?.current ? kpis.attendanceRate.current : 94)));
+
+  const formatPercent = (val) => {
+    if (val === undefined || val === null || isNaN(val)) return "—";
+    const num = Number(val);
+    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(1);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -338,7 +354,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
                 <Text style={styles.statCardLabel}>ATTENDANCE</Text>
                 <Text style={[styles.statCardValue, { color: "#10B981" }]}>
                   {kpis.attendanceRate?.current !== undefined
-                    ? `${kpis.attendanceRate.current}%`
+                    ? `${formatPercent(kpis.attendanceRate.current)}%`
                     : summary?.attendance?.presentToday !== undefined
                       ? `${summary.attendance.presentToday} Present`
                       : "—"}
@@ -349,7 +365,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
                 <Text style={styles.statCardLabel}>TASK COMPLETION</Text>
                 <Text style={[styles.statCardValue, { color: "#8B5CF6" }]}>
                   {kpis.taskCompletionRate?.current !== undefined
-                    ? `${kpis.taskCompletionRate.current}%`
+                    ? `${formatPercent(kpis.taskCompletionRate.current)}%`
                     : summary?.tasks?.completedTasks !== undefined
                       ? `${summary.tasks.completedTasks} Done`
                       : "—"}

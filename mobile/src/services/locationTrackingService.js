@@ -292,11 +292,11 @@ class LocationTrackingService {
           console.warn("[LocationService] AsyncStorage read notice (relying on memory state):", storageErr?.message);
         }
 
-        // 3. Stoppage Heartbeat: ONLY IF no new GPS coordinate has arrived from watchPosition for > 45 seconds
-        // (e.g. employee stationary inside shop/building where watchPosition distanceFilter hasn't triggered)
+        // 3. Stoppage Heartbeat: if no new GPS coordinate has arrived from watchPosition for > 25 seconds
+        // (prevents large gaps if phone OS throttles watchPosition while moving in pocket/background)
         const msSinceLastPoint = now - this.lastPointReceivedTime;
-        if (msSinceLastPoint > 45000 && !this.isPollingGps) {
-          console.log(`[LocationService] Stoppage detected (${Math.round(msSinceLastPoint / 1000)}s silent) - running single safe heartbeat poll`);
+        if (msSinceLastPoint > 25000 && !this.isPollingGps) {
+          console.log(`[LocationService] Heartbeat poll triggered (${Math.round(msSinceLastPoint / 1000)}s silent)`);
           this.pollCurrentGpsLocationAsync().catch(() => {});
         }
 

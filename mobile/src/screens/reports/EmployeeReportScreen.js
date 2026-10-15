@@ -73,13 +73,10 @@ const EmployeeReportScreen = () => {
   const filteredEmployees = useMemo(() => {
     const list = summary?.list || [];
     return list.filter((e) => {
-      const name = (e.name || `${e.firstName || ""} ${e.lastName || ""}`).toLowerCase();
+      const name = (e.name || e.fullName || `${e.firstName || ""} ${e.lastName || ""}`).toLowerCase();
       const code = (e.code || e.employeeCode || "").toLowerCase();
       const s = search.toLowerCase();
-      const matchSearch = !s || name.includes(s) || code.includes(s);
-      const matchStatus =
-        statusFilter === "all" || (e.status || "").toLowerCase() === statusFilter;
-      return matchSearch && matchStatus;
+      return !s || name.includes(s) || code.includes(s);
     });
   }, [summary, search, statusFilter]);
 
@@ -99,12 +96,12 @@ const EmployeeReportScreen = () => {
       const headers = ["#", "Staff Name", "Employee Code", "Department", "Designation", "Status", "Joining Date"];
       const rows = filteredEmployees.map((e, idx) => [
         idx + 1,
-        `${e.firstName || ""} ${e.lastName || ""}`.trim(),
-        e.employeeCode || "—",
-        e.departmentId?.name || "General",
-        e.designationId?.name || "—",
+        e.name || e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Staff Member",
+        e.employeeCode || e.code || "—",
+        (typeof e.department === "string" ? e.department : e.department?.name) || e.departmentId?.name || "General",
+        (typeof e.designation === "string" ? e.designation : e.designation?.name) || e.designationName || e.designationId?.name || "Staff Member",
         (e.status || "active").toUpperCase(),
-        e.createdAt ? formatDateToDDMMYYYY(e.createdAt) : "—",
+        (e.joiningDate || e.createdAt) ? formatDateToDDMMYYYY(e.joiningDate || e.createdAt) : "—",
       ]);
 
       await exportToExcel({
@@ -273,7 +270,11 @@ const EmployeeReportScreen = () => {
         ) : (
           <View style={styles.listContainer}>
             {filteredEmployees.map((e, idx) => {
-              const empName = `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Unknown";
+              const empName = e.name || e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Staff Member";
+              const empCode = e.employeeCode || e.code || "—";
+              const empDept = (typeof e.department === "string" ? e.department : e.department?.name) || e.departmentId?.name || "General";
+              const empDesig = (typeof e.designation === "string" ? e.designation : e.designation?.name) || e.designationName || e.designationId?.name || "Staff Member";
+              const empDate = e.joiningDate || e.createdAt;
               const isActive = (e.status || "").toLowerCase() === "active";
 
               return (
@@ -285,7 +286,7 @@ const EmployeeReportScreen = () => {
                     <View style={{ flex: 1, marginLeft: 8 }}>
                       <Text style={styles.empNameText} numberOfLines={1}>{empName}</Text>
                       <Text style={styles.empSubText}>
-                        {e.employeeCode || "—"} • {e.departmentId?.name || "General"}
+                        {empCode} • {empDept}
                       </Text>
                     </View>
                     <View
@@ -310,12 +311,12 @@ const EmployeeReportScreen = () => {
                   <View style={styles.cardFooter}>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>DESIGNATION</Text>
-                      <Text style={styles.metaVal}>{e.designationId?.name || "Staff Member"}</Text>
+                      <Text style={styles.metaVal}>{empDesig}</Text>
                     </View>
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>JOINING DATE</Text>
                       <Text style={styles.metaVal}>
-                        {e.createdAt ? formatDateToDDMMYYYY(e.createdAt) : "—"}
+                        {empDate ? formatDateToDDMMYYYY(empDate) : "—"}
                       </Text>
                     </View>
                   </View>

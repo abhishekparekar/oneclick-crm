@@ -1457,7 +1457,7 @@ const EmployeeLocationTracking = () => {
                   <Navigation size={13} />
                   <span>
                     {viewMode === "trail" && trailData
-                      ? `${trailData.distanceKm || 0} km`
+                      ? (trailData.pureDistanceKm ? `${trailData.pureDistanceKm} km` : trailData.distanceText || `${trailData.distanceKm || 0} km`)
                       : selectedEmployee.todayDistanceText || "0 km"}
                   </span>
                 </p>

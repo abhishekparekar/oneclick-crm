@@ -56,8 +56,8 @@ const MANAGER_SECTIONS = [
       { label: "Live Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       // { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
-      { label: "Generate Payroll", path: "/manager/payroll/generate", icon: Receipt, module: "payroll", permission: ["payroll", "generate"] },
-      { label: "Payroll History", path: "/manager/payroll/history", icon: FileText, module: "payroll", permission: ["payroll", "generate"] },
+      { label: "Generate Payroll", path: "/manager/payroll/generate", icon: Receipt, module: "payroll" },
+      { label: "Payroll History", path: "/manager/payroll/history", icon: FileText, module: "payroll" },
     ],
   },
   {

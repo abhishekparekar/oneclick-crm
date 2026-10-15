@@ -34,24 +34,31 @@ async function sendTest() {
   console.log(`Unique FCM Tokens: ${uniqueTokens.length}`);
 
   // 1. Send FCM Push Notification with custom chime sound
+  const title = "🔔 HRMS Unique Sound Test";
+  const body = "Testing HRMS alert tone! Distinctive chime is active on your device.";
   const message = {
     notification: {
-      title: "🔔 HRMS Unique Sound Test",
-      body: "Testing HRMS alert tone! Distinctive chime is active on your device."
+      title,
+      body
     },
     android: {
       priority: 'high',
       notification: {
-        sound: 'notice11',
-        channelId: 'notice11-sound',
-        priority: 'max',
+        title,
+        body,
+        sound: 'mixkit_bell_notification_933',
+        channelId: 'oneclick_alerts_v8',
+        priority: 'high',
         defaultVibrateTimings: true,
       }
     },
     data: {
+      title,
+      body,
       type: "TEST_NOTIFICATION",
       timestamp: String(Date.now()),
-      screen: "Notifications"
+      screen: "Notifications",
+      notificationId: `hrms_test_${Date.now()}`
     },
     tokens: uniqueTokens
   };

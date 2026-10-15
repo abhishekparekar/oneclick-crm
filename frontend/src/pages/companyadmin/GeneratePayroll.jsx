@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api/api";
 import {
   Calculator, CheckCircle2, AlertCircle, Search, ChevronRight, ChevronLeft,
@@ -20,6 +20,7 @@ const fmtDays = (v) => { const n = Number(v) || 0; return n % 1 === 0 ? String(n
 
 const GeneratePayroll = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [step, setStep] = useState(1);
   const [previews, setPreviews] = useState([]);
@@ -70,6 +71,7 @@ const GeneratePayroll = () => {
     },
     onSuccess: (data) => {
       if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ["payrolls"] });
         setSuccessMsg(data.message || "Payroll successfully generated and logged!");
         setStep(3);
         toast.success("Payroll generated successfully!");
@@ -187,7 +189,7 @@ const GeneratePayroll = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(window.location.pathname.startsWith("/hr") ? "/hr/payroll/history" : "/company/payroll/history")}
+            onClick={() => navigate(window.location.pathname.startsWith("/manager") ? "/manager/payroll/history" : window.location.pathname.startsWith("/hr") ? "/hr/payroll/history" : "/company/payroll/history")}
             className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:border-amber-500 transition-all shadow-2xs cursor-pointer"
             title="Back to History"
           >
@@ -765,7 +767,8 @@ const GeneratePayroll = () => {
           <div className="flex gap-2 pt-2">
             <Link
               to={window.location.pathname.startsWith("/manager") ? "/manager/payroll/history" : window.location.pathname.startsWith("/hr") ? "/hr/payroll/history" : "/company/payroll/history"}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-2xs transition-all"
+              state={{ month }}
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-2xs transition-all text-center"
             >
               View Payroll History
             </Link>

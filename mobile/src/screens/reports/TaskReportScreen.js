@@ -47,11 +47,11 @@ const TaskReportScreen = () => {
       if (res?.data?.data) {
         const bi = res.data.data;
         setSummary({
-          totalTasks: bi.kpis?.total || 0,
-          onTimeTasks: bi.kpis?.completed || 0,
-          delayedTasks: bi.kpis?.lateCompleted || 0,
-          pendingTasks: bi.kpis?.pending || 0,
-          overdueTasks: bi.kpis?.overdue || 0,
+          totalTasks: bi.kpis?.totalTasks ?? bi.kpis?.total ?? 0,
+          onTimeTasks: bi.kpis?.onTimeTasks ?? bi.kpis?.completed ?? 0,
+          delayedTasks: bi.kpis?.delayedTasks ?? bi.kpis?.lateCompleted ?? 0,
+          pendingTasks: bi.kpis?.pendingTasks ?? bi.kpis?.pending ?? 0,
+          overdueTasks: bi.kpis?.overdueTasks ?? bi.kpis?.overdue ?? 0,
           completionRate: bi.kpis?.completionRate || 0,
           list: bi.records || [],
           priorityDistribution: bi.priorityDistribution || [],
@@ -81,7 +81,13 @@ const TaskReportScreen = () => {
     const list = summary?.list || [];
     return list.filter((t) => {
       const s = search.toLowerCase();
-      const assigneeName = t.assignedTo?.name || t.assignedTo?.fullName || t.assignedToName || "";
+      const assigneeName =
+        t.assigneeName ||
+        t.assignedToName ||
+        (Array.isArray(t.assignedTo)
+          ? t.assignedTo.map((a) => a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`.trim()).filter(Boolean).join(", ")
+          : (t.assignedTo?.fullName || t.assignedTo?.name)) ||
+        "";
       const matchSearch = !s || (t.title || "").toLowerCase().includes(s) || assigneeName.toLowerCase().includes(s);
       const matchPriority =
         priorityFilter === "all" || (t.priority || "").toLowerCase() === priorityFilter;
@@ -111,8 +117,13 @@ const TaskReportScreen = () => {
         t.title || "Task",
         (t.status || "todo").toUpperCase(),
         (t.priority || "medium").toUpperCase(),
-        t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : "—",
-        t.assignedTo?.name || "—",
+        (t.dueDate || t.endDateTime) ? formatDateToDDMMYYYY(t.dueDate || t.endDateTime) : "—",
+        t.assigneeName ||
+          t.assignedToName ||
+          (Array.isArray(t.assignedTo)
+            ? t.assignedTo.map((a) => a.fullName || a.name).filter(Boolean).join(", ")
+            : (t.assignedTo?.fullName || t.assignedTo?.name)) ||
+          "—",
       ]);
 
       await exportToExcel({
@@ -337,14 +348,19 @@ const TaskReportScreen = () => {
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>DUE DATE</Text>
                       <Text style={styles.metaVal}>
-                        {t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : "No Due Date"}
+                        {(t.dueDate || t.endDateTime) ? formatDateToDDMMYYYY(t.dueDate || t.endDateTime) : "No Due Date"}
                       </Text>
                     </View>
 
                     <View style={styles.metaCol}>
                       <Text style={styles.metaLabel}>ASSIGNEE</Text>
                       <Text style={styles.metaVal} numberOfLines={1}>
-                        {t.assignedTo?.name || "Unassigned"}
+                        {t.assigneeName ||
+                          t.assignedToName ||
+                          (Array.isArray(t.assignedTo)
+                            ? t.assignedTo.map((a) => a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`.trim()).filter(Boolean).join(", ")
+                            : (t.assignedTo?.fullName || t.assignedTo?.name)) ||
+                          "Unassigned"}
                       </Text>
                     </View>
                   </View>

@@ -255,19 +255,19 @@ const OrganizationReportScreen = ({ navigation }) => {
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { borderLeftColor: "#2563EB" }]}>
             <Text style={styles.kpiLabel}>DEPARTMENTS</Text>
-            <Text style={[styles.kpiVal, { color: "#2563EB" }]}>{kpis.totalDepartments || 0}</Text>
+            <Text style={[styles.kpiVal, { color: "#2563EB" }]}>{kpis.totalDepartments ?? data?.departments?.length ?? 0}</Text>
           </View>
           <View style={[styles.kpiCard, { borderLeftColor: "#7C3AED" }]}>
             <Text style={styles.kpiLabel}>DESIGNATIONS</Text>
-            <Text style={[styles.kpiVal, { color: "#7C3AED" }]}>{kpis.totalDesignations || 0}</Text>
+            <Text style={[styles.kpiVal, { color: "#7C3AED" }]}>{kpis.totalDesignations ?? data?.designations?.length ?? 0}</Text>
           </View>
           <View style={[styles.kpiCard, { borderLeftColor: "#10B981" }]}>
             <Text style={styles.kpiLabel}>HOLIDAYS</Text>
-            <Text style={[styles.kpiVal, { color: "#10B981" }]}>{kpis.totalHolidays || 0}</Text>
+            <Text style={[styles.kpiVal, { color: "#10B981" }]}>{kpis.totalHolidays ?? data?.holidays?.length ?? 0}</Text>
           </View>
           <View style={[styles.kpiCard, { borderLeftColor: "#F59E0B" }]}>
             <Text style={styles.kpiLabel}>ANNOUNCEMENTS</Text>
-            <Text style={[styles.kpiVal, { color: "#F59E0B" }]}>{kpis.totalAnnouncements || 0}</Text>
+            <Text style={[styles.kpiVal, { color: "#F59E0B" }]}>{kpis.totalAnnouncements ?? data?.announcements?.length ?? 0}</Text>
           </View>
         </View>
 

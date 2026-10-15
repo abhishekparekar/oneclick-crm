@@ -67,6 +67,9 @@ import MapLeadFinderScreen from "../screens/leads/MapLeadFinderScreen";
 import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 import MyPayslipsScreen from "../screens/employee/MyPayslipsScreen";
 import EmployeePayslipDetailsScreen from "../screens/employee/EmployeePayslipDetailsScreen";
+import PayrollListScreen from "../screens/company/PayrollListScreen";
+import GeneratePayrollScreen from "../screens/company/GeneratePayrollScreen";
+import SalaryStructureScreen from "../screens/company/SalaryStructureScreen";
 
 // Universal Report Screens
 import ReportsDashboardScreen from "../screens/reports/ReportsDashboardScreen";
@@ -271,6 +274,12 @@ const ManagerStackScreen = () => {
       <Stack.Screen name="ManagerAnnouncementDetailsScreen" component={ManagerAnnouncementDetailsScreen} />
 
       {/* Payroll / Payslips */}
+      <Stack.Screen name="PayrollList" component={PayrollListScreen} initialParams={{ activeTab: "history" }} />
+      <Stack.Screen name="GeneratePayroll" component={GeneratePayrollScreen} initialParams={{ activeTab: "generate" }} />
+      <Stack.Screen name="SalaryStructureList" component={SalaryStructureScreen} />
+      <Stack.Screen name="ManagerPayrollList" component={PayrollListScreen} initialParams={{ activeTab: "history" }} />
+      <Stack.Screen name="ManagerPayrollGenerate" component={GeneratePayrollScreen} initialParams={{ activeTab: "generate" }} />
+      <Stack.Screen name="ManagerSalaryStructure" component={SalaryStructureScreen} />
       <Stack.Screen name="Payslips" component={MyPayslipsScreen} />
       <Stack.Screen name="MyPayslips" component={MyPayslipsScreen} />
       <Stack.Screen name="EmployeePayslipDetails" component={EmployeePayslipDetailsScreen} />

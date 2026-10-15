@@ -26,12 +26,20 @@ const PayrollReportScreen = ({ navigation }) => {
   const isSuperAdmin = roleLower === "superadmin";
   const isCompanyAdmin = roleLower === "companyadmin" || roleLower === "admin";
   const isHR = roleLower === "hr";
+  const isManagerWithPayroll =
+    roleLower === "manager" &&
+    (hasPermission("payroll", "view") ||
+      hasPermission("payroll", "generate") ||
+      hasPermission("payroll") ||
+      (Array.isArray(user?.assignedModules) && user.assignedModules.some((m) => String(m).toLowerCase().trim() === "payroll")));
 
   const canAccessPayroll =
     isSuperAdmin ||
     isCompanyAdmin ||
     (isHR && (hasPermission("payroll", "view") || hasPermission("payroll"))) ||
+    isManagerWithPayroll ||
     user?.permissions?.payroll?.view === true ||
+    user?.permissions?.payroll?.generate === true ||
     user?.permissions?.payroll === true;
 
   const now = new Date();
