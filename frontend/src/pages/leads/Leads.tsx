@@ -648,6 +648,13 @@ export default function Leads() {
 
   const [leadStats, setLeadStats] = useState<{
     totalContacts: number;
+    totalDealValue?: number;
+    pendingCount?: number;
+    pendingValue?: number;
+    wonCount?: number;
+    wonValue?: number;
+    lostCount?: number;
+    lostValue?: number;
     optedInCount: number;
     newLeadsCount: number;
     pipelineStagesCount: number;
@@ -655,6 +662,13 @@ export default function Leads() {
     statusCounts: Record<string, number>;
   }>({
     totalContacts: 0,
+    totalDealValue: 0,
+    pendingCount: 0,
+    pendingValue: 0,
+    wonCount: 0,
+    wonValue: 0,
+    lostCount: 0,
+    lostValue: 0,
     optedInCount: 0,
     newLeadsCount: 0,
     pipelineStagesCount: 0,
@@ -662,12 +676,27 @@ export default function Leads() {
     statusCounts: {},
   });
 
+  const formatCurrency = (val: number | string) => {
+    const num = Number(val) || 0;
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2).replace(/\.00$/, '')} L`;
+    if (num >= 10000) return `₹${(num / 1000).toFixed(1).replace(/\.0$/, '')} k`;
+    return `₹${num.toLocaleString('en-IN')}`;
+  };
+
   const fetchStats = async () => {
     try {
       const res = await api.get('/api/leads/stats');
       if (res?.success || res?.totalContacts !== undefined) {
         setLeadStats({
           totalContacts: res.totalContacts || 0,
+          totalDealValue: res.totalDealValue || 0,
+          pendingCount: res.pendingCount || 0,
+          pendingValue: res.pendingValue || 0,
+          wonCount: res.wonCount || 0,
+          wonValue: res.wonValue || 0,
+          lostCount: res.lostCount || 0,
+          lostValue: res.lostValue || 0,
           optedInCount: res.optedInCount || 0,
           newLeadsCount: res.newLeadsCount || 0,
           pipelineStagesCount: res.pipelineStagesCount || 0,
@@ -677,6 +706,84 @@ export default function Leads() {
       }
     } catch (_) { }
   };
+
+  // Dynamic Metrics: Instantly updates whenever leads change due to status change, filter, or search
+  const leadMetrics = useMemo(() => {
+    const isFiltered = Boolean(selectedStatusId || search || selectedSource || selectedAssignee || selectedProduct || selectedTagId || (activeTab && activeTab !== 'All Time'));
+
+    if (isFiltered) {
+      let count = leads.length;
+      let totalDealValue = 0;
+      let pendingCount = 0;
+      let pendingValue = 0;
+      let wonCount = 0;
+      let wonValue = 0;
+
+      leads.forEach((l) => {
+        const val = Number(l.estimatedValue) || 0;
+        totalDealValue += val;
+
+        const stName = (l.status?.name || "").toLowerCase().trim();
+        const isWon = stName.includes("won") || stName.includes("close") || stName.includes("converted");
+        const isLost = stName.includes("lost") || stName.includes("drop") || stName.includes("cancel") || stName.includes("reject");
+
+        if (isWon) {
+          wonCount += 1;
+          wonValue += val;
+        } else if (!isLost) {
+          pendingCount += 1;
+          pendingValue += val;
+        }
+      });
+
+      return {
+        totalCount: pagination.total || count,
+        totalDealValue,
+        pendingCount,
+        pendingValue,
+        wonCount,
+        wonValue,
+      };
+    }
+
+    const dbTotalVal = leadStats.totalDealValue || 0;
+    const dbPendingVal = leadStats.pendingValue || 0;
+    const dbPendingCnt = leadStats.pendingCount || 0;
+    const dbWonVal = leadStats.wonValue || 0;
+    const dbWonCnt = leadStats.wonCount || 0;
+
+    let fallbackTotalVal = 0;
+    let fallbackPendingCnt = 0;
+    let fallbackPendingVal = 0;
+    let fallbackWonCnt = 0;
+    let fallbackWonVal = 0;
+
+    leads.forEach((l) => {
+      const val = Number(l.estimatedValue) || 0;
+      fallbackTotalVal += val;
+
+      const stName = (l.status?.name || "").toLowerCase().trim();
+      const isWon = stName.includes("won") || stName.includes("close") || stName.includes("converted");
+      const isLost = stName.includes("lost") || stName.includes("drop") || stName.includes("cancel") || stName.includes("reject");
+
+      if (isWon) {
+        fallbackWonCnt += 1;
+        fallbackWonVal += val;
+      } else if (!isLost) {
+        fallbackPendingCnt += 1;
+        fallbackPendingVal += val;
+      }
+    });
+
+    return {
+      totalCount: leadStats.totalContacts || pagination.total || leads.length,
+      totalDealValue: dbTotalVal > 0 ? dbTotalVal : fallbackTotalVal,
+      pendingCount: dbPendingCnt > 0 ? dbPendingCnt : fallbackPendingCnt,
+      pendingValue: dbPendingVal > 0 ? dbPendingVal : fallbackPendingVal,
+      wonCount: dbWonCnt > 0 ? dbWonCnt : fallbackWonCnt,
+      wonValue: dbWonVal > 0 ? dbWonVal : fallbackWonVal,
+    };
+  }, [leads, pagination.total, leadStats, selectedStatusId, search, selectedSource, selectedAssignee, selectedProduct, selectedTagId, activeTab]);
 
   const fetchStatuses = async () => {
     try {
@@ -1301,13 +1408,63 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* ── Top 5 KPI Stat Cards (Compact Real-Time Database Metrics) ── */}
+      {/* ── Top 5 KPI Stat Cards (Real-Time Pipeline Metrics, Deal Values & Pending Leads) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        <KPICard label="Total Contacts" value={leadStats.totalContacts || pagination.total || leads.length} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={Users} iconBg="bg-amber-500/10" iconColor="#D97706" />
-        <KPICard label="WhatsApp Leads" value={leadStats.optedInCount} trend="Verified" isUp period="database" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
-        <KPICard label="New Inquiries" value={leadStats.newLeadsCount} trend="Recent" isUp period="database" strokeColor="#06B6D4" Icon={UserPlus} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label=" Stages" value={leadStats.pipelineStagesCount || (Array.isArray(statuses) ? statuses.length : 5)} trend="Active" isUp period="configured" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
-        <KPICard label="Active Tags" value={leadStats.activeTagsCount || (Array.isArray(tags) ? tags.length : 0)} trend="Labels" isUp period="registry" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
+        <KPICard
+          label={selectedStatusId ? "Filtered Leads" : "Total Contacts"}
+          value={leadMetrics.totalCount}
+          trend="Live"
+          isUp={true}
+          period="database"
+          strokeColor="#EAB308"
+          Icon={Users}
+          iconBg="bg-amber-500/10"
+          iconColor="#D97706"
+        />
+        <KPICard
+          label="Deal Value"
+          value={formatCurrency(leadMetrics.totalDealValue)}
+          trend="Pipeline"
+          isUp={true}
+          period="valuation"
+          strokeColor="#10B981"
+          Icon={DollarSign}
+          iconBg="bg-emerald-500/10"
+          iconColor="#059669"
+        />
+        <KPICard
+          label="Pending Leads"
+          value={formatCurrency(leadMetrics.pendingValue)}
+          trend={`${leadMetrics.pendingCount} Leads`}
+          isUp={true}
+          period="in pipeline"
+          strokeColor="#F59E0B"
+          Icon={Clock}
+          iconBg="bg-amber-500/10"
+          iconColor="#D97706"
+        />
+        <KPICard
+          label="Won / Closed"
+          value={formatCurrency(leadMetrics.wonValue)}
+          trend={`${leadMetrics.wonCount} Won`}
+          isUp={true}
+          period="converted"
+          strokeColor="#8B5CF6"
+          Icon={Sparkles}
+          iconBg="bg-purple-500/10"
+          iconColor="#7C3AED"
+        />
+        <KPICard
+          label="WhatsApp Leads"
+          value={leadStats.optedInCount}
+          trend="Verified"
+          isUp={true}
+          period="database"
+          strokeColor="#06B6D4"
+          Icon={CheckCircle}
+          iconBg="bg-cyan-500/10"
+          iconColor="#0891B2"
+        />
       </div>
 
       {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER (Compact) ──────────────── */}
@@ -1917,22 +2074,6 @@ export default function Leads() {
                             <StatusBadge name={lead.status?.name} color={lead.status?.color} />
                             <ChevronDown size={10} className="text-slate-400" />
                           </button>
-                          {statusPopoverLeadId === lead.id && statusPopoverRect && (
-                            <StatusPopover
-                              lead={lead}
-                              statuses={statuses}
-                              anchorRect={statusPopoverRect}
-                              onOptimisticUpdate={(statusId, statusObj) => {
-                                setLeads(prev => prev.map(l =>
-                                  l.id === lead.id
-                                    ? { ...l, statusId, status: statusObj }
-                                    : l
-                                ));
-                              }}
-                              onChanged={() => fetchLeads(pagination.page)}
-                              onClose={() => { setStatusPopoverLeadId(null); setStatusPopoverRect(null); }}
-                            />
-                          )}
                         </div>
                       </td>
 
@@ -2002,9 +2143,41 @@ export default function Leads() {
         )}
       </div>
 
+      {/* Universal Status Popover for Table, Cards & Kanban Views */}
+      {statusPopoverLeadId && statusPopoverRect && (() => {
+        const popoverLead = leads.find(l => l.id === statusPopoverLeadId);
+        if (!popoverLead) return null;
+        return (
+          <StatusPopover
+            lead={popoverLead}
+            statuses={statuses}
+            anchorRect={statusPopoverRect}
+            onOptimisticUpdate={(statusId, statusObj) => {
+              setLeads(prev => prev.map(l =>
+                l.id === popoverLead.id
+                  ? { ...l, statusId, status: statusObj }
+                  : l
+              ));
+              setLeadStats(prev => {
+                const oldStatusId = popoverLead.statusId;
+                const nextCounts = { ...prev.statusCounts };
+                if (oldStatusId && nextCounts[oldStatusId]) nextCounts[oldStatusId] = Math.max(0, nextCounts[oldStatusId] - 1);
+                if (statusId) nextCounts[statusId] = (nextCounts[statusId] || 0) + 1;
+                return { ...prev, statusCounts: nextCounts };
+              });
+            }}
+            onChanged={() => {
+              fetchLeads(pagination.page);
+              fetchStats();
+            }}
+            onClose={() => { setStatusPopoverLeadId(null); setStatusPopoverRect(null); }}
+          />
+        );
+      })()}
+
       {/* Lead Drawer */}
       {selectedLeadId && createPortal(
-        <LeadDrawer leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} onUpdate={() => fetchLeads(pagination.page)} statuses={statuses} sources={sources} employees={employees} />,
+        <LeadDrawer leadId={selectedLeadId} onClose={() => setSelectedLeadId(null)} onUpdate={() => { fetchLeads(pagination.page); fetchStats(); }} statuses={statuses} sources={sources} employees={employees} />,
         document.body
       )}
 

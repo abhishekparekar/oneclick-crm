@@ -3871,12 +3871,53 @@ const getLeadStats = async (req, res) => {
 
     const statusCounts = await Lead.aggregate([
       { $match: query },
-      { $group: { _id: "$statusId", count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: "$statusId",
+          count: { $sum: 1 },
+          totalValue: { $sum: { $ifNull: ["$estimatedValue", 0] } },
+        },
+      },
     ]);
 
     const statusMap = {};
+    let totalDealValue = 0;
+    let wonCount = 0;
+    let wonValue = 0;
+    let lostCount = 0;
+    let lostValue = 0;
+    let pendingCount = 0;
+    let pendingValue = 0;
+
+    const statusById = {};
+    statuses.forEach((s) => {
+      statusById[s._id.toString()] = s;
+    });
+
     statusCounts.forEach((sc) => {
-      if (sc._id) statusMap[sc._id.toString()] = sc.count;
+      if (sc._id) {
+        const sId = sc._id.toString();
+        const cnt = sc.count || 0;
+        const val = sc.totalValue || 0;
+        statusMap[sId] = cnt;
+        totalDealValue += val;
+
+        const stObj = statusById[sId];
+        const sName = (stObj?.name || "").toLowerCase().trim();
+        const isWon = sName.includes("won") || sName.includes("close") || sName.includes("converted");
+        const isLost = sName.includes("lost") || sName.includes("drop") || sName.includes("cancel") || sName.includes("reject");
+
+        if (isWon) {
+          wonCount += cnt;
+          wonValue += val;
+        } else if (isLost) {
+          lostCount += cnt;
+          lostValue += val;
+        } else {
+          pendingCount += cnt;
+          pendingValue += val;
+        }
+      }
     });
 
     const newStatus = statuses.find((s) => s.name?.toLowerCase().includes("new") || s.isDefault);
@@ -3885,6 +3926,13 @@ const getLeadStats = async (req, res) => {
     return res.json({
       success: true,
       totalContacts,
+      totalDealValue,
+      pendingCount,
+      pendingValue,
+      wonCount,
+      wonValue,
+      lostCount,
+      lostValue,
       optedInCount,
       newLeadsCount,
       pipelineStagesCount: statuses.length,

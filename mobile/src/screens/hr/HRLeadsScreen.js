@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   StatusBar,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import HRHeader from "../../components/HRHeader";
@@ -240,6 +241,12 @@ export default function HRLeadsScreen({ navigation, route }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   useEffect(() => {
     if (route?.params?.openAddModal) {

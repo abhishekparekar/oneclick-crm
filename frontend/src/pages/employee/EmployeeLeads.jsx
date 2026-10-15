@@ -382,6 +382,50 @@ export default function EmployeeLeads() {
     });
   }, [baseTabLeads, statusFilter, searchTerm]);
 
+  const formatCurrency = (val) => {
+    const num = Number(val) || 0;
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2).replace(/\.00$/, '')} L`;
+    if (num >= 10000) return `₹${(num / 1000).toFixed(1).replace(/\.0$/, '')} k`;
+    return `₹${num.toLocaleString('en-IN')}`;
+  };
+
+  const leadMetrics = useMemo(() => {
+    const list = filteredLeads;
+    const totalCount = list.length;
+    let totalDealValue = 0;
+    let pendingCount = 0;
+    let pendingValue = 0;
+    let wonCount = 0;
+    let wonValue = 0;
+
+    list.forEach((l) => {
+      const val = Number(l.estimatedValue) || 0;
+      totalDealValue += val;
+
+      const stName = (l.status?.name || "").toLowerCase().trim();
+      const isWon = stName.includes("won") || stName.includes("close") || stName.includes("converted");
+      const isLost = stName.includes("lost") || stName.includes("drop") || stName.includes("cancel") || stName.includes("reject");
+
+      if (isWon) {
+        wonCount += 1;
+        wonValue += val;
+      } else if (!isLost) {
+        pendingCount += 1;
+        pendingValue += val;
+      }
+    });
+
+    return {
+      totalCount,
+      totalDealValue,
+      pendingCount,
+      pendingValue,
+      wonCount,
+      wonValue,
+    };
+  }, [filteredLeads]);
+
   // Create Lead Mutation
   const createLeadMut = useMutation({
     mutationFn: async (payload) => {
@@ -501,6 +545,47 @@ export default function EmployeeLeads() {
             <Plus size={14} strokeWidth={2.5} /> Add New Lead
           </button>
         )}
+      </div>
+
+      {/* ── Top 4 KPI Stat Cards (Real-Time Pipeline Metrics with Values & Pending Leads) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>{statusFilter !== "all" ? "Filtered Leads" : "Total Leads"}</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+          </div>
+          <div className="text-xl font-black text-slate-900 dark:text-white">{leadMetrics.totalCount}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
+            {statusFilter !== "all" ? "In current filter" : "Assigned leads"}
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>Deal Value</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+          </div>
+          <div className="text-xl font-black text-[#059669]">{formatCurrency(leadMetrics.totalDealValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Pipeline valuation</div>
+        </div>
+
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>Pending Leads</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#d97706]" />
+          </div>
+          <div className="text-xl font-black text-[#d97706]">{formatCurrency(leadMetrics.pendingValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{leadMetrics.pendingCount} in pipeline</div>
+        </div>
+
+        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span>Won / Closed</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+          </div>
+          <div className="text-xl font-black text-[#7c3aed]">{formatCurrency(leadMetrics.wonValue)}</div>
+          <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{leadMetrics.wonCount} converted deals</div>
+        </div>
       </div>
 
       {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}

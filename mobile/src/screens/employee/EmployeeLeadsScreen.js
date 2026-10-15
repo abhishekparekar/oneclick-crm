@@ -204,21 +204,45 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
     loadData();
   };
 
+  const formatDealAmount = useCallback((amount) => {
+    const val = Number(amount) || 0;
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(2).replace(/\.00$/, "")} L`;
+    if (val >= 10000) return `₹${(val / 1000).toFixed(1).replace(/\.0$/, "")} k`;
+    return `₹${val.toLocaleString("en-IN")}`;
+  }, []);
+
   // Stats Calculation
   const stats = useMemo(() => {
     const total = leads.length;
+    let totalValue = 0;
     let won = 0;
+    let wonValue = 0;
     let contacted = 0;
     let inProgress = 0;
+    let pendingCount = 0;
+    let pendingValue = 0;
 
     leads.forEach((l) => {
-      const sName = (l.status?.name || "").toLowerCase();
-      if (sName.includes("won") || sName.includes("closed")) won++;
-      else if (sName.includes("contact") || sName.includes("pitch")) contacted++;
-      else if (sName.includes("proposal") || sName.includes("qualified") || sName.includes("negotiation") || sName.includes("progress")) inProgress++;
+      const val = Number(l.estimatedValue) || 0;
+      totalValue += val;
+
+      const sName = (l.status?.name || "").toLowerCase().trim();
+      const isWon = sName.includes("won") || sName.includes("closed") || sName.includes("converted");
+      const isLost = sName.includes("lost") || sName.includes("drop") || sName.includes("cancel") || sName.includes("reject");
+
+      if (isWon) {
+        won++;
+        wonValue += val;
+      } else if (!isLost) {
+        pendingCount++;
+        pendingValue += val;
+        if (sName.includes("contact") || sName.includes("pitch")) contacted++;
+        else if (sName.includes("proposal") || sName.includes("qualified") || sName.includes("negotiation") || sName.includes("progress")) inProgress++;
+      }
     });
 
-    return { total, contacted, inProgress, won };
+    return { total, totalValue, contacted, inProgress, won, wonValue, pendingCount, pendingValue };
   }, [leads]);
 
   // Filtered Leads
@@ -640,7 +664,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       hideFab={true}
     >
       <View style={styles.container}>
-        {/* Top Summary Bar - Clean Bright KPI Cards */}
+        {/* Top Summary Bar - Clean Bright KPI Cards with Deal & Pending Values */}
         <View style={styles.summaryBar}>
           <TouchableOpacity
             style={[styles.kpiCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }, selectedStatus === "all" && styles.kpiCardActiveBlue]}
@@ -654,17 +678,13 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             <Text style={[styles.kpiValue, { color: "#1268D9" }]}>{stats.total}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.kpiCard, { backgroundColor: "#F5F3FF", borderColor: "#DDD6FE" }, selectedStatus === "Contacted" && styles.kpiCardActivePurple]}
-            onPress={() => setSelectedStatus("Contacted")}
-            activeOpacity={0.75}
-          >
+          <View style={[styles.kpiCard, { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
             <View style={styles.kpiTopRow}>
-              <Text style={[styles.kpiLabel, { color: "#6D28D9" }]}>Contacted</Text>
-              <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
+              <Text style={[styles.kpiLabel, { color: "#047857" }]}>Deal Value</Text>
+              <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
             </View>
-            <Text style={[styles.kpiValue, { color: "#7C3AED" }]}>{stats.contacted}</Text>
-          </TouchableOpacity>
+            <Text style={[styles.kpiValue, { color: "#059669" }]} numberOfLines={1}>{formatDealAmount(stats.totalValue)}</Text>
+          </View>
 
           <TouchableOpacity
             style={[styles.kpiCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }, selectedStatus === "In Progress" && styles.kpiCardActiveAmber]}
@@ -672,22 +692,22 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             activeOpacity={0.75}
           >
             <View style={styles.kpiTopRow}>
-              <Text style={[styles.kpiLabel, { color: "#B45309" }]}>In Progress</Text>
+              <Text style={[styles.kpiLabel, { color: "#B45309" }]}>Pending</Text>
               <View style={[styles.kpiDot, { backgroundColor: "#F59E0B" }]} />
             </View>
-            <Text style={[styles.kpiValue, { color: "#D97706" }]}>{stats.inProgress}</Text>
+            <Text style={[styles.kpiValue, { color: "#D97706" }]} numberOfLines={1}>{formatDealAmount(stats.pendingValue)}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.kpiCard, { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }, selectedStatus === "Won" && styles.kpiCardActiveEmerald]}
+            style={[styles.kpiCard, { backgroundColor: "#F5F3FF", borderColor: "#DDD6FE" }, selectedStatus === "Won" && styles.kpiCardActivePurple]}
             onPress={() => setSelectedStatus("Won")}
             activeOpacity={0.75}
           >
             <View style={styles.kpiTopRow}>
-              <Text style={[styles.kpiLabel, { color: "#047857" }]}>Won</Text>
-              <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
+              <Text style={[styles.kpiLabel, { color: "#6D28D9" }]}>Won</Text>
+              <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
             </View>
-            <Text style={[styles.kpiValue, { color: "#059669" }]}>{stats.won}</Text>
+            <Text style={[styles.kpiValue, { color: "#7C3AED" }]} numberOfLines={1}>{formatDealAmount(stats.wonValue)}</Text>
           </TouchableOpacity>
         </View>
 

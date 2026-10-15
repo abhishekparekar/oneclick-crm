@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Platform,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import ManagerLayout from "../../components/ManagerLayout";
@@ -418,6 +419,12 @@ export default function LeadsListScreen({ navigation, route }) {
   useEffect(() => {
     fetchData();
   }, [selectedStatus, selectedSource, selectedAssignee, selectedProduct, selectedOptIn, selectedTimeframe, selectedTag]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(true);
+    }, [selectedStatus, selectedSource, selectedAssignee, selectedProduct, selectedOptIn, selectedTimeframe, selectedTag])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
