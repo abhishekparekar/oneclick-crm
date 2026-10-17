@@ -8,7 +8,7 @@ BACKUP_DIR="/var/backups/oneclick_mongodb"
 mkdir -p "$BACKUP_DIR"
 
 # Number of days to keep backups (older backups are automatically deleted)
-RETENTION_DAYS=7
+RETENTION_DAYS=4
 
 # Timestamp for the filename
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
