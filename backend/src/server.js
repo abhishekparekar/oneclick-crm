@@ -1,4 +1,16 @@
 require("dotenv").config();
+
+// ─── ANTI-CRASH SAFEGUARDS ──────────────────────────────────────────────────
+// Prevent Node.js process from dying on unhandled async promises or runtime errors
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Anti-Crash] Unhandled Rejection caught:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[Anti-Crash] Uncaught Exception caught:", err);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
