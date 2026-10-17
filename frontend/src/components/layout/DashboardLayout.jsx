@@ -81,14 +81,6 @@ const DashboardLayout = ({ children }) => {
   const departments = Array.isArray(deptRes) ? deptRes : (deptRes?.departments || []);
   const employees = Array.isArray(empRes) ? empRes : (empRes?.employees || []);
 
-  const footerName =
-    user?.role === "CompanyAdmin" || user?.role === "HR"
-      ? (profileData?.company?.companyName || profileData?.company?.name || "One Click Solutions")
-      : user?.role === "Manager"
-        ? (user?.name || "Manager")
-        : user?.role === "Employee"
-          ? (user?.name || "Employee")
-          : "One Click Solutions";
 
   return (
     <div className={`flex h-screen w-full overflow-hidden print:h-auto print:overflow-visible bg-[#F0F5FA] dark:bg-[#070A10] text-slate-900 dark:text-slate-100 ${isManager || isEmployee ? "manager-panel" : ""}`}>
