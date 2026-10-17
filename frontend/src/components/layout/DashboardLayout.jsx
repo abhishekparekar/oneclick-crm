@@ -148,7 +148,7 @@ const DashboardLayout = ({ children }) => {
         </main>
         <footer className="flex-shrink-0 border-t border-ca-border px-4 sm:px-6 py-2.5 flex items-center justify-between print:hidden bg-ca-surface text-ca-text-secondary">
           <p className="text-xs sm:text-sm font-medium truncate pr-2">
-            © {new Date().getFullYear()} {footerName}. All rights reserved.
+            © {new Date().getFullYear()} ONE CLICK. All rights reserved.
           </p>
           <p className="text-xs sm:text-sm font-medium flex-shrink-0">Version 2.5.0</p>
         </footer>

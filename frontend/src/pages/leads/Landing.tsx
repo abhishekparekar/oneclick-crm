@@ -657,7 +657,7 @@ export default function Landing() {
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider font-mono">Meta Cloud Connection: Operational</span>
             </div>
 
-            <p className="text-[11px] text-[#64748B]">© 2026 LeadFlow CRM. All rights reserved. Multi-tenant secure workspace.</p>
+            <p className="text-[11px] text-[#64748B]">© 2026 ONE CLICK CRM. All rights reserved. Multi-tenant secure workspace.</p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-6 text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400">
