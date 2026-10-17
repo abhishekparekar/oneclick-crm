@@ -7,6 +7,9 @@
 BACKUP_DIR="/var/backups/oneclick_mongodb"
 mkdir -p "$BACKUP_DIR"
 
+# Number of days to keep backups (older backups are automatically deleted)
+RETENTION_DAYS=7
+
 # Timestamp for the filename
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP_FILE="$BACKUP_DIR/backup_$DATE.gz"
@@ -38,23 +41,25 @@ mongodump --uri="$MONGO_URI" --archive="$BACKUP_FILE" --gzip
 if [ $? -eq 0 ]; then
     echo "[Backup] ✓ Successfully created backup: $BACKUP_FILE"
     
-    # ─── CLOUDFLARE R2 CLOUD UPLOAD ──────────────────────────────────────────
+    # ─── CLOUDFLARE R2 CLOUD UPLOAD & AUTO-CLEANUP ───────────────────────────
     if command -v rclone &> /dev/null && rclone listremotes | grep -q "^r2:"; then
         echo "[Backup] Uploading to Cloudflare R2 bucket (oneclick-backups)..."
         rclone copy "$BACKUP_FILE" r2:oneclick-backups/
         if [ $? -eq 0 ]; then
-            echo "[Backup] ✓ Successfully uploaded to Cloudflare R2!"
-            # Keep 30 days of backups in Cloudflare R2
-            rclone delete --min-age 30d r2:oneclick-backups/
+            echo "[Backup] ✓ Successfully uploaded new backup to Cloudflare R2!"
+            # Automatically delete old backups older than RETENTION_DAYS from Cloudflare R2
+            echo "[Backup] Deleting Cloudflare R2 backups older than $RETENTION_DAYS days..."
+            rclone delete --min-age "${RETENTION_DAYS}d" r2:oneclick-backups/
+            echo "[Backup] ✓ Old backups cleanup completed in Cloudflare R2."
         else
             echo "[Backup Warning] Failed to upload to Cloudflare R2."
         fi
     fi
     # ─────────────────────────────────────────────────────────────────────────
 
-    # Keep last 7 days of local backups, remove older to save disk space
-    find "$BACKUP_DIR" -type f -name "backup_*.gz" -mtime +7 -delete
-    echo "[Backup] ✓ Removed local backups older than 7 days."
+    # Keep last RETENTION_DAYS of local backups, remove older to save disk space
+    find "$BACKUP_DIR" -type f -name "backup_*.gz" -mtime +"$RETENTION_DAYS" -delete
+    echo "[Backup] ✓ Removed local VPS backups older than $RETENTION_DAYS days."
 else
     echo "[Backup Error] mongodump failed."
     exit 1
