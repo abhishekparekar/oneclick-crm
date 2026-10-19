@@ -46,7 +46,7 @@ const handleValidation = (req, res) => {
 const getDashboardStats = async (req, res, next) => {
     try {
         const { companyId } = req;
-        const { timeRange = "this_month" } = req.query;
+        const { timeRange = "this_month", departmentId } = req.query;
 
         const now = new Date();
         let startDate = new Date();
@@ -92,6 +92,65 @@ const getDashboardStats = async (req, res, next) => {
         const todayStr = new Date().toISOString().slice(0, 10);
         const attendanceDateFilter = todayStr;
 
+        let deptEmpFilter = null;
+        let deptEmpIds = [];
+        let deptTaskCondition = null;
+        let deptProjectCondition = null;
+        let deptLeadCondition = null;
+        const dObj = (departmentId && departmentId !== "all" && departmentId !== "All")
+            ? (mongoose.Types.ObjectId.isValid(departmentId) ? new mongoose.Types.ObjectId(departmentId) : departmentId)
+            : null;
+
+        if (dObj) {
+            const deptEmps = await Employee.find({
+                companyId,
+                $or: [
+                    { departmentId: dObj },
+                    { departmentId: departmentId.toString() },
+                    { departmentIds: dObj },
+                    { departmentIds: departmentId.toString() }
+                ]
+            }).select("_id userId").lean();
+            deptEmpIds = deptEmps.map(e => e._id);
+            const deptUserIds = deptEmps.map(e => e.userId).filter(Boolean);
+            const allDeptTargetIds = [...deptEmpIds, ...deptUserIds];
+
+            deptEmpFilter = {
+                $or: [
+                    { departmentId: dObj },
+                    { departmentId: departmentId.toString() },
+                    { departmentIds: dObj },
+                    { departmentIds: departmentId.toString() }
+                ]
+            };
+
+            deptTaskCondition = {
+                $or: [
+                    { departmentId: dObj },
+                    { departmentId: departmentId.toString() },
+                    { departmentIds: dObj },
+                    { departmentIds: departmentId.toString() },
+                    ...(allDeptTargetIds.length > 0 ? [{ assignedTo: { $in: allDeptTargetIds } }] : [])
+                ]
+            };
+
+            deptProjectCondition = {
+                $or: [
+                    { departmentId: dObj },
+                    { departmentId: departmentId.toString() },
+                    ...(deptEmpIds.length > 0 ? [{ members: { $in: deptEmpIds } }] : [])
+                ]
+            };
+
+            deptLeadCondition = {
+                $or: [
+                    { departmentId: dObj },
+                    { departmentId: departmentId.toString() },
+                    ...(deptEmpIds.length > 0 ? [{ assignedTo: { $in: deptEmpIds } }] : [])
+                ]
+            };
+        }
+
         const [
             totalDepartments,
             totalDesignations,
@@ -127,14 +186,16 @@ const getDashboardStats = async (req, res, next) => {
             Department.countDocuments({ companyId }),
             Designation.countDocuments({ companyId }),
             Branch.countDocuments({ companyId }),
-            Employee.countDocuments({ companyId }),
-            Employee.countDocuments({ companyId, status: "active" }),
+            Employee.countDocuments({ companyId, ...(deptEmpFilter || {}) }),
+            Employee.countDocuments({ companyId, status: "active", ...(deptEmpFilter || {}) }),
             Employee.countDocuments({
                 companyId,
                 status: { $in: ["inactive", "terminated"] },
+                ...(deptEmpFilter || {})
             }),
             Employee.countDocuments({
                 companyId,
+                ...(deptEmpFilter || {}),
                 $or: [
                     { joiningDate: { $gte: startDate, $lte: endDate } },
                     {
@@ -145,45 +206,48 @@ const getDashboardStats = async (req, res, next) => {
                     },
                 ],
             }),
-            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "present" }),
-            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "late" }),
-            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "half_day" }),
-            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "absent" }),
+            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "present", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "late", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "half_day", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Attendance.countDocuments({ companyId, date: attendanceDateFilter, status: "absent", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
             Leave.countDocuments({
                 companyId,
                 status: "approved",
+                ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}),
                 $or: [
                     { startDate: { $lte: endDate.toISOString() }, endDate: { $gte: startDate.toISOString() } },
                     { startDate: { $lte: endStr }, endDate: { $gte: startStr } }
                 ]
             }),
             // Task count definitions
-            Task.countDocuments({ companyId, isLive: true, status: { $ne: "cancelled" } }),
-            Task.countDocuments({ companyId, isLive: true, status: { $in: ["complete", "re_complete"] } }),
-            Task.countDocuments({ companyId, isLive: true, status: { $in: ["pending", "todo", "re_pending"] } }),
-            Task.countDocuments({ companyId, isLive: true, status: { $in: ["in_process", "in-progress", "working", "re_in_process"] } }),
-            Task.countDocuments({ companyId, isLive: true, status: { $in: ["late_complete", "re_late_complete"] } }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $ne: "cancelled" }, ...(deptTaskCondition || {}) }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $in: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"] }, ...(deptTaskCondition || {}) }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $in: ["pending", "todo", "re_pending"] }, ...(deptTaskCondition || {}) }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $in: ["in_process", "in-progress", "working", "re_in_process"] }, ...(deptTaskCondition || {}) }),
+            Task.countDocuments({ companyId, isLive: { $ne: false }, status: { $in: ["late_complete", "re_late_complete"] }, ...(deptTaskCondition || {}) }),
             Task.countDocuments({
                 companyId,
-                isLive: true,
+                isLive: { $ne: false },
                 status: { $nin: ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete", "cancelled"] },
-                endDateTime: { $lt: now }
+                endDateTime: { $lt: now },
+                ...(deptTaskCondition || {})
             }),
             // Leave count definitions
-            Leave.countDocuments({ companyId }),
-            Leave.countDocuments({ companyId, status: "pending" }),
-            Leave.countDocuments({ companyId, status: "approved" }),
-            Leave.countDocuments({ companyId, status: "rejected" }),
+            Leave.countDocuments({ companyId, ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Leave.countDocuments({ companyId, status: "pending", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Leave.countDocuments({ companyId, status: "approved", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
+            Leave.countDocuments({ companyId, status: "rejected", ...(dObj ? { employeeId: { $in: deptEmpIds } } : {}) }),
             // Project count definitions
-            Project.countDocuments({ companyId }),
-            Project.countDocuments({ companyId, status: "active" }),
-            Project.countDocuments({ companyId, status: "completed" }),
+            Project.countDocuments({ companyId, ...(deptProjectCondition || {}) }),
+            Project.countDocuments({ companyId, status: "active", ...(deptProjectCondition || {}) }),
+            Project.countDocuments({ companyId, status: "completed", ...(deptProjectCondition || {}) }),
             // Lead count definitions
             Lead.countDocuments({
                 ...(companyId && mongoose.Types.ObjectId.isValid(companyId)
                     ? { $or: [{ companyId: new mongoose.Types.ObjectId(companyId) }, { companyId: null }] }
                     : {}),
-                deletedAt: null
+                deletedAt: null,
+                ...(deptLeadCondition || {})
             }).catch(() => 0)
         ]);
 

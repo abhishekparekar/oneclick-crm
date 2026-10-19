@@ -13,27 +13,30 @@ const useManagerController = () => {
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
 
-  const isFetchingDashboardRef = useRef(false);
+  const dashboardDataRef = useRef(null);
 
   const fetchDashboard = useCallback(async (force = false, params = {}) => {
-    if (isFetchingDashboardRef.current) return;
-    if (!force && dashboardData && Object.keys(params).length === 0) return;
-    isFetchingDashboardRef.current = true;
+    const isParamObj = typeof force === "object" && force !== null;
+    const actualParams = isParamObj ? force : params;
+    const actualForce = isParamObj ? true : force;
+
+    if (!actualForce && dashboardDataRef.current && Object.keys(actualParams).length === 0) return;
     setLoadingDashboard(true);
     setDashboardError(null);
     try {
-      const res = await managerApi.getManagerDashboard(params);
-      setDashboardData(res.data || res);
+      const res = await managerApi.getManagerDashboard(actualParams);
+      const val = res.data || res;
+      dashboardDataRef.current = val;
+      setDashboardData(val);
     } catch (err) {
       const msg =
         err?.response?.data?.message || err.message || "Failed to load dashboard";
       setDashboardError(msg);
       console.error("[ManagerController] Dashboard error:", msg);
     } finally {
-      isFetchingDashboardRef.current = false;
       setLoadingDashboard(false);
     }
-  }, [dashboardData]);
+  }, []);
 
   const refreshDashboard = useCallback((params = {}) => fetchDashboard(true, params), [fetchDashboard]);
 

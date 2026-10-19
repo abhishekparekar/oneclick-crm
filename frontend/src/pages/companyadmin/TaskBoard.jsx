@@ -237,8 +237,8 @@ const TaskCard = ({ task, onClick, activeTab, isSelected, onToggleSelect }) => {
     <div
       onClick={onClick}
       className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden p-3 sm:p-4 min-h-[110px] sm:min-h-[140px] isolate ${isSelected
-          ? "border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20"
-          : "border-slate-200/80 dark:border-slate-800"
+        ? "border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20"
+        : "border-slate-200/80 dark:border-slate-800"
         }`}
     >
       <div
@@ -810,7 +810,7 @@ export default function TaskBoard() {
   }), [tabFilteredTasks, statusFilter, filters.status, searchQ]);
 
   // KPI Metrics Calculation
-  const totalCount = allTasks.length;
+  const totalCount = tabFilteredTasks.length;
   const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) || (t.isTemplate && (t.isActive || t.status === "active"))).length;
   const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process", "in progress"].includes((t.status || "").toLowerCase())).length;
   const completedCount = tabFilteredTasks.filter(t => ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
@@ -822,7 +822,21 @@ export default function TaskBoard() {
     return !done && due && due < new Date();
   }).length;
   const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())).length;
-  const recurringCount = allTasks.filter(isTaskRecurring).length;
+  const recurringTasksList = useMemo(() => {
+    return allTasks.filter(t => {
+      if (!isTaskRecurring(t)) return false;
+      if (filters.assignedTo) {
+        const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
+        if (!assignees.some(a => String(a?._id || a) === String(filters.assignedTo))) return false;
+      }
+      if (filters.departmentId) {
+        const dId = (t.departmentId?._id || t.departmentId || "").toString();
+        if (dId !== String(filters.departmentId)) return false;
+      }
+      return true;
+    });
+  }, [allTasks, filters.assignedTo, filters.departmentId]);
+  const recurringCount = activeTab === "Recurring" ? tabFilteredTasks.length : recurringTasksList.length;
 
   // STRICT UNIQUE DATE CATEGORIES
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
@@ -985,8 +999,8 @@ export default function TaskBoard() {
                 onClick={() => setViewMode("cards")}
                 title="Grid Cards View"
                 className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
-                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
               >
                 <LayoutGrid size={14} />
@@ -995,8 +1009,8 @@ export default function TaskBoard() {
                 onClick={() => setViewMode("kanban")}
                 title="Kanban Board View"
                 className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "kanban"
-                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
               >
                 <Kanban size={14} />
@@ -1005,8 +1019,8 @@ export default function TaskBoard() {
                 onClick={() => setViewMode("list")}
                 title="Table List View"
                 className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "list"
-                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
               >
                 <List size={14} />
@@ -1023,8 +1037,8 @@ export default function TaskBoard() {
                 }
               }}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${selectedTaskIds.length > 0
-                  ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-xs"
-                  : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
+                ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-xs"
+                : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               title={selectedTaskIds.length > 0 ? "Clear selection" : "Select all tasks to shift"}
             >
@@ -1050,8 +1064,8 @@ export default function TaskBoard() {
             <button
               onClick={handleOpenFilters}
               className={`flex items-center gap-1.5 px-3 h-8 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${showFiltersDropdown || activeCustomFiltersCount > 0
-                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                  : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               title="Filter Tasks"
             >
@@ -1126,8 +1140,8 @@ export default function TaskBoard() {
                 <div className="relative">
                   <select
                     className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${tempFilters.departmentId
-                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                      : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
                       }`}
                     value={filters.departmentId || tempFilters.departmentId || ""}
                     onChange={e => {
@@ -1191,8 +1205,8 @@ export default function TaskBoard() {
                 <div className="relative">
                   <select
                     className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.status || statusFilter || tempFilters.status)
-                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                      : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
                       }`}
                     value={filters.status || statusFilter || tempFilters.status || ""}
                     onChange={e => {
@@ -1231,8 +1245,8 @@ export default function TaskBoard() {
                 <div className="relative">
                   <select
                     className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.priority || tempFilters.priority)
-                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                      : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
                       }`}
                     value={filters.priority || tempFilters.priority || ""}
                     onChange={e => {
@@ -1263,8 +1277,8 @@ export default function TaskBoard() {
                 <div className="relative">
                   <select
                     className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.deadlineFilter || tempFilters.deadlineFilter)
-                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                      : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
                       }`}
                     value={filters.deadlineFilter || tempFilters.deadlineFilter || ""}
                     onChange={e => {
@@ -1295,8 +1309,8 @@ export default function TaskBoard() {
                 <div className="relative">
                   <select
                     className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(activeTab && activeTab !== "All Time")
-                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                      : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
                       }`}
                     value={activeTab || tempTab || "All Time"}
                     onChange={e => {
@@ -1348,8 +1362,8 @@ export default function TaskBoard() {
                     <input
                       type="date"
                       className={`flex-1 text-xs h-8 px-2.5 outline-none rounded-lg cursor-pointer transition-all ${(filters.startDate || tempFilters.startDate)
-                          ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                          : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
                         }`}
                       value={filters.startDate || tempFilters.startDate || ""}
                       onChange={e => {
@@ -1364,8 +1378,8 @@ export default function TaskBoard() {
                     <input
                       type="date"
                       className={`flex-1 text-xs h-8 px-2.5 outline-none rounded-lg cursor-pointer transition-all ${(filters.endDate || tempFilters.endDate)
-                          ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
-                          : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
                         }`}
                       value={filters.endDate || tempFilters.endDate || ""}
                       onChange={e => {
@@ -1532,21 +1546,19 @@ export default function TaskBoard() {
                     handleTabChange(tab.id);
                   }
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  isTabActive
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isTabActive
                     ? tab.isSpecial
                       ? "bg-violet-600 text-white shadow-xs ring-2 ring-violet-500/30"
                       : "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30"
                     : tab.isSpecial
-                    ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100"
-                    : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-                }`}
+                      ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100"
+                      : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                  }`}
               >
                 {TabIcon && <TabIcon size={12} className={isTabActive ? "text-white" : "text-violet-600 dark:text-violet-400"} />}
                 <span>{tab.label}</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${
-                  isTabActive ? "bg-white/20 text-white" : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                }`}>
+                <span className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-black ${isTabActive ? "bg-white/20 text-white" : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  }`}>
                   {tab.count}
                 </span>
               </button>

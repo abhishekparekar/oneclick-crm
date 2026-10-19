@@ -76,7 +76,7 @@ export const updateHolidayApi = (id, data) => api.put(`/company/holidays/${id}`,
 export const deleteHolidayApi = (id) => api.delete(`/company/holidays/${id}`);
 
 // Projects
-export const getProjectsApi = () => api.get("/company/projects");
+export const getProjectsApi = (params = {}) => api.get("/company/projects", { params });
 
 export const createProjectApi = (data) => api.post("/company/projects", data);
 

@@ -26,7 +26,8 @@ import {
   getDashboardAttendanceDetailsApi,
   getCompanyAuditLogsApi,
   getTasksApi,
-  getProjectsApi
+  getProjectsApi,
+  getDepartmentsApi,
 } from "../../api/companyService";
 import leadsService from "../../api/leadsService";
 import { getMyNotificationsApi } from "../../api/notificationService";
@@ -49,8 +50,19 @@ const CompanyDashboard = ({ navigation }) => {
 
   const [punchLoading, setPunchLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("this_month");
+  const [selectedDeptId, setSelectedDeptId] = useState("");
   const [filterVisible, setFilterVisible] = useState(false);
   const [attendanceModal, setAttendanceModal] = useState({ visible: false, status: null });
+
+  // Fetch Departments for filtering
+  const { data: deptsRes } = useQuery({
+    queryKey: ['companyDepartments'],
+    queryFn: async () => {
+      const res = await getDepartmentsApi();
+      return res.data?.departments || res.data || [];
+    },
+  });
+  const departmentsList = Array.isArray(deptsRes) ? deptsRes : [];
 
   // Fetch Attendance (Only if not CompanyAdmin)
   const { data: todayRecord, refetch: refetchAttendance } = useQuery({
@@ -81,19 +93,20 @@ const CompanyDashboard = ({ navigation }) => {
 
   // Fetch Main Dashboard Data
   const { data: dashboardData, isLoading, error: queryError, refetch: refetchDashboard, isRefetching } = useQuery({
-    queryKey: ['companyDashboard', timeRange],
+    queryKey: ['companyDashboard', timeRange, selectedDeptId],
     queryFn: async () => {
+      const deptParam = selectedDeptId ? { departmentId: selectedDeptId } : {};
       const [statsRes, notifRes, logsRes, tasksRes, templatesRes, projsRes, leadsRes] = await Promise.all([
-        getCompanyDashboardStatsApi({ timeRange }).catch((err) => {
+        getCompanyDashboardStatsApi({ timeRange, ...deptParam }).catch((err) => {
           console.warn("getCompanyDashboardStatsApi fallback:", err?.message);
           return { data: {} };
         }),
         getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } })),
         getCompanyAuditLogsApi().catch(() => ({ data: [] })),
-        getTasksApi().catch(() => ({ data: { tasks: [] } })),
-        getTasksApi({ isTemplate: true }).catch(() => ({ data: { tasks: [] } })),
-        getProjectsApi().catch(() => ({ data: { projects: [] } })),
-        leadsService.getLeads({ limit: 20 }).catch(() => []),
+        getTasksApi({ ...deptParam }).catch(() => ({ data: { tasks: [] } })),
+        getTasksApi({ isTemplate: true, ...deptParam }).catch(() => ({ data: { tasks: [] } })),
+        getProjectsApi({ ...deptParam }).catch(() => ({ data: { projects: [] } })),
+        leadsService.getLeads({ limit: 50, ...deptParam }).catch(() => []),
       ]);
 
       const now = new Date();
@@ -435,6 +448,31 @@ const CompanyDashboard = ({ navigation }) => {
                 <Ionicons name="person-add" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </LinearGradient>
+
+            {/* Department Filter Pills */}
+            {departmentsList.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 14 }}
+                contentContainerStyle={{ gap: 6 }}
+              >
+                {["All Departments", ...departmentsList.map((d) => d.name)].map((name, i) => {
+                  const deptId = i === 0 ? "" : departmentsList[i - 1]._id;
+                  const active = selectedDeptId === deptId;
+                  return (
+                    <TouchableOpacity
+                      key={name}
+                      onPress={() => setSelectedDeptId(deptId)}
+                      style={[styles.deptPill, active && styles.deptPillActive]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.deptPillText, active && styles.deptPillTextActive]}>{name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             {/* Quick Action Shortcuts Grid */}
             <View style={styles.shortcutsRow}>
@@ -932,6 +970,42 @@ const CompanyDashboard = ({ navigation }) => {
                     )}
                   </TouchableOpacity>
                 ))}
+
+                {departmentsList.length > 0 && (
+                  <>
+                    <Text style={[styles.filterModalTitle, { marginTop: 18 }]}>Filter by Department</Text>
+                    <ScrollView style={{ maxHeight: 180 }}>
+                      {[{ _id: "", name: "All Departments" }, ...departmentsList].map((dept) => {
+                        const active = selectedDeptId === dept._id;
+                        return (
+                          <TouchableOpacity
+                            key={dept._id || "all-depts"}
+                            style={[
+                              styles.filterOptionRow,
+                              active && styles.filterOptionRowActive,
+                            ]}
+                            onPress={() => {
+                              setSelectedDeptId(dept._id);
+                              setFilterVisible(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.filterOptionText,
+                                active && styles.filterOptionTextActive,
+                              ]}
+                            >
+                              {dept.name}
+                            </Text>
+                            {active && (
+                              <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                )}
               </View>
             </TouchableOpacity>
           </Modal>
@@ -1413,6 +1487,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFF6FF",
     padding: 5,
     borderRadius: 6,
+  },
+  deptPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  deptPillActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  deptPillText: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 12,
+    color: "#64748B",
+  },
+  deptPillTextActive: {
+    fontFamily: FONTS.bodyBold,
+    color: "#FFFFFF",
   },
 });
 

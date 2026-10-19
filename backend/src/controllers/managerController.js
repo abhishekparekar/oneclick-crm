@@ -206,6 +206,8 @@ const getManagerDashboardSummary = async (req, res, next) => {
     const userId = req.user._id;
     const companyId = req.companyId || req.user?.companyId;
     const TaskTemplate = require("../models/TaskTemplate");
+    const Lead = require("../models/Lead");
+    require("../models/LeadStatus");
 
     const manager = await resolveManagerEmployee(req);
     if (!manager) {
@@ -257,20 +259,27 @@ const getManagerDashboardSummary = async (req, res, next) => {
       }
     });
 
-    if (departmentId) {
+    let deptEmployeeIds = [];
+    let deptTargetAssigneeIds = [];
+    if (departmentId && departmentId !== "all" && departmentId !== "All") {
       const mongoose = require("mongoose");
       const Employee = require("../models/Employee");
-      const filtered = await Employee.find({
+      const dObj = mongoose.Types.ObjectId.isValid(departmentId) ? new mongoose.Types.ObjectId(departmentId) : departmentId;
+      const deptEmps = await Employee.find({
         companyId,
-        _id: { $in: teamEmployeeIds },
         $or: [
-          { departmentId: new mongoose.Types.ObjectId(departmentId) },
+          { departmentId: dObj },
           { departmentId: departmentId.toString() },
-          { departmentIds: new mongoose.Types.ObjectId(departmentId) },
+          { departmentIds: dObj },
           { departmentIds: departmentId.toString() }
         ]
-      }).select("_id").lean();
-      teamEmployeeIds = filtered.map(e => e._id.toString());
+      }).select("_id userId").lean();
+      deptEmployeeIds = deptEmps.map(e => e._id.toString());
+      const deptUserIds = deptEmps.map(e => e.userId?.toString()).filter(Boolean);
+      deptTargetAssigneeIds = [...deptEmployeeIds, ...deptUserIds];
+
+      // Filter teamEmployeeIds to team members in this department
+      teamEmployeeIds = teamEmployeeIds.filter(id => deptEmployeeIds.includes(id.toString()));
     }
     const teamCount = teamEmployeeIds.length;
     const teamIdsForProj = [...teamEmployeeIds, managerEmployeeId];
@@ -299,24 +308,95 @@ const getManagerDashboardSummary = async (req, res, next) => {
 
     const allRelevantAssigneeIds = [...allTeamAssigneeIds, ...managerTargetIds];
 
-    const targetDeptMatchList = departmentId
-      ? [departmentId.toString(), ...(mongoose.Types.ObjectId.isValid(departmentId) ? [new mongoose.Types.ObjectId(departmentId)] : [])]
-      : deptMatchList;
-
-    let dashboardTeamTaskOr = [
+    let baseScopeOr = [
       { assignedTo: { $in: allRelevantAssigneeIds } },
       { assignedBy: userId },
       { createdBy: userId }
     ];
-    if (targetDeptMatchList.length > 0) {
-      dashboardTeamTaskOr.push({ departmentId: { $in: targetDeptMatchList } });
-      dashboardTeamTaskOr.push({ departmentIds: { $in: targetDeptMatchList } });
+    if (deptMatchList.length > 0) {
+      baseScopeOr.push({ departmentId: { $in: deptMatchList } });
+      baseScopeOr.push({ departmentIds: { $in: deptMatchList } });
     }
 
-    const teamTaskBaseFilter = {
+    let finalTaskFilter = {
       companyId,
-      $or: dashboardTeamTaskOr
+      $and: [
+        { $or: baseScopeOr }
+      ]
     };
+
+    const dObj = (departmentId && departmentId !== "all" && departmentId !== "All")
+      ? (mongoose.Types.ObjectId.isValid(departmentId) ? new mongoose.Types.ObjectId(departmentId) : departmentId)
+      : null;
+
+    if (dObj) {
+      finalTaskFilter.$and.push({
+        $or: [
+          { departmentId: dObj },
+          { departmentId: departmentId.toString() },
+          { departmentIds: dObj },
+          { departmentIds: departmentId.toString() }
+        ]
+      });
+    }
+
+    // Projects filter
+    const projectFilter = {
+      companyId,
+      status: { $in: ["planning", "active", "working", "review", "deployment"] },
+      $and: [
+        {
+          $or: [
+            { departmentId: { $in: allowedDeptIds } },
+            { members: { $in: teamIdsForProj } },
+            { projectManager: managerEmployeeId }
+          ]
+        }
+      ]
+    };
+    if (dObj) {
+      projectFilter.$and.push({
+        $or: [
+          { departmentId: dObj },
+          { departmentId: departmentId.toString() },
+          ...(deptEmployeeIds.length > 0 ? [{ members: { $in: deptEmployeeIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) } }] : [])
+        ]
+      });
+    }
+
+    // Lead filter
+    const leadFilter = {
+      $and: [
+        {
+          $or: [
+            { companyId: new mongoose.Types.ObjectId(companyId) },
+            { companyId: companyId ? companyId.toString() : null },
+            { companyId: null }
+          ]
+        }
+      ],
+      deletedAt: null
+    };
+    if (dObj) {
+      leadFilter.$and.push({
+        $or: [
+          { departmentId: dObj },
+          { departmentId: departmentId.toString() },
+          ...(deptTargetAssigneeIds.length > 0 ? [
+            { assignedTo: { $in: deptTargetAssigneeIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) } },
+            { assignedToUsers: { $in: deptTargetAssigneeIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) } }
+          ] : [])
+        ]
+      });
+    }
+
+    const teamEmpTargetIds = [];
+    teamEmployeeIds.forEach(id => {
+      if (!id) return;
+      const s = id.toString();
+      teamEmpTargetIds.push(s);
+      if (mongoose.Types.ObjectId.isValid(s)) teamEmpTargetIds.push(new mongoose.Types.ObjectId(s));
+    });
 
     const [
       teamAttendanceTodayRaw,
@@ -332,23 +412,15 @@ const getManagerDashboardSummary = async (req, res, next) => {
       allRawTemplates,
       recentMyTasks,
       recentTeamTasks,
-      totalLeadsCount,
+      allRawLeads,
     ] = await Promise.all([
-      Attendance.find({ companyId, employeeId: { $in: teamEmployeeIds }, date: todayStr })
+      Attendance.find({ companyId, employeeId: { $in: teamEmpTargetIds }, date: todayStr })
         .populate({ path: "employeeId", select: "fullName employeeCode photo" })
         .lean(),
-      Leave.find({ companyId, employeeId: { $in: teamEmployeeIds }, status: "pending" })
+      Leave.find({ companyId, employeeId: { $in: teamEmpTargetIds }, status: "pending" })
         .populate({ path: "employeeId", select: "fullName employeeCode" })
         .sort({ createdAt: -1 }).limit(10).lean(),
-      Project.find({
-        companyId,
-        $or: [
-          { departmentId: { $in: allowedDeptIds } },
-          { members: { $in: teamIdsForProj } },
-          { projectManager: managerEmployeeId }
-        ],
-        status: { $in: ["planning", "active", "working", "review", "deployment"] },
-      }).limit(10).lean(),
+      Project.find(projectFilter).limit(10).lean(),
       Notification.find({ companyId, userId }).sort({ createdAt: -1 }).limit(5).lean(),
       Holiday.find({ companyId, date: { $gte: new Date(now) } }).sort({ date: 1 }).limit(5).lean(),
       AuditLog.find({ companyId, performedBy: { $in: allRelevantUserIds } }).sort({ createdAt: -1 }).limit(5).lean(),
@@ -367,34 +439,42 @@ const getManagerDashboardSummary = async (req, res, next) => {
       }).lean(),
 
       Task.find({
-        ...teamTaskBaseFilter,
-        status: { $ne: "cancelled" },
-        ...(departmentId ? { $or: [{ departmentId }, { departmentIds: departmentId }] } : {})
-      }).select("assignedTo assignedBy assignmentType status statusKey endDateTime endDate dueDate finishDate")
+        ...finalTaskFilter,
+        status: { $ne: "cancelled" }
+      }).select("departmentId departmentIds assignedTo assignedBy assignmentType status statusKey endDateTime endDate dueDate finishDate")
         .populate({ path: "assignedTo", select: "_id" })
         .lean(),
-      TaskTemplate.find({
-        ...teamTaskBaseFilter,
-        ...(departmentId ? { $or: [{ departmentId }, { departmentIds: departmentId }] } : {})
-      }).select("assignedTo assignedBy assignmentType finishDate endDate repeatType")
+      TaskTemplate.find(finalTaskFilter)
+        .select("departmentId departmentIds assignedTo assignedBy assignmentType finishDate endDate repeatType")
         .populate({ path: "assignedTo", select: "_id" })
         .lean(),
-      Task.find({ companyId, assignedTo: { $in: [managerEmployeeId, userId] }, status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] }, ...(departmentId ? { departmentId } : {}) })
+      Task.find({
+        companyId,
+        $and: [
+          { assignedTo: { $in: [managerEmployeeId, userId] } },
+          ...(dObj ? [{
+            $or: [
+              { departmentId: dObj },
+              { departmentId: departmentId.toString() },
+              { departmentIds: dObj },
+              { departmentIds: departmentId.toString() },
+              ...(deptTargetAssigneeIds.includes(managerEmployeeId.toString()) || deptTargetAssigneeIds.includes(userId.toString()) ? [{ assignedTo: { $in: [managerEmployeeId, userId] } }] : [])
+            ]
+          }] : [])
+        ],
+        status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] }
+      })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .sort({ endDateTime: 1 }).limit(5).lean(),
-      Task.find({ ...teamTaskBaseFilter, status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] } })
+      Task.find({
+        ...finalTaskFilter,
+        status: { $nin: ["done", "complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"] }
+      })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ path: "assignedTo", select: "firstName lastName fullName photo employeeCode" })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .sort({ endDateTime: 1 }).limit(10).lean(),
-      Lead.countDocuments({
-        $or: [
-          { companyId: new mongoose.Types.ObjectId(companyId) },
-          { companyId: companyId ? companyId.toString() : null },
-          { companyId: null }
-        ],
-        deletedAt: null
-      }),
+      Lead.find(leadFilter).populate("statusId", "name color").sort({ createdAt: -1 }).lean(),
     ]);
 
     const isDoneStatus = (st) =>
@@ -419,18 +499,31 @@ const getManagerDashboardSummary = async (req, res, next) => {
       return assignees.some(id => managerTargetIds.includes(id)) || (managerTargetIds.includes((t.assignedBy?._id || t.assignedBy || "").toString()) && t.assignmentType === "self");
     });
 
-    // Team tasks (has team members assigned, or unassigned in department, excluding tasks where ALL assignees are the manager)
+    // Team tasks: all tasks in manager's assigned departments (or selected department), or assigned to team members, excluding tasks where ALL assignees are manager
+    const activeDeptList = dObj ? [departmentId.toString()] : deptMatchList.map(d => d.toString());
     const teamTasks = (allRawTasks || []).filter(t => {
+      const tDeptId = (t.departmentId?._id || t.departmentId || "").toString();
+      const tDeptIds = (Array.isArray(t.departmentIds) ? t.departmentIds : []).map(d => (d?._id || d || "").toString());
+      const isInDept = activeDeptList.some(d => d === tDeptId || tDeptIds.includes(d));
+
       const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
-      if (assignees.length === 0) return true;
+      if (assignees.length === 0) return isInDept;
       const allAreManager = assignees.every(id => managerTargetIds.includes(id));
-      return !allAreManager;
+      if (allAreManager) return false;
+
+      return isInDept || assignees.some(id => allTeamAssigneeIds.includes(id));
     });
     const teamTemplates = (allRawTemplates || []).filter(t => {
+      const tDeptId = (t.departmentId?._id || t.departmentId || "").toString();
+      const tDeptIds = (Array.isArray(t.departmentIds) ? t.departmentIds : []).map(d => (d?._id || d || "").toString());
+      const isInDept = activeDeptList.some(d => d === tDeptId || tDeptIds.includes(d));
+
       const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : [])).filter(Boolean).map(a => (a?._id || a || "").toString());
-      if (assignees.length === 0) return true;
+      if (assignees.length === 0) return isInDept;
       const allAreManager = assignees.every(id => managerTargetIds.includes(id));
-      return !allAreManager;
+      if (allAreManager) return false;
+
+      return isInDept || assignees.some(id => allTeamAssigneeIds.includes(id));
     });
 
     const totalMyTasks = myTasks.length + myTemplates.length;
@@ -442,7 +535,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
     const overdueTeamTasksCount = teamTasks.filter(t => isOverdueTask(t)).length;
     const completedTeamTasksCount = teamTasks.filter(t => isDoneStatus(t.status)).length;
 
-    const totalAllTasks = totalMyTasks + totalTeamTasksCount;
+    const totalAllTasks = (allRawTasks || []).length + (allRawTemplates || []).length;
 
     recentMyTasks.forEach(t => t.assignees = t.assignedTo);
     recentTeamTasks.forEach(t => t.assignees = t.assignedTo);
@@ -462,15 +555,51 @@ const getManagerDashboardSummary = async (req, res, next) => {
       }
     });
 
+    const leadTotal = (allRawLeads || []).length;
+    const leadContacted = (allRawLeads || []).filter(l => (l.statusId?.name || "").toLowerCase().includes("contact")).length;
+    const leadInProgress = (allRawLeads || []).filter(l => {
+      const n = (l.statusId?.name || "").toLowerCase();
+      return n.includes("progress") || n.includes("qualif") || n.includes("demo");
+    }).length;
+    const leadWon = (allRawLeads || []).filter(l => (l.statusId?.name || "").toLowerCase().includes("won")).length;
+
+    const leadSummary = {
+      total: leadTotal,
+      totalLeads: leadTotal,
+      contacted: leadContacted,
+      inProgress: leadInProgress,
+      won: leadWon,
+      recentLeads: (allRawLeads || []).slice(0, 4).map(l => ({
+        _id: l._id.toString(),
+        id: l._id.toString(),
+        name: l.name,
+        company: l.company || l.productService || "",
+        status: l.statusId ? { id: l.statusId._id, name: l.statusId.name, color: l.statusId.color } : null,
+        phone: l.phone || l.whatsappPhone,
+      })),
+    };
+
     const presentToday = teamAttendanceTodayRaw.filter(
       (a) => ["present", "late"].includes(a.status)
     ).length;
     const halfDayToday = teamAttendanceTodayRaw.filter(
       (a) => ["half_day", "half-day"].includes(a.status)
     ).length;
-    const onLeaveToday = teamAttendanceTodayRaw.filter(
-      (a) => ["paid_leave", "unpaid_leave"].includes(a.status)
+    const onLeaveFromAttendance = teamAttendanceTodayRaw.filter(
+      (a) => ["paid_leave", "unpaid_leave", "leave", "on_leave"].includes(a.status)
     ).length;
+
+    const approvedLeavesToday = await Leave.countDocuments({
+      companyId,
+      employeeId: { $in: teamEmpTargetIds },
+      status: "approved",
+      $or: [
+        { startDate: { $lte: new Date() }, endDate: { $gte: now } },
+        { startDate: { $lte: todayStr }, endDate: { $gte: todayStr } }
+      ]
+    }).catch(() => 0);
+
+    const onLeaveToday = Math.max(onLeaveFromAttendance, approvedLeavesToday);
     const absentToday = Math.max(0, teamCount - presentToday - halfDayToday - onLeaveToday);
 
 
@@ -486,9 +615,26 @@ const getManagerDashboardSummary = async (req, res, next) => {
       todayHours: (totalTeamWorkMinutesToday / 60).toFixed(1),
     };
 
+    const Department = require("../models/Department");
+    let accessibleDeptsList = [];
+    if (manager.managerAccessLevel === "all" || !manager.departmentId) {
+      accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
+    } else {
+      const dIds = [
+        manager.departmentId?._id || manager.departmentId,
+        ...(Array.isArray(manager.departmentIds) ? manager.departmentIds.map(d => d?._id || d) : []),
+        ...(Array.isArray(manager.accessibleDepartments) ? manager.accessibleDepartments.map(d => d?._id || d) : [])
+      ].filter(Boolean);
+      accessibleDeptsList = await Department.find({ _id: { $in: dIds }, companyId }).select("_id name").lean();
+      if (accessibleDeptsList.length === 0) {
+        accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
+      }
+    }
+
     return res.json({
       success: true,
       data: {
+        departments: accessibleDeptsList,
         manager: {
           _id: manager._id,
           fullName: manager.fullName,
@@ -501,15 +647,16 @@ const getManagerDashboardSummary = async (req, res, next) => {
           departmentIds: manager.departmentIds || [],
           photo: manager.photo || "",
           managerAccessLevel: manager.managerAccessLevel || "team",
-          accessibleDepartments: manager.accessibleDepartments || [],
+          accessibleDepartments: accessibleDeptsList,
         },
         teamSummary: { teamCount },
-        leadSummary: { totalLeads: totalLeadsCount || 0 },
+        leadSummary,
         attendanceSummary: {
           totalTeam: teamCount,
           presentToday,
           absentToday,
-          halfDayToday
+          halfDayToday,
+          onLeaveToday
         },
         leaveSummary: { pendingTeamLeaves: pendingTeamLeaves.length, onLeaveToday },
         taskSummary: {

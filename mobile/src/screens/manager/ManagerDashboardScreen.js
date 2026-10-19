@@ -128,11 +128,16 @@ const ManagerDashboardScreen = ({ navigation }) => {
     }
   };
 
+  const handleSelectDept = (deptId) => {
+    setSelectedDeptId(deptId);
+    fetchDashboard(true, deptId ? { departmentId: deptId } : {});
+  };
+
   useFocusEffect(
     useCallback(() => {
       if (refreshUserProfile) refreshUserProfile().catch(() => { });
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
-      fetchDashboard(false, params);
+      fetchDashboard(true, params);
       fetchTodayAttendance();
       if (canAccessLeads) {
         fetchLeads();
@@ -144,7 +149,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
     setRefreshing(true);
     try {
       if (refreshUserProfile) await refreshUserProfile().catch(() => { });
-      await fetchDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {});
+      await fetchDashboard(true, selectedDeptId ? { departmentId: selectedDeptId } : {});
       await fetchTodayAttendance();
       if (canAccessLeads) {
         await fetchLeads();
@@ -154,13 +159,6 @@ const ManagerDashboardScreen = ({ navigation }) => {
     }
   };
 
-  const leadStats = {
-    total: leadsList.length,
-    contacted: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("contact")).length,
-    inProgress: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("progress") || (l.status?.name || "").toLowerCase().includes("qualif")).length,
-    won: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("won")).length,
-  };
-
   const data = dashboardData || {};
   const manager = data.manager || {};
   const teamSummary = data.teamSummary || {};
@@ -168,27 +166,47 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const leaveSummary = data.leaveSummary || {};
   const taskSummary = data.taskSummary || {};
   const projectSummary = data.projectSummary || {};
+  const leadSummary = data.leadSummary || {};
   const recentTasks = data.recentTasks || [];
   const latestNotifs = data.latestNotifications || [];
   const unreadCount = latestNotifs.filter((n) => !n.isRead).length;
 
+  const leadStats = {
+    total: leadSummary.total ?? leadSummary.totalLeads ?? leadsList.length,
+    contacted: leadSummary.contacted ?? leadsList.filter((l) => (l.status?.name || l.statusId?.name || "").toLowerCase().includes("contact")).length,
+    inProgress: leadSummary.inProgress ?? leadsList.filter((l) => {
+      const n = (l.status?.name || l.statusId?.name || "").toLowerCase();
+      return n.includes("progress") || n.includes("qualif") || n.includes("demo");
+    }).length,
+    won: leadSummary.won ?? leadsList.filter((l) => (l.status?.name || l.statusId?.name || "").toLowerCase().includes("won")).length,
+  };
+
   const departmentsList = React.useMemo(() => {
     const list = [];
-    if (manager?.departmentId) {
-      list.push({
-        _id: manager.departmentId?._id || manager.departmentId,
-        name: manager.departmentId?.name || manager.department || "My Dept",
+    const source = dashboardData?.departments || manager?.accessibleDepartments || [];
+    if (Array.isArray(source)) {
+      source.forEach((d) => {
+        const id = typeof d === "object" ? d?._id : d;
+        const name = typeof d === "object" ? d?.name || "Dept" : "Dept";
+        if (id && !list.some((x) => x._id?.toString() === id.toString())) list.push({ _id: id, name });
       });
     }
-    if (Array.isArray(manager?.accessibleDepartments)) {
-      manager.accessibleDepartments.forEach((d) => {
+    if (manager?.departmentId) {
+      const id = manager.departmentId?._id || manager.departmentId;
+      const name = manager.departmentId?.name || manager.department || "My Dept";
+      if (id && !list.some((x) => x._id?.toString() === id.toString())) {
+        list.unshift({ _id: id, name });
+      }
+    }
+    if (Array.isArray(manager?.departmentIds)) {
+      manager.departmentIds.forEach((d) => {
         const id = typeof d === "object" ? d?._id : d;
         const name = typeof d === "object" ? d?.name || "Dept" : "Dept";
         if (id && !list.some((x) => x._id?.toString() === id.toString())) list.push({ _id: id, name });
       });
     }
     return list;
-  }, [manager]);
+  }, [dashboardData?.departments, manager]);
 
   if (!dashboardData && !dashboardError) {
     return (
@@ -242,11 +260,11 @@ const ManagerDashboardScreen = ({ navigation }) => {
   }
 
   // ── Attendance Metrics ──
-  const present = attendanceSummary.presentToday || 0;
-  const absent = attendanceSummary.absentToday || 0;
-  const halfDay = attendanceSummary.halfDayToday || 0;
-  const onLeave = leaveSummary.onLeaveToday || 0;
-  const staffTotal = teamSummary.teamCount || (present + absent + halfDay + onLeave) || 0;
+  const present = attendanceSummary.presentToday ?? 0;
+  const absent = attendanceSummary.absentToday ?? 0;
+  const halfDay = attendanceSummary.halfDayToday ?? 0;
+  const onLeave = attendanceSummary.onLeaveToday ?? leaveSummary.onLeaveToday ?? 0;
+  const staffTotal = attendanceSummary.totalTeam ?? teamSummary.teamCount ?? (present + absent + halfDay + onLeave) ?? 0;
   const pct = (v) => (staffTotal > 0 ? `${Math.round((v / staffTotal) * 100)}%` : "0%");
 
   const donutData = [
@@ -391,8 +409,8 @@ const ManagerDashboardScreen = ({ navigation }) => {
         {/* ── MAIN DASHBOARD BODY ── */}
         <View style={styles.bodySection}>
 
-          {/* Department Filter Pills (if multiple accessible depts) */}
-          {departmentsList.length > 1 && (
+          {/* Department Filter Pills (if accessible depts exist) */}
+          {departmentsList.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
               {["All Departments", ...departmentsList.map((d) => d.name)].map((name, i) => {
                 const deptId = i === 0 ? "" : departmentsList[i - 1]._id;
@@ -400,7 +418,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 return (
                   <TouchableOpacity
                     key={name}
-                    onPress={() => setSelectedDeptId(deptId)}
+                    onPress={() => handleSelectDept(deptId)}
                     style={[styles.deptPill, active && styles.deptPillActive]}
                   >
                     <Text style={[styles.deptPillText, active && styles.deptPillTextActive]}>{name}</Text>
@@ -442,7 +460,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && myOverdueTasksCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={[styles.alertIconBox, { backgroundColor: "#FEF2F2" }]}>
@@ -459,7 +477,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && overdueTeamTasksCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={[styles.alertIconBox, { backgroundColor: "#FFFBEB" }]}>
@@ -606,7 +624,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   )}
                 </View>
                 {canAccessTasks && (
-                  <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks", { departmentId: selectedDeptId })} activeOpacity={0.7}>
                     <Text style={styles.sectionLink}>View All Tasks</Text>
                   </TouchableOpacity>
                 )}
@@ -617,15 +635,15 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { activeTab: "teamTasks" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { activeTab: "teamTasks", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
                       <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
-                      <Text style={styles.kpiLabel}>team Tasks</Text>
+                      <Text style={styles.kpiLabel}>Team Tasks</Text>
                     </View>
                     <Text style={[styles.kpiValue, { color: "#7C3AED" }]}>{loadingDashboard ? "..." : teamTasksCount}</Text>
-                    <Text style={styles.kpiSub}>All team Tasks</Text>
+                    <Text style={styles.kpiSub}>All Team Tasks</Text>
                   </TouchableOpacity>
                 )}
 
@@ -633,15 +651,17 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#10B981" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { filter: "my", activeTab: "myTasks" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { filter: "my", activeTab: "myTasks", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
                       <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
                       <Text style={styles.kpiLabel}>My Tasks</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{loadingDashboard ? "..." : myTasksCount}</Text>
-                    <Text style={styles.kpiSub}>Pending Action</Text>
+                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{loadingDashboard ? "..." : (taskSummary.totalMyTasks ?? myTasksCount)}</Text>
+                    <Text style={styles.kpiSub}>
+                      {taskSummary.myPendingTasks !== undefined ? `Pending: ${taskSummary.myPendingTasks}` : "Assigned to me"}
+                    </Text>
                   </TouchableOpacity>
                 )}
 
@@ -649,7 +669,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#F97316" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
@@ -665,7 +685,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "myTasks", dateFilter: "all_time", departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
@@ -681,7 +701,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessAttendance && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#059669" }]}
-                    onPress={() => navigation.navigate("ManagerTeamAttendance")}
+                    onPress={() => navigation.navigate("ManagerTeamAttendance", { departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
@@ -697,7 +717,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessLeaves && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#3B82F6" }]}
-                    onPress={() => navigation.navigate("ManagerTeamLeaves")}
+                    onPress={() => navigation.navigate("ManagerTeamLeaves", { departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
@@ -713,7 +733,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessProjects && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#F59E0B" }]}
-                    onPress={() => navigation.navigate("ManagerProjects")}
+                    onPress={() => navigation.navigate("ManagerProjects", { departmentId: selectedDeptId })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>
@@ -728,7 +748,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {/* Fallback / Always Accessible Team Metric */}
                 <TouchableOpacity
                   style={[styles.kpiBox, { borderLeftColor: "#6366F1" }]}
-                  onPress={() => navigation.navigate("ManagerTeam")}
+                  onPress={() => navigation.navigate("ManagerTeam", { departmentId: selectedDeptId })}
                   activeOpacity={0.8}
                 >
                   <View style={styles.kpiTopRow}>
@@ -754,7 +774,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   )}
                 </View>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate("ManagerTeamAttendance")}
+                  onPress={() => navigation.navigate("ManagerTeamAttendance", { departmentId: selectedDeptId })}
                   style={styles.cardHeaderBtn}
                   activeOpacity={0.7}
                 >
@@ -882,7 +902,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
               <View style={styles.leadKpiRow}>
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
-                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList" })}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { departmentId: selectedDeptId } })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.total}</Text>
@@ -891,7 +911,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#8B5CF6" }]}
-                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "contacted" } })}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "contacted", departmentId: selectedDeptId } })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.contacted}</Text>
@@ -900,7 +920,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
-                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "in_progress" } })}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "in_progress", departmentId: selectedDeptId } })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.inProgress}</Text>
@@ -909,7 +929,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
-                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "won" } })}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "won", departmentId: selectedDeptId } })}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{loadingLeads ? "..." : leadStats.won}</Text>
@@ -918,15 +938,32 @@ const ManagerDashboardScreen = ({ navigation }) => {
               </View>
 
               {/* Recent Leads Preview */}
-              {loadingLeads && leadsList.length === 0 ? (
-                <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
-                  <ActivityIndicator size="small" color="#8B5CF6" />
-                  <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6, fontWeight: "500" }}>Loading leads pipeline...</Text>
-                </View>
-              ) : leadsList.length > 0 ? (
-                <View style={styles.recentLeadsWrapper}>
-                  <Text style={styles.recentLeadHeader}>Recent Prospects</Text>
-                  {leadsList.slice(0, 3).map((lead, idx) => {
+              {(() => {
+                const displayedRecentLeads = (leadSummary.recentLeads && leadSummary.recentLeads.length > 0)
+                  ? leadSummary.recentLeads
+                  : leadsList;
+
+                if (loadingLeads && displayedRecentLeads.length === 0) {
+                  return (
+                    <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
+                      <ActivityIndicator size="small" color="#8B5CF6" />
+                      <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6, fontWeight: "500" }}>Loading leads pipeline...</Text>
+                    </View>
+                  );
+                }
+
+                if (displayedRecentLeads.length === 0) {
+                  return (
+                    <View style={{ paddingVertical: 14, alignItems: "center" }}>
+                      <Text style={{ fontSize: 12, color: "#94A3B8", fontWeight: "500" }}>No leads in this department</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <View style={styles.recentLeadsWrapper}>
+                    <Text style={styles.recentLeadHeader}>Recent Prospects</Text>
+                    {displayedRecentLeads.slice(0, 3).map((lead, idx) => {
                     const sName = lead.status?.name || "New";
                     const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10B981" : sName.toLowerCase().includes("contact") ? "#3B82F6" : "#8B5CF6");
                     const targetLeadId = lead.id || lead._id || lead.leadId;
@@ -963,8 +1000,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       </TouchableOpacity>
                     );
                   })}
-                </View>
-              ) : null}
+                  </View>
+                );
+              })()}
 
               {/* Direct Open Button */}
               <TouchableOpacity

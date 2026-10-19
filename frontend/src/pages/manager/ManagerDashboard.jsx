@@ -497,7 +497,7 @@ export default function ManagerDashboard() {
       ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
       (t.isTemplate && (t.isActive || t.status === "active"))
     ).length;
-    return Math.max(count, tasks.myPendingTasks ?? 0);
+    return Math.max(count, tasks.openTeamTasks ?? 0);
   }, [realTasks, tasks]);
 
   const overdueTasksCount = useMemo(() => {
