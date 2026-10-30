@@ -39,6 +39,8 @@ export const getWeeklyTimesheetApi = (params = {}) => api.get("/employee/timeshe
 // ── Employee Attendance ──────────────────────────────────────────────────
 export const punchInApi = (data = {}) => api.post("/attendance/punch-in", data);
 export const punchOutApi = (data = {}) => api.post("/attendance/punch-out", data);
+export const startBreakApi = (data = {}) => api.post("/attendance/break/start", data);
+export const endBreakApi = () => api.post("/attendance/break/end", {});
 export const getMyTodayAttendanceApi = () => api.get("/attendance/my-today");
 export const getMyMonthlyAttendanceApi = (params = {}) => api.get("/attendance/my-monthly", { params });
 export const submitRegularizationApi = (data) => api.post("/attendance/regularization", data);

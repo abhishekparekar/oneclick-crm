@@ -356,8 +356,8 @@ const {
 
 router.get("/attendance", ...adminHrManager, companyAttendance);
 router.get("/attendance/:employeeId/monthly", ...adminHrManager, employeeAttendance);
-router.patch("/attendance/:id/manual-update", ...adminHr, manualUpdateAttendance);
-router.post("/attendance/manual-update", ...adminHr, manualUpdateAttendance);
+router.patch("/attendance/:id/manual-update", ...adminHrManager, manualUpdateAttendance);
+router.post("/attendance/manual-update", ...adminHrManager, manualUpdateAttendance);
 router.delete("/attendance/:id", ...adminHr, deleteAttendance);
 router.get("/attendance/regularization", ...adminHr, getRegularizationRequests);
 router.patch("/attendance/regularization/:id/approve", ...adminHr, approveRegularization);

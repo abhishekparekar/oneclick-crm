@@ -170,6 +170,70 @@ const companySchema = new mongoose.Schema(
           notifyAdmin: { type: Boolean, default: false },
         },
       },
+      taskNotifications: {
+        taskCreated: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskAssigned: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskStatusChanged: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskCompleted: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskLateCompleted: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskOverdue: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskComments: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+        taskFollowUp: {
+          enabled: { type: Boolean, default: true },
+          notifyAssignee: { type: Boolean, default: true },
+          notifyManager: { type: Boolean, default: true },
+          notifyAdmin: { type: Boolean, default: true },
+        },
+      },
+      breaks: {
+        lunchBreak: {
+          enabled: { type: Boolean, default: true },
+          durationMinutes: { type: Number, default: 45 },
+          startTime: { type: String, default: "13:00" },
+          endTime: { type: String, default: "14:00" },
+        },
+        teaBreak: {
+          enabled: { type: Boolean, default: true },
+          durationMinutes: { type: Number, default: 15 },
+          maxPerDay: { type: Number, default: 2 },
+        },
+        deductFromWorkingHours: { type: Boolean, default: true },
+      },
     },
   },
   {

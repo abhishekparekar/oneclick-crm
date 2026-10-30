@@ -411,12 +411,55 @@ const ManagerTeamAttendanceDetailsScreen = ({ route, navigation }) => {
 
                   <View style={styles.modalStatBox}>
                     <Ionicons name="time-outline" size={18} color="#2563EB" />
-                    <Text style={styles.modalStatLbl}>Total Hours</Text>
+                    <Text style={styles.modalStatLbl}>Shift Hours</Text>
                     <Text style={styles.modalStatVal}>
                       {selectedDayRecord.totalHours ? `${selectedDayRecord.totalHours} hrs` : "--"}
                     </Text>
                   </View>
                 </View>
+
+                {/* Break & Net Hours Summary */}
+                <View style={[styles.modalStatsRow, { marginTop: 8 }]}>
+                  <View style={styles.modalStatBox}>
+                    <Ionicons name="cafe-outline" size={18} color="#D97706" />
+                    <Text style={styles.modalStatLbl}>Break Time</Text>
+                    <Text style={[styles.modalStatVal, { color: "#D97706" }]}>
+                      {selectedDayRecord.totalBreakMinutes ? `${selectedDayRecord.totalBreakMinutes} mins` : "0 mins"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalStatBox}>
+                    <Ionicons name="flash-outline" size={18} color="#16A34A" />
+                    <Text style={styles.modalStatLbl}>Net Productive</Text>
+                    <Text style={[styles.modalStatVal, { color: "#16A34A" }]}>
+                      {selectedDayRecord.netWorkingHours !== undefined && selectedDayRecord.netWorkingHours !== null
+                        ? `${selectedDayRecord.netWorkingHours} hrs`
+                        : selectedDayRecord.totalHours ? `${selectedDayRecord.totalHours} hrs` : "--"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* List of Breaks */}
+                {selectedDayRecord.breaks && selectedDayRecord.breaks.length > 0 && (
+                  <View style={{ backgroundColor: "#FFFBEB", borderRadius: 10, padding: 10, marginTop: 10, borderWidth: 1, borderColor: "#FDE68A" }}>
+                    <Text style={{ fontSize: 11, fontWeight: "800", color: "#B45309", marginBottom: 6 }}>
+                      ☕ BREAKS TAKEN TODAY ({selectedDayRecord.breaks.length})
+                    </Text>
+                    {selectedDayRecord.breaks.map((b, idx) => (
+                      <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4, borderBottomWidth: idx < selectedDayRecord.breaks.length - 1 ? 0.5 : 0, borderBottomColor: "#FDE68A" }}>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#1E293B", textTransform: "capitalize" }}>
+                          {b.breakType || "Break"}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: "#64748B" }}>
+                          {formatTime(b.startTime)} - {b.endTime ? formatTime(b.endTime) : "Active"}
+                        </Text>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#D97706" }}>
+                          {b.durationMinutes ? `${b.durationMinutes}m` : "ongoing"}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {selectedDayRecord.punchInLocation && (
                   <View style={styles.modalLocationBox}>

@@ -68,7 +68,7 @@ const HR_NAV_SECTIONS = [
     title: "PEOPLE & ONBOARDING",
     items: [
       { label: "Add Employee", path: "/hr/employees/add", icon: UserPlus },
-      { label: "Document Management", path: "/hr/upload-document", icon: FileUp },
+      // { label: "Document Management", path: "/hr/upload-document", icon: FileUp },
       { label: "Leave Balances", path: "/hr/leave-balance", icon: Clock, module: "leave" },
       { label: "Holidays Calendar", path: "/hr/holidays", icon: CalendarDays, module: "leave" },
       { label: "Departments", path: "/hr/departments", icon: GitBranch },

@@ -147,6 +147,8 @@ export default function EmployeeLeads() {
     Boolean(user?.permissions?.leads?.assign || user?.permissions?.leads?.assignLeads);
 
   const [dateTab, setDateTab] = useState("All Time");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -221,6 +223,7 @@ export default function EmployeeLeads() {
     const now = new Date();
     let start = "", end = "";
     if (tabName === "Today") { start = end = formatDate(now); }
+    else if (tabName === "Tomorrow") { const t = new Date(now); t.setDate(now.getDate() + 1); start = end = formatDate(t); }
     else if (tabName === "Yesterday") { const y = new Date(now); y.setDate(now.getDate() - 1); start = end = formatDate(y); }
     else if (tabName === "This Week") {
       const s = new Date(now); s.setDate(now.getDate() - now.getDay());
@@ -232,6 +235,9 @@ export default function EmployeeLeads() {
     } else if (tabName === "This Month") {
       start = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
       end = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    } else if (tabName === "Custom") {
+      start = customStartDate || "";
+      end = customEndDate || "";
     }
     return { start, end };
   };
@@ -318,7 +324,7 @@ export default function EmployeeLeads() {
   );
 
   // Date Categories Count
-  const dateCategories = ["Today", "Yesterday", "This Week", "Last Month", "This Month", "All Time", "Follow-ups Due"];
+  const dateCategories = ["Today", "Tomorrow", "Yesterday", "This Week", "Last Month", "This Month", "Custom", "All Time", "Follow-ups Due"];
   const categoryCounts = useMemo(() => {
     return dateCategories.map(cat => {
       let count = 0;
@@ -330,7 +336,7 @@ export default function EmployeeLeads() {
       }
       return { name: cat, count };
     });
-  }, [leadsList]);
+  }, [leadsList, customStartDate, customEndDate]);
 
   // Base Leads for selected date tab
   const baseTabLeads = useMemo(() => {
@@ -341,7 +347,7 @@ export default function EmployeeLeads() {
       const { start, end } = getDates(dateTab);
       return isLeadInDateRange(lead, start, end);
     });
-  }, [leadsList, dateTab]);
+  }, [leadsList, dateTab, customStartDate, customEndDate]);
 
   // Status counts map
   const statusCounts = useMemo(() => {
@@ -618,6 +624,40 @@ export default function EmployeeLeads() {
             );
           })}
         </div>
+
+        {/* ── Custom Date Range Inputs Row ──────────────────────────── */}
+        {dateTab === "Custom" && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs animate-fadeIn">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+              <Calendar size={13} /> Custom Range:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">From</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">To</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={e => setCustomEndDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                className="text-[11px] font-bold text-rose-500 hover:text-rose-600 transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              >
+                Clear Range
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Row 2:  Status Filter Pills ───────────────────────────── */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">

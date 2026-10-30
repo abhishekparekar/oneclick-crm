@@ -27,6 +27,72 @@ const ALL_MODULES = [
   { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
 ];
 
+const STANDARD_VAULT_DOCS = [
+  {
+    key: "aadhaarFront",
+    title: "Aadhaar Card (Front)",
+    category: "Identity Proof",
+    categoryColor: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+    badgeColor: "bg-blue-500",
+    icon: ShieldCheck,
+    description: "Front side showing candidate photo, name & 12-digit Aadhaar number",
+  },
+  {
+    key: "aadhaarBack",
+    title: "Aadhaar Card (Back)",
+    category: "Identity Proof",
+    categoryColor: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+    badgeColor: "bg-blue-500",
+    icon: ShieldCheck,
+    description: "Back side showing address, father/husband name & QR code",
+  },
+  {
+    key: "panCard",
+    title: "PAN Card",
+    category: "Tax & Financial Identity",
+    categoryColor: "text-purple-600 bg-purple-500/10 border-purple-500/20",
+    badgeColor: "bg-purple-500",
+    icon: CreditCard,
+    description: "Permanent Account Number card with clear photo & signature",
+  },
+  {
+    key: "resume",
+    title: "Resume / CV",
+    category: "Career Profile",
+    categoryColor: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
+    badgeColor: "bg-emerald-500",
+    icon: FileText,
+    description: "Candidate's latest curriculum vitae, skills & experience",
+  },
+  {
+    key: "offerLetter",
+    title: "Offer Letter",
+    category: "Employment Contract",
+    categoryColor: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+    badgeColor: "bg-amber-500",
+    icon: Award,
+    description: "Signed job offer letter including compensation terms",
+  },
+  {
+    key: "joiningLetter",
+    title: "Joining Letter",
+    category: "Employment Contract",
+    categoryColor: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+    badgeColor: "bg-amber-500",
+    icon: FileCheck,
+    description: "Candidate appointment or joining letter with start date",
+  },
+  {
+    key: "salarySlipPrevious",
+    title: "Previous Salary Slip",
+    category: "Financial Proof",
+    categoryColor: "text-teal-600 bg-teal-500/10 border-teal-500/20",
+    badgeColor: "bg-teal-500",
+    icon: DollarSign,
+    description: "Last drawn payslip or bank statement from previous employer",
+  },
+];
+
 const getPhotoUrl = (rawPhoto) => {
   if (!rawPhoto || typeof rawPhoto !== "string") return null;
   const trimmed = rawPhoto.trim();
@@ -375,9 +441,120 @@ export default function AddEmployee() {
     },
     aadhaarNumber: "",
     panNumber: "",
-    documents: [],
+    documents: {
+      aadhaarFront: null,
+      aadhaarBack: null,
+      panCard: null,
+      resume: null,
+      offerLetter: null,
+      joiningLetter: null,
+      salarySlipPrevious: null,
+      customDocuments: [],
+    },
     assignedModules: authCompanyModules || [],
   });
+
+  // Document Vault States & Handlers
+  const [selectedVaultDocKey, setSelectedVaultDocKey] = useState("aadhaarFront");
+  const [customVaultDocTitle, setCustomVaultDocTitle] = useState("");
+  const [previewDocModal, setPreviewDocModal] = useState(null);
+
+  const handleAttachVaultDoc = (targetKey, file, customTitle = "") => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size exceeds 5MB limit. Please upload a file under 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const isPdf = file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+      const docDef = STANDARD_VAULT_DOCS.find((d) => d.key === targetKey);
+      const title = targetKey === "custom"
+        ? (customTitle.trim() || file.name)
+        : (docDef?.title || targetKey);
+
+      const fileInfo = {
+        docKey: targetKey,
+        title,
+        fileName: file.name,
+        fileSize: (file.size / 1024).toFixed(1) + " KB",
+        fileType: isPdf ? "pdf" : "image",
+        url: reader.result,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      setFormData((prev) => {
+        const currentDocs = (prev.documents && typeof prev.documents === "object" && !Array.isArray(prev.documents))
+          ? prev.documents
+          : {
+              aadhaarFront: null,
+              aadhaarBack: null,
+              panCard: null,
+              resume: null,
+              offerLetter: null,
+              joiningLetter: null,
+              salarySlipPrevious: null,
+              customDocuments: [],
+            };
+
+        if (targetKey === "custom") {
+          return {
+            ...prev,
+            documents: {
+              ...currentDocs,
+              customDocuments: [
+                ...(currentDocs.customDocuments || []),
+                { ...fileInfo, id: Date.now().toString() },
+              ],
+            },
+          };
+        }
+
+        return {
+          ...prev,
+          documents: {
+            ...currentDocs,
+            [targetKey]: fileInfo,
+          },
+        };
+      });
+
+      if (targetKey === "custom") {
+        setCustomVaultDocTitle("");
+      }
+      toast.success(`Attached ${title}`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveVaultDoc = (key, customId = null) => {
+    setFormData((prev) => {
+      const currentDocs = (prev.documents && typeof prev.documents === "object" && !Array.isArray(prev.documents))
+        ? { ...prev.documents }
+        : {
+            aadhaarFront: null,
+            aadhaarBack: null,
+            panCard: null,
+            resume: null,
+            offerLetter: null,
+            joiningLetter: null,
+            salarySlipPrevious: null,
+            customDocuments: [],
+          };
+
+      if (key === "custom" && customId) {
+        currentDocs.customDocuments = (currentDocs.customDocuments || []).filter((cd) => cd.id !== customId);
+      } else {
+        currentDocs[key] = null;
+      }
+
+      return {
+        ...prev,
+        documents: currentDocs,
+      };
+    });
+    toast.success("Document removed");
+  };
 
   // Quick Create Modal States
   const [quickModal, setQuickModal] = useState(null);
@@ -1028,10 +1205,35 @@ export default function AddEmployee() {
       bankDetails: formData.bankDetails || undefined,
       aadhaarNumber: formData.aadhaarNumber?.trim() || undefined,
       panNumber: formData.panNumber?.trim() || undefined,
-      // documents must be object {}, never an array
-      documents: (formData.documents && !Array.isArray(formData.documents) && typeof formData.documents === "object")
-        ? formData.documents
-        : {},
+      // Format documents properly for Employee documents schema
+      documents: (() => {
+        const docs = formData.documents || {};
+        const getDocUrl = (doc) => {
+          if (!doc) return "";
+          if (typeof doc === "string") return doc;
+          return doc.url || "";
+        };
+        return {
+          aadhaarFront: getDocUrl(docs.aadhaarFront),
+          aadhaarBack: getDocUrl(docs.aadhaarBack),
+          panCard: getDocUrl(docs.panCard),
+          resume: getDocUrl(docs.resume),
+          photo: formData.photo || getDocUrl(docs.photo) || "",
+          offerLetter: getDocUrl(docs.offerLetter),
+          joiningLetter: getDocUrl(docs.joiningLetter),
+          salarySlipPrevious: getDocUrl(docs.salarySlipPrevious),
+          customDocuments: Array.isArray(docs.customDocuments)
+            ? docs.customDocuments
+                .map((cd) => ({
+                  title: cd.title || cd.fileName || "Document",
+                  url: getDocUrl(cd),
+                  uploadedAt: cd.uploadedAt || new Date().toISOString(),
+                  uploadedBy: "Admin",
+                }))
+                .filter((cd) => Boolean(cd.url))
+            : [],
+        };
+      })(),
       assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
     };
 
@@ -2229,71 +2431,306 @@ export default function AddEmployee() {
 
           {/* STEP 6: Document Vault */}
           {activeStep === 6 && (
-            <div className="space-y-3 animate-fadeIn">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <FileText size={16} className="text-amber-500" /> Employee Document Vault
-                </h3>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Attach Aadhaar, PAN, Resume, Offer Letter or Certificates</p>
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileText size={16} className="text-amber-500" /> Employee Document Vault
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                    Select document type to attach candidate Aadhaar, PAN, Resume, Offer Letter or Custom Proofs
+                  </p>
+                </div>
+                {/* Stats badge */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                    {STANDARD_VAULT_DOCS.filter((d) => Boolean(formData.documents?.[d.key]?.url || (typeof formData.documents?.[d.key] === "string" && formData.documents?.[d.key]))).length} of {STANDARD_VAULT_DOCS.length} Standard Attached
+                  </span>
+                  {Array.isArray(formData.documents?.customDocuments) && formData.documents.customDocuments.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                      +{formData.documents.customDocuments.length} Additional
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-2">
-                <FileCheck size={28} className="mx-auto text-amber-500" />
-                <p className="text-xs font-black text-slate-900 dark:text-white">Upload Candidate Verified Proofs</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">PDF, PNG, JPG files up to 5MB supported</p>
-                <input
-                  type="file"
-                  id="vaultDocUpload"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        documents: [
-                          ...(prev.documents || []),
-                          {
-                            title: file.name,
-                            url: reader.result,
-                            type: file.type.includes("pdf") ? "pdf" : "image",
-                            uploadedAt: new Date().toISOString(),
-                          },
-                        ],
-                      }));
-                      toast.success(`Attached ${file.name}`);
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => document.getElementById("vaultDocUpload")?.click()}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Upload size={13} strokeWidth={2.5} />
-                  <span>Choose File to Attach</span>
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {(formData.documents || []).map((doc, idx) => (
-                  <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-amber-500" />
-                      <span className="font-bold text-slate-900 dark:text-white truncate max-w-xs">{doc.title}</span>
+              {/* ── Document Type Selector & Quick Upload Bar ── */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-2xs">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                  {/* 1. Select Doc Type */}
+                  <div className={selectedVaultDocKey === "custom" ? "md:col-span-4" : "md:col-span-5"}>
+                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                      1. Select Document To Upload <span className="text-rose-500 font-black">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedVaultDocKey}
+                        onChange={(e) => setSelectedVaultDocKey(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2 text-xs font-bold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer appearance-none"
+                      >
+                        <optgroup label="Standard Candidate Proofs">
+                          {STANDARD_VAULT_DOCS.map((doc) => {
+                            const isAttached = Boolean(formData.documents?.[doc.key]?.url || (typeof formData.documents?.[doc.key] === "string" && formData.documents?.[doc.key]));
+                            return (
+                              <option key={doc.key} value={doc.key}>
+                                {doc.title} {isAttached ? "✓ (Attached)" : ""}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                        <optgroup label="Custom Attachments">
+                          <option value="custom">✨ Other / Additional Certificate...</option>
+                        </optgroup>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
+                  </div>
+
+                  {/* 2. Custom Title (if custom chosen) */}
+                  {selectedVaultDocKey === "custom" && (
+                    <div className="md:col-span-4">
+                      <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                        2. Document Title / Name <span className="text-rose-500 font-black">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Degree Certificate, Relieving Letter..."
+                        value={customVaultDocTitle}
+                        onChange={(e) => setCustomVaultDocTitle(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                      />
+                    </div>
+                  )}
+
+                  {/* 3. File Trigger Button */}
+                  <div className={selectedVaultDocKey === "custom" ? "md:col-span-4" : "md:col-span-7"}>
+                    <input
+                      type="file"
+                      id="vaultDocUpload"
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (selectedVaultDocKey === "custom" && !customVaultDocTitle.trim()) {
+                            toast.error("Please enter a document title first");
+                            return;
+                          }
+                          handleAttachVaultDoc(selectedVaultDocKey, file, customVaultDocTitle);
+                        }
+                        e.target.value = "";
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={() => setFormData((p) => ({ ...p, documents: p.documents.filter((_, i) => i !== idx) }))}
-                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                      onClick={() => {
+                        if (selectedVaultDocKey === "custom" && !customVaultDocTitle.trim()) {
+                          toast.error("Please enter a document title first");
+                          return;
+                        }
+                        document.getElementById("vaultDocUpload")?.click();
+                      }}
+                      className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-slate-950 font-black text-xs rounded-xl shadow-2xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                     >
-                      <Trash2 size={14} />
+                      <Upload size={14} strokeWidth={2.5} />
+                      <span className="truncate">
+                        Upload File for:{" "}
+                        <span className="underline underline-offset-2">
+                          {selectedVaultDocKey === "custom"
+                            ? (customVaultDocTitle || "Custom Proof")
+                            : (STANDARD_VAULT_DOCS.find((d) => d.key === selectedVaultDocKey)?.title || "Document")}
+                        </span>
+                      </span>
                     </button>
                   </div>
-                ))}
+                </div>
+
+                {/* Helpful status row */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>
+                    {selectedVaultDocKey === "custom"
+                      ? "Supported: PDF, JPG, PNG, DOC up to 5MB"
+                      : (STANDARD_VAULT_DOCS.find((d) => d.key === selectedVaultDocKey)?.description || "Attach verified proof")}
+                  </span>
+                  {selectedVaultDocKey !== "custom" && formData.documents?.[selectedVaultDocKey]?.fileName && (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Currently attached: {formData.documents[selectedVaultDocKey].fileName} ({formData.documents[selectedVaultDocKey].fileSize})
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* ── Standard Verified Document Checklist ── */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Standard Verified Documents (Select &amp; Upload per Slot)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {STANDARD_VAULT_DOCS.map((docDef) => {
+                    const docObj = formData.documents?.[docDef.key];
+                    const isAttached = Boolean(docObj && (docObj.url || typeof docObj === "string"));
+                    const fileName = docObj?.fileName || (typeof docObj === "string" ? "Attached Document" : docDef.title);
+                    const fileSize = docObj?.fileSize || "";
+                    const DocIcon = docDef.icon;
+
+                    return (
+                      <div
+                        key={docDef.key}
+                        className={`p-3.5 rounded-2xl border transition-all ${
+                          isAttached
+                            ? "bg-emerald-500/5 border-emerald-500/30 dark:bg-emerald-950/10"
+                            : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${docDef.categoryColor}`}>
+                              <DocIcon size={16} strokeWidth={2.2} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-black text-slate-900 dark:text-white truncate leading-tight">
+                                {docDef.title}
+                              </h4>
+                              <span className="text-[10px] text-slate-400 block truncate">
+                                {docDef.category}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isAttached ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0">
+                              <CheckCircle2 size={11} /> Attached
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200/60 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+                              Optional
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 line-clamp-1 mb-2.5">
+                          {docDef.description}
+                        </p>
+
+                        {/* Card Footer Actions */}
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-xs">
+                          {isAttached ? (
+                            <>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                                  {fileName}
+                                </p>
+                                {fileSize && <p className="text-[9.5px] text-slate-400">{fileSize}</p>}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewDocModal({
+                                    title: docDef.title,
+                                    fileName,
+                                    url: docObj?.url || (typeof docObj === "string" ? docObj : ""),
+                                    fileType: docObj?.fileType || "image",
+                                  })}
+                                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500 transition-colors cursor-pointer"
+                                  title="Preview Document"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <label
+                                  htmlFor={`card-upload-${docDef.key}`}
+                                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500 cursor-pointer transition-colors"
+                                  title="Replace File"
+                                >
+                                  <RefreshCw size={13} />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveVaultDoc(docDef.key)}
+                                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                  title="Remove Document"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[10px] text-slate-400">PDF, JPG, PNG (up to 5MB)</span>
+                              <label
+                                htmlFor={`card-upload-${docDef.key}`}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 dark:bg-slate-800 dark:hover:bg-amber-500 text-slate-700 hover:text-slate-950 dark:text-slate-200 dark:hover:text-slate-950 font-bold text-[11px] rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
+                              >
+                                <Upload size={11} /> Attach File
+                              </label>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            id={`card-upload-${docDef.key}`}
+                            className="hidden"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAttachVaultDoc(docDef.key, file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Additional Custom Documents List ── */}
+              {Array.isArray(formData.documents?.customDocuments) && formData.documents.customDocuments.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Additional Attached Certificates &amp; Proofs ({formData.documents.customDocuments.length})
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {formData.documents.customDocuments.map((cd) => (
+                      <div
+                        key={cd.id}
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <FileText size={14} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{cd.title}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{cd.fileName} • {cd.fileSize}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocModal({
+                              title: cd.title,
+                              fileName: cd.fileName,
+                              url: cd.url,
+                              fileType: cd.fileType || "image",
+                            })}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                            title="Preview"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVaultDoc("custom", cd.id)}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                            title="Remove"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2542,23 +2979,116 @@ export default function AddEmployee() {
                 </div>
               </div>
 
-              {/* ── Documents (conditional) ── */}
-              {Array.isArray(formData.documents) && formData.documents.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
-                    <FileText size={13} className="text-amber-500" />
-                    <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Documents ({formData.documents.length})</span>
-                    <button type="button" onClick={() => setActiveStep(6)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
-                  </div>
-                  <div className="p-4 flex flex-wrap gap-2">
-                    {formData.documents.map((doc, idx) => (
-                      <span key={idx} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                        <FileText size={11} className="text-amber-500" /> {doc.title}
+              {/* ── Section 7: Documents Review ── */}
+              {(() => {
+                const docs = formData.documents || {};
+                const attachedStandard = STANDARD_VAULT_DOCS.filter(
+                  (d) => docs[d.key] && (docs[d.key]?.url || (typeof docs[d.key] === "string" && docs[d.key]))
+                );
+                const attachedCustom = Array.isArray(docs.customDocuments) ? docs.customDocuments : [];
+                const totalCount = attachedStandard.length + attachedCustom.length;
+
+                return (
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                      <FileText size={13} className="text-amber-500" />
+                      <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                        Candidate Documents ({totalCount} Attached)
                       </span>
-                    ))}
+                      <button type="button" onClick={() => setActiveStep(6)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                        Edit Vault
+                      </button>
+                    </div>
+
+                    {totalCount === 0 ? (
+                      <div className="p-4 text-center">
+                        <p className="text-[11px] text-slate-400 italic">No candidate proofs attached in Document Vault (Optional)</p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStep(6)}
+                          className="mt-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Upload size={12} /> Attach Documents in Step 6
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {attachedStandard.map((docDef) => {
+                          const docObj = docs[docDef.key];
+                          const fileName = docObj?.fileName || docDef.title;
+                          const url = docObj?.url || (typeof docObj === "string" ? docObj : "");
+                          return (
+                            <div
+                              key={docDef.key}
+                              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-emerald-500 shrink-0">
+                                  <CheckCircle2 size={13} />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{docDef.title}</p>
+                                  <p className="text-[10px] text-slate-500 truncate">{fileName}</p>
+                                </div>
+                              </div>
+                              {url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewDocModal({
+                                    title: docDef.title,
+                                    fileName,
+                                    url,
+                                    fileType: docObj?.fileType || "image"
+                                  })}
+                                  className="p-1 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 shrink-0 cursor-pointer"
+                                  title="Preview"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {attachedCustom.map((cd, idx) => {
+                          const fileName = cd.fileName || cd.title;
+                          const url = cd.url || "";
+                          return (
+                            <div
+                              key={`custom-${idx}`}
+                              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-amber-500 shrink-0">
+                                  <FileText size={13} />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{cd.title}</p>
+                                  <p className="text-[10px] text-slate-500 truncate">{fileName}</p>
+                                </div>
+                              </div>
+                              {url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewDocModal({
+                                    title: cd.title,
+                                    fileName,
+                                    url,
+                                    fileType: cd.fileType || "image"
+                                  })}
+                                  className="p-1 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 shrink-0 cursor-pointer"
+                                  title="Preview"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ── CTA Banner ── */}
               <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2774,6 +3304,65 @@ export default function AddEmployee() {
                 <span>Request Plan Upgrade</span>
                 <ArrowUpRight size={12} />
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Document Vault Preview Modal ── */}
+      {previewDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="min-w-0 pr-2">
+                <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 truncate">
+                  <FileText size={16} className="text-amber-500 shrink-0" /> {previewDocModal.title}
+                </h4>
+                <p className="text-[11px] text-slate-500 truncate">{previewDocModal.fileName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDocModal(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-auto flex items-center justify-center bg-slate-50 dark:bg-[#0B101B] rounded-2xl p-4 border border-slate-200 dark:border-slate-800">
+              {previewDocModal.fileType === "image" || previewDocModal.url?.startsWith("data:image") ? (
+                <img
+                  src={previewDocModal.url}
+                  alt={previewDocModal.title}
+                  className="max-h-[50vh] max-w-full object-contain rounded-xl shadow-xs"
+                />
+              ) : (
+                <div className="text-center p-8 space-y-3">
+                  <FileCheck size={48} className="mx-auto text-amber-500" />
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    PDF Document ({previewDocModal.fileName})
+                  </p>
+                  <a
+                    href={previewDocModal.url}
+                    download={previewDocModal.fileName}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-black shadow-xs cursor-pointer"
+                  >
+                    <Download size={13} /> View / Download Document
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setPreviewDocModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>

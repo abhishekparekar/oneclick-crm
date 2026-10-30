@@ -100,18 +100,16 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
           <span className="text-slate-400 text-[9px] sm:text-[9.5px]">vs {period}</span>
         </div>
       </div>
-      <div className="hidden sm:block h-8 sm:h-9 w-10 sm:w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={32}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-mgr-${label.replace(/\s+/g, "")}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-mgr-${label.replace(/\s+/g, "")})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="hidden sm:block h-8 w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
+        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-mgr-${label.replace(/\s+/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-mgr-${label.replace(/\s+/g, "")})`}/>
+        </AreaChart>
       </div>
     </div>
   );

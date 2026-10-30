@@ -136,7 +136,16 @@ const HRAttendanceScreen = ({ navigation }) => {
             <Text style={styles.empName}>{empName}</Text>
             <Text style={styles.empCode}>Code: {empCode} • Date: {item.date}</Text>
           </View>
-          {getStatusBadge(item.status)}
+          <View style={{ alignItems: "flex-end" }}>
+            {getStatusBadge(item.status)}
+            {item.isOnBreak && (
+              <View style={[styles.badge, { backgroundColor: "#fef3c7", borderColor: "#fde68a", borderWidth: 1, marginTop: 4 }]}>
+                <Text style={[styles.badgeText, { color: "#d97706", fontWeight: "700" }]}>
+                  ☕ {item.currentBreakType === "lunch" ? "LUNCH BREAK" : item.currentBreakType === "tea" ? "TEA BREAK" : "ON BREAK"}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.divider} />
@@ -151,10 +160,17 @@ const HRAttendanceScreen = ({ navigation }) => {
             <Text style={styles.timeVal}>{outTimeStr}</Text>
           </View>
           <View style={styles.timeCol}>
-            <Text style={styles.timeLabel}>Total Hours</Text>
+            <Text style={styles.timeLabel}>Net Hours</Text>
             <Text style={[styles.timeVal, { color: "#2563eb" }]}>
-              {item.totalHours ? formatWorkingHours(item.totalHours) : "—"}
+              {item.netWorkingHours !== undefined && item.netWorkingHours !== null
+                ? formatWorkingHours(item.netWorkingHours)
+                : item.totalHours ? formatWorkingHours(item.totalHours) : "—"}
             </Text>
+            {item.totalBreakMinutes > 0 && (
+              <Text style={{ fontSize: 9.5, color: "#d97706", fontWeight: "600", marginTop: 2 }}>
+                ☕ {item.totalBreakMinutes}m break
+              </Text>
+            )}
           </View>
         </View>
       </TouchableOpacity>

@@ -1023,6 +1023,25 @@ const updateCompanySettings = async (req, res, next) => {
             }
         }
 
+        if (req.body.workingDays !== undefined && Array.isArray(req.body.workingDays)) {
+            try {
+                const DAY_MAP = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+                const workingIndices = req.body.workingDays
+                    .map((d) => DAY_MAP[String(d).toLowerCase().trim()])
+                    .filter((n) => n !== undefined);
+                const derivedWeeklyOffs = [0, 1, 2, 3, 4, 5, 6].filter((d) => !workingIndices.includes(d));
+
+                const PayrollSettings = require("../models/PayrollSettings");
+                await PayrollSettings.findOneAndUpdate(
+                    { companyId: req.companyId },
+                    { $set: { weeklyOffDays: derivedWeeklyOffs } },
+                    { upsert: true }
+                );
+            } catch (err) {
+                console.error("PayrollSettings weeklyOffDays sync error:", err.message);
+            }
+        }
+
         res.json({ success: true, settings: company.settings, message: "Settings updated successfully" });
     } catch (error) {
         next(error);
@@ -2439,18 +2458,15 @@ const generatePayroll = async (req, res, next) => {
                     if (record.date) {
                         const recDate = new Date(record.date);
                         const dayOfWeek = recDate.getDay();
-                        // Only consider attendance records on weekdays (Monday to Friday)
-                        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                            const status = record.status ? record.status.toLowerCase() : "";
-                            if (status === "present") {
-                                presentCount++;
-                            } else if (status === "late") {
-                                lateCount++;
-                            } else if (status === "half_day" || status === "half-day") {
-                                halfDayCount++;
-                            } else if (status === "absent") {
-                                absentCount++;
-                            }
+                        const status = (record.status || "").toLowerCase().replace(/[-_ ]/g, "").trim();
+                        if (status === "present") {
+                            presentCount++;
+                        } else if (status === "late") {
+                            lateCount++;
+                        } else if (status === "halfday") {
+                            halfDayCount++;
+                        } else if (status === "absent" && dayOfWeek !== 0 && dayOfWeek !== 6) {
+                            absentCount++;
                         }
                     }
                 });

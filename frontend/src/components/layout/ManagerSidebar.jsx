@@ -51,7 +51,7 @@ const MANAGER_SECTIONS = [
     title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
-      { label: "Upload Documents", path: "/manager/upload-document", icon: FileUp, permission: ["teamMembers", "uploadDocs"] },
+      // { label: "Upload Documents", path: "/manager/upload-document", icon: FileUp, permission: ["teamMembers", "uploadDocs"] },
       { label: "My Attendance", path: "/manager/my-attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       // { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },

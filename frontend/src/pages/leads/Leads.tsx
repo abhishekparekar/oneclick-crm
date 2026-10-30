@@ -421,7 +421,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
 
   // Timeframe & View State
-  const [activeTab, setActiveTab] = useState<'All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month'>('All Time');
+  const [activeTab, setActiveTab] = useState<'All Time' | 'Today' | 'Tomorrow' | 'Yesterday' | 'This Week' | 'This Month' | 'Custom'>('All Time');
   const [viewMode, setViewMode] = useState<'cards' | 'kanban' | 'list'>('list');
   const [showStatusCards, setShowStatusCards] = useState(false);
 
@@ -982,6 +982,10 @@ export default function Leads() {
       if (qTab === 'Today') {
         const d = new Date(); d.setHours(0, 0, 0, 0); computedStart = d.toISOString();
         const de = new Date(); de.setHours(23, 59, 59, 999); computedEnd = de.toISOString();
+      } else if (qTab === 'Tomorrow') {
+        const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); computedStart = d.toISOString();
+        const de = new Date(); de.setDate(de.getDate() + 1); de.setHours(23, 59, 59, 999); computedEnd = de.toISOString();
+        url += `&timeframe=tomorrow`;
       } else if (qTab === 'Yesterday') {
         const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(0, 0, 0, 0); computedStart = d.toISOString();
         const de = new Date(); de.setDate(de.getDate() - 1); de.setHours(23, 59, 59, 999); computedEnd = de.toISOString();
@@ -989,6 +993,14 @@ export default function Leads() {
         const d = new Date(); d.setDate(d.getDate() - d.getDay()); d.setHours(0, 0, 0, 0); computedStart = d.toISOString();
       } else if (qTab === 'This Month') {
         const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); computedStart = d.toISOString();
+      } else if (qTab === 'Custom') {
+        if (customStartDate) {
+          const cs = new Date(customStartDate); cs.setHours(0, 0, 0, 0); computedStart = cs.toISOString();
+        }
+        if (customEndDate) {
+          const ce = new Date(customEndDate); ce.setHours(23, 59, 59, 999); computedEnd = ce.toISOString();
+        }
+        url += `&includeFollowUp=true`;
       }
 
       if (computedStart) url += `&startDate=${encodeURIComponent(computedStart)}`;
@@ -1014,7 +1026,7 @@ export default function Leads() {
   };
 
   useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchProducts(); fetchEmployees(); fetchStats(); }, []);
-  useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, selectedAssignee, selectedProduct, activeTab]);
+  useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, selectedAssignee, selectedProduct, activeTab, customStartDate, customEndDate]);
 
   // Checkbox helpers
   const allChecked = leads.length > 0 && leads.every(l => checkedIds.has(l.id));
@@ -1347,7 +1359,7 @@ export default function Leads() {
   const optedInCount = leads.filter(l => l.whatsappOptIn).length;
   const newLeadsCount = leads.filter(l => l.status?.name?.toLowerCase().includes('new')).length;
 
-  const dateTabs: ('All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month')[] = ["All Time", "Today", "Yesterday", "This Week", "This Month"];
+  const dateTabs: ('All Time' | 'Today' | 'Tomorrow' | 'Yesterday' | 'This Week' | 'This Month' | 'Custom')[] = ["All Time", "Today", "Tomorrow", "Yesterday", "This Week", "This Month", "Custom"];
 
   return (
     <div className="animate-fadeIn space-y-2.5 max-w-[1440px] mx-auto pt-0 pb-8 font-sans text-slate-900 dark:text-slate-100">
@@ -1527,6 +1539,40 @@ export default function Leads() {
             </button>
           </div>
         </div>
+
+        {/* ── Custom Date Range Inputs Row ──────────────────────────── */}
+        {activeTab === 'Custom' && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs animate-fadeIn">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+              <Calendar size={13} /> Custom Range:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">From</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">To</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={e => setCustomEndDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                className="text-[11px] font-bold text-rose-500 hover:text-rose-600 transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              >
+                Clear Range
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Row 2:  Status Filter Pills ───────────────────────────── */}
         <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pt-1.5 border-t border-slate-100 dark:border-slate-800">

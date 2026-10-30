@@ -21,7 +21,7 @@ const Branch = require("../models/Branch");
 const User = require("../models/User");
 const Lead = require("../models/Lead");
 const mongoose = require("mongoose");
-const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors } = require("../utils/notificationHelper");
+const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors, notifyTaskAll } = require("../utils/notificationHelper");
 const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
 const { parseDateTimeIST } = require("../utils/dateParser");
 
@@ -38,15 +38,17 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
   let managerId = managerOrId;
   let manager = null;
   
-  // Detect if a full Employee document was passed (has managerAccessLevel field)
-  // vs just a Mongoose ObjectId / string ID
-  const isEmployeeDoc = (
-    managerOrId !== null &&
-    typeof managerOrId === 'object' &&
-    managerOrId.managerAccessLevel !== undefined
+  if (!managerOrId) return [];
+
+  // Detect if a full Employee object was passed (has _id and other employee fields)
+  // vs just an ObjectId or string ID
+  const isPlainId = (
+    typeof managerOrId === 'string' ||
+    managerOrId instanceof mongoose.Types.ObjectId ||
+    (managerOrId && managerOrId._bsontype === 'ObjectID')
   );
 
-  if (isEmployeeDoc) {
+  if (!isPlainId && typeof managerOrId === 'object' && managerOrId._id) {
     manager = managerOrId;
     managerId = managerOrId._id;
   } else {
@@ -57,7 +59,23 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
 
   if (!manager) return [];
 
-  const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
+  // Admin, HR, SuperAdmin, or manager with all-access: return all company employees
+  const isAllAccess = (
+    manager.managerAccessLevel === "all" ||
+    ["CompanyAdmin", "HR", "SuperAdmin"].includes(manager.role) ||
+    manager.isVirtualAdmin === true
+  );
+
+  if (isAllAccess) {
+    const allCompanyEmployees = await Employee.find(
+      { 
+        companyId, 
+        status: { $nin: ["inactive", "terminated", "deleted", "Inactive", "Terminated", "Deleted"] }
+      },
+      { _id: 1 }
+    ).lean();
+    return allCompanyEmployees.map((e) => e._id.toString());
+  }
   
   if (manager.departmentIds && manager.departmentIds.length > 0) {
     manager.departmentIds.forEach(d => {
@@ -110,13 +128,17 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
     departmentMemberIds = departmentMembers.map((e) => e._id.toString());
   }
 
+  const mUserId = manager.userId?._id || manager.userId;
+  const mUserIdStr = mUserId ? mUserId.toString() : null;
+  const mIdStr = managerId ? managerId.toString() : null;
+
   const reportingManagerIds = [
     managerId,
-    managerId?.toString(),
-    manager.userId,
-    manager.userId?.toString(),
-    ...(managerId && mongoose.Types.ObjectId.isValid(managerId.toString()) ? [new mongoose.Types.ObjectId(managerId.toString())] : []),
-    ...(manager.userId && mongoose.Types.ObjectId.isValid(manager.userId.toString()) ? [new mongoose.Types.ObjectId(manager.userId.toString())] : [])
+    mIdStr,
+    mUserId,
+    mUserIdStr,
+    ...(mIdStr && mongoose.Types.ObjectId.isValid(mIdStr) ? [new mongoose.Types.ObjectId(mIdStr)] : []),
+    ...(mUserIdStr && mongoose.Types.ObjectId.isValid(mUserIdStr) ? [new mongoose.Types.ObjectId(mUserIdStr)] : [])
   ].filter(Boolean);
 
   const teamMembers = await Employee.find(
@@ -144,7 +166,8 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
 
 /**
  * Resolves the logged-in manager's Employee document.
- * Falls back to userId lookup if employeeId not on JWT.
+ * Checks by employeeId, userId, and email with strict companyId,
+ * and falls back without strict companyId if needed.
  */
 const resolveManagerEmployee = async (req) => {
   const companyId = req.companyId || req.user?.companyId;
@@ -153,49 +176,88 @@ const resolveManagerEmployee = async (req) => {
 
   let manager = null;
   const filter = companyId ? { companyId } : {};
+  const populateFields = [
+    { path: "departmentId", select: "name" },
+    { path: "departmentIds", select: "name" },
+    { path: "designationId", select: "name" },
+    { path: "branchId", select: "branchName" },
+    { path: "accessibleDepartments", select: "name" },
+  ];
 
   if (employeeId) {
     manager = await Employee.findOne({ _id: employeeId, ...filter })
-      .populate([
-        { path: "departmentId", select: "name" },
-        { path: "departmentIds", select: "name" },
-        { path: "designationId", select: "name" },
-        { path: "branchId", select: "branchName" },
-        { path: "accessibleDepartments", select: "name" },
-      ])
+      .populate(populateFields)
       .lean();
   }
   if (!manager && userId) {
     manager = await Employee.findOne({ userId, ...filter })
-      .populate([
-        { path: "departmentId", select: "name" },
-        { path: "departmentIds", select: "name" },
-        { path: "designationId", select: "name" },
-        { path: "branchId", select: "branchName" },
-        { path: "accessibleDepartments", select: "name" },
-      ])
+      .populate(populateFields)
       .lean();
   }
   if (!manager && req.user?.email) {
-    manager = await Employee.findOne({ email: new RegExp(`^${req.user.email}$`, "i"), ...filter })
-      .populate([
-        { path: "departmentId", select: "name" },
-        { path: "departmentIds", select: "name" },
-        { path: "designationId", select: "name" },
-        { path: "branchId", select: "branchName" },
-        { path: "accessibleDepartments", select: "name" },
-      ])
+    const cleanEmail = req.user.email.trim();
+    manager = await Employee.findOne({ email: new RegExp(`^${cleanEmail}$`, "i"), ...filter })
+      .populate(populateFields)
       .lean();
     if (manager && !manager.userId && userId) {
-      await Employee.updateOne({ _id: manager._id }, { $set: { userId } });
+      await Employee.updateOne({ _id: manager._id }, { $set: { userId } }).catch(() => {});
     }
   }
+
+  // Fallbacks without strict companyId (handles edge cases where tenant ID format or linkage differs)
+  if (!manager && employeeId) {
+    manager = await Employee.findById(employeeId)
+      .populate(populateFields)
+      .lean();
+  }
+  if (!manager && userId) {
+    manager = await Employee.findOne({ userId })
+      .populate(populateFields)
+      .lean();
+  }
+  if (!manager && req.user?.email) {
+    const cleanEmail = req.user.email.trim();
+    manager = await Employee.findOne({ email: new RegExp(`^${cleanEmail}$`, "i") })
+      .populate(populateFields)
+      .lean();
+    if (manager && !manager.userId && userId) {
+      await Employee.updateOne({ _id: manager._id }, { $set: { userId } }).catch(() => {});
+    }
+  }
+
+  // Handle Admin, HR, and SuperAdmin profiles
+  const isAdminOrHr = ["CompanyAdmin", "HR", "SuperAdmin"].includes(req.user?.role);
+  if (!manager && isAdminOrHr) {
+    manager = {
+      _id: req.user._id,
+      userId: req.user._id,
+      fullName: req.user.name || (req.user.role === "HR" ? "HR Manager" : "Company Administrator"),
+      firstName: req.user.name?.split(" ")[0] || (req.user.role === "HR" ? "HR" : "Admin"),
+      lastName: req.user.name?.split(" ").slice(1).join(" ") || "",
+      email: req.user.email,
+      role: req.user.role,
+      managerAccessLevel: "all",
+      departmentId: null,
+      departmentIds: [],
+      accessibleDepartments: [],
+      isVirtualAdmin: true
+    };
+  } else if (manager && isAdminOrHr) {
+    manager.managerAccessLevel = "all";
+  }
+
   return manager;
 };
 
-/** YYYY-MM-DD key */
+/** YYYY-MM-DD key in Asia/Kolkata */
 const getDateKey = (d = new Date()) => {
-  return new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  try {
+    const dateObj = d instanceof Date ? d : new Date(d);
+    if (isNaN(dateObj.getTime())) return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    return dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  } catch (err) {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -609,7 +671,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
       isRead: (ann.readBy || []).map((id) => id.toString()).includes(userId.toString()),
     }));
 
-    const totalTeamWorkMinutesToday = rawTimesheets.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
+    const totalTeamWorkMinutesToday = rawTimesheets.reduce((acc, curr) => acc + (curr.totalMinutes || curr.durationMinutes || 0), 0);
     const workHoursSummary = {
       todayMinutes: totalTeamWorkMinutesToday,
       todayHours: (totalTeamWorkMinutesToday / 60).toFixed(1),
@@ -1185,7 +1247,13 @@ const getTeamAttendance = async (req, res, next) => {
       attendanceFilter.date = getDateKey();
     }
 
-    if (status) attendanceFilter.status = status;
+    if (status) {
+      if (status === "on_break") {
+        attendanceFilter.isOnBreak = true;
+      } else {
+        attendanceFilter.status = status;
+      }
+    }
 
     const attendanceRecords = await Attendance.find(attendanceFilter).lean();
     
@@ -2715,37 +2783,36 @@ const updateTaskStatus = async (req, res, next) => {
     }
 
 
-    // Notify assignees about status change
+    // Notify assignees & supervisors about status change using unified dispatcher
     const allTaskAssignees = (task.assignedTo && task.assignedTo.length > 0) ? task.assignedTo : (task.assignees || []);
-    const otherAssignees = allTaskAssignees.filter(id => (id._id ? id._id.toString() : id.toString()) !== manager._id.toString());
-    if (otherAssignees.length > 0) {
-      await sendNotificationToEmployees(
-        companyId,
-        otherAssignees,
-        "Task Status Updated",
-        `${manager.fullName} changed the status of "${task.title}" to ${status}`,
-        "task",
-        { taskId: task._id.toString() }
-      ).catch(err => console.error("Error sending notification to other assignees:", err));
-    }
-
-    // Notify CompanyAdmin + Dept Manager when task is completed or late completed
     const completionStatuses = ["complete", "completed", "late_complete", "re_complete", "re_late_complete"];
-    if (completionStatuses.includes(status)) {
-      const notifTitle = status.includes("late") ? "Task Completed Late" : "Task Completed";
-      const notifBody = status.includes("late")
-        ? `Task "${task.title}" has been completed late.`
-        : `Task "${task.title}" has been completed.`;
-      notifyTaskSupervisors(
-        companyId,
-        allTaskAssignees,
-        task.departmentId || null,
-        notifTitle,
-        notifBody,
-        "task_update",
-        { taskId: task._id.toString() }
-      ).catch(err => console.error("notifyTaskSupervisors error:", err));
-    }
+    const isCompleted = completionStatuses.includes(status);
+    const isLate = status.includes("late");
+
+    const notifAction = isLate ? "late_completed" : (isCompleted ? "completed" : "status_update");
+    const notifTitle = isLate ? "Task Completed Late" : (isCompleted ? "Task Completed" : "Task Status Updated");
+    const notifBody = isLate
+      ? `Task "${task.title}" has been completed late.`
+      : (isCompleted
+        ? `Task "${task.title}" has been completed.`
+        : `${manager.fullName} changed the status of "${task.title}" to ${status}`);
+
+    await notifyTaskAll(
+      companyId,
+      allTaskAssignees,
+      task.departmentId || null,
+      notifTitle,
+      notifBody,
+      "task_update",
+      { taskId: task._id.toString(), action: notifAction, status },
+      {
+        excludeUserId: req.user?._id || manager.userId || manager._id,
+        assigneeTitle: notifTitle,
+        assigneeBody: notifBody,
+        supervisorTitle: notifTitle,
+        supervisorBody: `${manager.fullName} updated status of "${task.title}" to ${status}.`
+      }
+    ).catch(err => console.error("managerController updateTaskStatus notifyTaskAll error:", err));
 
     return res.json({ success: true, data: task, message: "Status updated" });
   } catch (error) {
@@ -2778,18 +2845,24 @@ const addTaskComment = async (req, res, next) => {
     task.activityLog.push({ action: "Added a comment", performedBy: manager.fullName });
     await task.save();
 
-    // Notify assignees about comment
-    const otherAssignees = (task.assignees || []).filter(id => id.toString() !== manager._id.toString());
-    if (otherAssignees.length > 0) {
-      await sendNotificationToEmployees(
-        companyId,
-        otherAssignees,
-        "New Comment on Task",
-        `${manager.fullName} commented on task: ${task.title}`,
-        "task",
-        { taskId: task._id.toString() }
-      );
-    }
+    // Notify task assignees & supervisors about comment
+    const allTaskAssignees = (task.assignedTo && task.assignedTo.length > 0) ? task.assignedTo : (task.assignees || []);
+    await notifyTaskAll(
+      companyId,
+      allTaskAssignees,
+      task.departmentId || null,
+      `New Comment on Task: ${task.title}`,
+      `${manager.fullName} commented on task: ${task.title}`,
+      "task_update",
+      { taskId: task._id.toString(), action: "comment_added" },
+      {
+        excludeUserId: req.user?._id || manager.userId || manager._id,
+        assigneeTitle: `New Comment: ${task.title}`,
+        assigneeBody: `${manager.fullName} commented on task: ${task.title}`,
+        supervisorTitle: `Comment on Task: ${task.title}`,
+        supervisorBody: `${manager.fullName} added a comment on task "${task.title}".`
+      }
+    ).catch(err => console.error("managerController addTaskComment notifyTaskAll error:", err));
 
     return res.json({ success: true, data: task, message: "Comment added" });
   } catch (error) {
@@ -2863,8 +2936,9 @@ const startTaskTimer = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const { taskId, projectId } = req.body;
+    const effectiveTaskId = taskId || req.params?.id || null;
     const manager = await resolveManagerEmployee(req);
-    if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
 
     const activeTimer = await Timesheet.findOne({
       companyId,
@@ -2879,7 +2953,7 @@ const startTaskTimer = async (req, res, next) => {
     const ts = new Timesheet({
       companyId,
       employeeId: manager._id,
-      taskId: taskId || null,
+      taskId: effectiveTaskId,
       projectId: projectId || null,
       startTime: new Date(),
       timerActive: true,
@@ -2888,9 +2962,9 @@ const startTaskTimer = async (req, res, next) => {
 
     await ts.save();
 
-    if (taskId) {
+    if (effectiveTaskId) {
       await Task.updateOne(
-        { _id: taskId },
+        { _id: effectiveTaskId },
         { $push: { activityLog: { action: "Timer started", performedBy: manager.fullName } } }
       );
     }
@@ -2908,7 +2982,7 @@ const stopTaskTimer = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
-    if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
 
     const activeTimer = await Timesheet.findOne({
       companyId,
@@ -2947,7 +3021,9 @@ const addManualTaskTime = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const { taskId, projectId, startTime, endTime, description } = req.body;
+    const effectiveTaskId = taskId || req.params?.id || null;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
 
     if (!startTime || !endTime) {
       return res.status(400).json({ success: false, message: "Start and End times are required" });
@@ -2955,6 +3031,10 @@ const addManualTaskTime = async (req, res, next) => {
 
     const st = new Date(startTime);
     const et = new Date(endTime);
+    if (isNaN(st.getTime()) || isNaN(et.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid date or time format" });
+    }
+
     const ms = et.getTime() - st.getTime();
     const totalMinutes = Math.round(ms / 60000);
 
@@ -2965,7 +3045,7 @@ const addManualTaskTime = async (req, res, next) => {
     const ts = new Timesheet({
       companyId,
       employeeId: manager._id,
-      taskId: taskId || null,
+      taskId: effectiveTaskId,
       projectId: projectId || null,
       startTime: st,
       endTime: et,
@@ -2977,9 +3057,9 @@ const addManualTaskTime = async (req, res, next) => {
 
     await ts.save();
 
-    if (taskId) {
+    if (effectiveTaskId) {
       await Task.updateOne(
-        { _id: taskId },
+        { _id: effectiveTaskId },
         { $push: { activityLog: { action: `Manual time logged (${totalMinutes} min)`, performedBy: manager.fullName } } }
       );
     }
@@ -3069,11 +3149,13 @@ const getManagerProjects = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
 
-    const allowedDeptIds = [manager.departmentId].filter(Boolean);
+    const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
     if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
       manager.accessibleDepartments.forEach(id => {
-        if (!allowedDeptIds.map(d => d.toString()).includes(id.toString())) {
+        const idStr = (id?._id || id || "").toString();
+        if (idStr && !allowedDeptIds.map(d => d.toString()).includes(idStr)) {
           allowedDeptIds.push(id);
         }
       });
@@ -3323,6 +3405,7 @@ const getTeamAttendanceReport = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
     const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
     
     const { startDate, endDate, employeeId } = req.query;
@@ -3354,6 +3437,7 @@ const getTeamTasksReport = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
     const managerEmpId = manager._id;
     const managerUserId = req.user?._id;
     const managerEmpIdStr = managerEmpId.toString();
@@ -3427,6 +3511,7 @@ const getTeamLeavesReport = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
     const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
     
     const { status, employeeId } = req.query;
@@ -3450,6 +3535,7 @@ const getTeamWorkReport = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
+    if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
     const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
     
     const { employeeId, projectId } = req.query;

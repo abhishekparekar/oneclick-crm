@@ -5,6 +5,10 @@ export const punchInApi = (payload) => api.post("/attendance/punch-in", payload)
 export const punchOutApi = (payload) => api.post("/attendance/punch-out", payload);
 export const validateLocationApi = (payload) => api.post("/attendance/validate-location", payload);
 
+// Breaks: Lunch Break, Tea Break
+export const startBreakApi = (payload) => api.post("/attendance/break/start", payload);
+export const endBreakApi = () => api.post("/attendance/break/end", {});
+
 // My Logs
 export const getMyTodayApi = () => api.get("/attendance/my-today");
 export const getMyDateApi = (date) => api.get(`/attendance/my-date/${date}`);

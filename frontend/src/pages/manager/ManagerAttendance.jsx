@@ -142,17 +142,15 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-8 w-12 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-att-${label.replace(/[^a-zA-Z]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.4}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-att-${label.replace(/[^a-zA-Z]/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-att-${label.replace(/[^a-zA-Z]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.4}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-att-${label.replace(/[^a-zA-Z]/g, '')})`}/>
+        </AreaChart>
       </div>
     </div>
   );
@@ -244,6 +242,12 @@ export default function ManagerAttendance() {
           punchIn: todayAtt?.punchInTime || todayAtt?.punchIn || null,
           punchOut: todayAtt?.punchOutTime || todayAtt?.punchOut || null,
           totalHours: todayAtt?.totalHours || todayAtt?.workHours || null,
+          isOnBreak: Boolean(todayAtt?.isOnBreak),
+          currentBreakType: todayAtt?.currentBreakType || null,
+          currentBreakStartTime: todayAtt?.currentBreakStartTime || null,
+          breaks: todayAtt?.breaks || [],
+          totalBreakMinutes: todayAtt?.totalBreakMinutes || 0,
+          netWorkingHours: todayAtt?.netWorkingHours ?? todayAtt?.totalHours ?? null,
         };
       });
   }, [teamData]);
@@ -257,6 +261,7 @@ export default function ManagerAttendance() {
       if (!matchesSearch) return false;
 
       if (statusFilter === "all") return true;
+      if (statusFilter === "on_break") return Boolean(emp.isOnBreak);
       if (statusFilter === "present") return emp.todayStatus === "present" || emp.todayStatus === "late";
       if (statusFilter === "late") return emp.todayStatus === "late";
       if (statusFilter === "absent") return emp.todayStatus === "absent";
@@ -334,6 +339,7 @@ export default function ManagerAttendance() {
     late: teamEmployees.filter(e => e.todayStatus === "late").length,
     absent: teamEmployees.filter(e => e.todayStatus === "absent").length,
     onLeave: teamEmployees.filter(e => ["paid_leave","unpaid_leave","leave","half_day"].includes(e.todayStatus)).length,
+    onBreak: teamEmployees.filter(e => e.isOnBreak).length,
   }), [teamEmployees]);
 
   // Monthly Grid Data
@@ -426,8 +432,8 @@ export default function ManagerAttendance() {
         </div>
       </div>
 
-      {/* ── 2. TOP 5 KPI STAT CARDS (EXACT MATCH WITH ADMIN ATTENDANCE) ────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      {/* ── 2. TOP 6 KPI STAT CARDS (EXACT MATCH WITH ADMIN ATTENDANCE) ────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         <KPICard 
           label={activeTab === 0 ? "Tracked Days" : "Total Team"} 
           value={activeTab === 0 ? myRecords.length || 31 : teamStats.total} 
@@ -467,6 +473,14 @@ export default function ManagerAttendance() {
           strokeColor="#8B5CF6" Icon={CalendarOff} iconBg="bg-purple-500/10" iconColor="#7C3AED"
           onClick={activeTab === 1 ? () => setStatusFilter("on_leave") : undefined}
           active={activeTab === 1 && statusFilter === "on_leave"}
+        />
+        <KPICard 
+          label="On Break" 
+          value={activeTab === 0 ? (myRecords.some(r => r.isOnBreak) ? 1 : 0) : teamStats.onBreak} 
+          trend="Live" isUp period="now" 
+          strokeColor="#F59E0B" Icon={Coffee} iconBg="bg-amber-500/10" iconColor="#D97706"
+          onClick={activeTab === 1 ? () => setStatusFilter("on_break") : undefined}
+          active={activeTab === 1 && statusFilter === "on_break"}
         />
       </div>
 
@@ -891,9 +905,33 @@ export default function ManagerAttendance() {
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800">
-                          <span className="text-[11px] text-slate-500 font-bold uppercase">Total Hours</span>
+                          <span className="text-[11px] text-slate-500 font-bold uppercase">Shift Duration</span>
                           <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-xs">⏱️ {formatDuration(teamSelectedDayData.record.totalHours || teamSelectedDayData.record.workHours)}</span>
                         </div>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800">
+                          <span className="text-[11px] text-slate-500 font-bold uppercase">Total Break Time</span>
+                          <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">☕ {teamSelectedDayData.record.totalBreakMinutes || 0} mins</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800">
+                          <span className="text-[11px] text-slate-500 font-bold uppercase">Net Productive Hours</span>
+                          <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-xs">⚡ {formatDuration(teamSelectedDayData.record.netWorkingHours ?? teamSelectedDayData.record.totalHours ?? 0)}</span>
+                        </div>
+                        {teamSelectedDayData.record.breaks && teamSelectedDayData.record.breaks.length > 0 && (
+                          <div className="p-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                              <Coffee size={12} /> Breaks Taken Today ({teamSelectedDayData.record.breaks.length})
+                            </span>
+                            <div className="space-y-1">
+                              {teamSelectedDayData.record.breaks.map((b, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-[10.5px] bg-white dark:bg-[#111C24] p-1.5 rounded border border-amber-200/40 dark:border-amber-900/30">
+                                  <span className="font-bold capitalize text-slate-800 dark:text-slate-200">{b.breakType || "Break"}</span>
+                                  <span className="font-mono text-slate-500">{formatTime(b.startTime)} - {b.endTime ? formatTime(b.endTime) : "Active"}</span>
+                                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{b.durationMinutes ? `${b.durationMinutes}m` : "ongoing"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800">
                           <span className="text-[11px] text-slate-500 font-bold uppercase">Source</span>
                           <span className="font-bold text-slate-700 dark:text-slate-300 text-xs capitalize">{teamSelectedDayData.record.source || "App"}</span>
@@ -935,6 +973,7 @@ export default function ManagerAttendance() {
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
                   {[
                     { id: "present", label: "Present Today", count: teamStats.present, activeBg: "bg-emerald-600 text-white border-emerald-600" },
+                    { id: "on_break", label: "On Break (Live)", count: teamStats.onBreak, activeBg: "bg-amber-600 text-white border-amber-600" },
                     { id: "all", label: "All Staff", count: teamStats.total, activeBg: "bg-slate-900 dark:bg-white dark:text-slate-900 text-white border-slate-900" },
                     { id: "late", label: "Late", count: teamStats.late, activeBg: "bg-amber-500 text-white border-amber-500" },
                     { id: "absent", label: "Absent", count: teamStats.absent, activeBg: "bg-rose-600 text-white border-rose-600" },
@@ -1043,14 +1082,34 @@ export default function ManagerAttendance() {
                             </td>
                             {/* Hours */}
                             <td className="px-3 py-3 hidden lg:table-cell font-mono font-bold text-slate-700 dark:text-slate-300">
-                              {emp.totalHours ? formatDuration(emp.totalHours) : <span className="text-slate-400">—</span>}
+                              {emp.netWorkingHours !== null && emp.netWorkingHours !== undefined ? (
+                                <div>
+                                  <div>{formatDuration(emp.netWorkingHours)}</div>
+                                  {emp.totalBreakMinutes > 0 && (
+                                    <div className="text-[9.5px] font-sans font-medium text-amber-600 dark:text-amber-400">
+                                      ☕ {emp.totalBreakMinutes}m break
+                                    </div>
+                                  )}
+                                </div>
+                              ) : emp.totalHours ? (
+                                formatDuration(emp.totalHours)
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
                             </td>
                             {/* Status */}
                             <td className="px-3 py-3">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border ${statusStyle.bg} ${statusStyle.border} ${statusStyle.labelColor}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
-                                {statusStyle.label || emp.todayStatus?.toUpperCase() || "—"}
-                              </span>
+                              {emp.isOnBreak ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 animate-pulse">
+                                  <Coffee size={11} className="text-amber-600" />
+                                  {emp.currentBreakType === "lunch" ? "Lunch Break" : emp.currentBreakType === "tea" ? "Tea Break" : "On Break"}
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border ${statusStyle.bg} ${statusStyle.border} ${statusStyle.labelColor}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
+                                  {statusStyle.label || emp.todayStatus?.toUpperCase() || "—"}
+                                </span>
+                              )}
                             </td>
                             {/* Action */}
                             <td className="px-3 py-3 text-right">

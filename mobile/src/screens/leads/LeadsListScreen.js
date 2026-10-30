@@ -13,7 +13,10 @@ import {
   ScrollView,
   RefreshControl,
   Platform,
+  Dimensions,
 } from "react-native";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
@@ -81,9 +84,12 @@ export default function LeadsListScreen({ navigation, route }) {
   const [selectedProduct, setSelectedProduct] = useState("all");
   const [selectedOptIn, setSelectedOptIn] = useState("all");
   const [selectedTimeframe, setSelectedTimeframe] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [tags, setTags] = useState([]);
   const [selectedTag, setSelectedTag] = useState("all");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filterModalKey, setFilterModalKey] = useState(0);
 
   // Bulk Actions
   const [bulkMode, setBulkMode] = useState(false);
@@ -106,9 +112,11 @@ export default function LeadsListScreen({ navigation, route }) {
 
   // Add Lead Modal State
   const [modalVisible, setModalVisible] = useState(route.params?.openAddModal || false);
+  const [addLeadModalKey, setAddLeadModalKey] = useState(0);
 
   useEffect(() => {
     if (route.params?.openAddModal) {
+      setAddLeadModalKey((k) => k + 1);
       setModalVisible(true);
     }
   }, [route.params?.openAddModal, route.params]);
@@ -213,6 +221,12 @@ export default function LeadsListScreen({ navigation, route }) {
           const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
           params.startDate = s.toISOString();
           params.endDate = e.toISOString();
+        } else if (selectedTimeframe === "tomorrow") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+          params.startDate = s.toISOString();
+          params.endDate = e.toISOString();
+          params.timeframe = "tomorrow";
         } else if (selectedTimeframe === "yesterday") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
           const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
@@ -226,6 +240,24 @@ export default function LeadsListScreen({ navigation, route }) {
         } else if (selectedTimeframe === "this_month") {
           const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
           params.startDate = s.toISOString();
+        } else if (selectedTimeframe === "custom") {
+          if (customStartDate) {
+            const parts = customStartDate.includes("/") ? customStartDate.split("/") : customStartDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customStartDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              const s = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 0, 0, 0);
+              params.startDate = s.toISOString();
+            }
+          }
+          if (customEndDate) {
+            const parts = customEndDate.includes("/") ? customEndDate.split("/") : customEndDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customEndDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              const e = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 23, 59, 59, 999);
+              params.endDate = e.toISOString();
+            }
+          }
+          params.includeFollowUp = "true";
         }
       }
 
@@ -713,7 +745,10 @@ export default function LeadsListScreen({ navigation, route }) {
       headerRightElement={
         <TouchableOpacity
           style={styles.headerAddBtn}
-          onPress={() => setModalVisible(true)}
+          onPress={() => {
+            setAddLeadModalKey((k) => k + 1);
+            setModalVisible(true);
+          }}
         >
           <Ionicons name="add-circle" size={26} color={THEME.primary} />
         </TouchableOpacity>
@@ -745,7 +780,10 @@ export default function LeadsListScreen({ navigation, route }) {
               styles.filterButton,
               (selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedOptIn !== "all" || selectedTimeframe !== "all" || selectedTag !== "all") && styles.filterButtonActive
             ]}
-            onPress={() => setFilterModalVisible(true)}
+            onPress={() => {
+              setFilterModalKey((k) => k + 1);
+              setFilterModalVisible(true);
+            }}
           >
             <Ionicons
               name="filter"
@@ -766,7 +804,10 @@ export default function LeadsListScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={styles.newLeadPillBtn}
-            onPress={() => setModalVisible(true)}
+            onPress={() => {
+              setAddLeadModalKey((k) => k + 1);
+              setModalVisible(true);
+            }}
           >
             <Ionicons name="add" size={16} color="#FFF" />
             <Text style={styles.newLeadPillText}>New Lead</Text>
@@ -950,7 +991,17 @@ export default function LeadsListScreen({ navigation, route }) {
         )}
 
         {/* ── MODAL: ADD LEAD (Exact Match to Web Design) ── */}
-        <Modal visible={modalVisible} animationType="slide" transparent>
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent
+          onShow={() => setAddLeadModalKey((k) => k + 1)}
+          onRequestClose={() => {
+            setModalVisible(false);
+            setFollowUpDate("");
+            setFollowUpTime("");
+          }}
+        >
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContainer}>
               {/* Dark Top Banner */}
@@ -968,7 +1019,14 @@ export default function LeadsListScreen({ navigation, route }) {
               </View>
 
               {/* Scrollable Form Body */}
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollBody}>
+              <ScrollView
+                key={`add-lead-scroll-${addLeadModalKey}`}
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
+                contentContainerStyle={styles.modalScrollBody}
+              >
                 {/* ── Section 1: Client & Contact Information ── */}
                 <View style={styles.formSectionBox}>
                   <View style={styles.sectionHeaderRow}>
@@ -1813,6 +1871,7 @@ export default function LeadsListScreen({ navigation, route }) {
           visible={filterModalVisible}
           animationType="slide"
           transparent
+          onShow={() => setFilterModalKey((k) => k + 1)}
           onRequestClose={() => setFilterModalVisible(false)}
         >
           <View style={styles.modalBackdrop}>
@@ -1841,8 +1900,11 @@ export default function LeadsListScreen({ navigation, route }) {
 
               {/* Scrollable Filter Content */}
               <ScrollView
-                style={{ flexShrink: 1, maxHeight: "100%" }}
+                key={`filter-scroll-${filterModalKey}`}
+                style={{ flex: 1 }}
                 showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
                 contentContainerStyle={styles.filterModalScrollBody}
               >
                 {/* ── Section 1: Timeframe / Date Range ── */}
@@ -1855,9 +1917,11 @@ export default function LeadsListScreen({ navigation, route }) {
                     {[
                       { id: "all", label: "All Time" },
                       { id: "today", label: "Today" },
+                      { id: "tomorrow", label: "Tomorrow" },
                       { id: "yesterday", label: "Yesterday" },
                       { id: "this_week", label: "This Week" },
                       { id: "this_month", label: "This Month" },
+                      { id: "custom", label: "Custom Date" },
                     ].map((tf) => {
                       const isSel = selectedTimeframe === tf.id;
                       return (
@@ -1874,6 +1938,28 @@ export default function LeadsListScreen({ navigation, route }) {
                       );
                     })}
                   </View>
+                  {selectedTimeframe === "custom" && (
+                    <View style={{ marginTop: 10, flexDirection: "row", gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>FROM DATE</Text>
+                        <AppDatePicker
+                          value={customStartDate}
+                          onChangeText={setCustomStartDate}
+                          placeholder="DD/MM/YYYY"
+                          compact={true}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>TO DATE</Text>
+                        <AppDatePicker
+                          value={customEndDate}
+                          onChangeText={setCustomEndDate}
+                          placeholder="DD/MM/YYYY"
+                          compact={true}
+                        />
+                      </View>
+                    </View>
+                  )}
                 </View>
 
                 {/* ── Section 2: Lead  Stage ── */}
@@ -2185,6 +2271,8 @@ export default function LeadsListScreen({ navigation, route }) {
                     setSelectedProduct("all");
                     setSelectedOptIn("all");
                     setSelectedTimeframe("all");
+                    setCustomStartDate("");
+                    setCustomEndDate("");
                     setSelectedTag("all");
                   }}
                   activeOpacity={0.7}
@@ -2213,7 +2301,10 @@ export default function LeadsListScreen({ navigation, route }) {
           <TouchableOpacity
             style={styles.floatingAddBtn}
             activeOpacity={0.85}
-            onPress={() => setModalVisible(true)}
+            onPress={() => {
+              setAddLeadModalKey((k) => k + 1);
+              setModalVisible(true);
+            }}
           >
             <Ionicons name="add" size={30} color="#FFFFFF" />
           </TouchableOpacity>
@@ -2532,7 +2623,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    maxHeight: "92%",
+    width: "100%",
+    height: Math.round(SCREEN_HEIGHT * 0.90),
+    maxHeight: Math.round(SCREEN_HEIGHT * 0.90),
     overflow: "hidden",
   },
   modalHeaderBanner: {
@@ -2572,8 +2665,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalScrollBody: {
+    flexGrow: 1,
     padding: 14,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   formSectionBox: {
     marginBottom: 16,
@@ -2658,7 +2752,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#CBD5E1",
@@ -2973,7 +3068,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     width: "100%",
-    maxHeight: "88%",
+    height: Math.round(SCREEN_HEIGHT * 0.88),
+    maxHeight: Math.round(SCREEN_HEIGHT * 0.88),
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
@@ -3081,7 +3177,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   filterModalScrollBody: {
+    flexGrow: 1,
     padding: 16,
+    paddingBottom: 24,
     gap: 14,
   },
   filterSectionBox: {

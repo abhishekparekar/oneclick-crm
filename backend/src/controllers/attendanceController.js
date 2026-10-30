@@ -627,7 +627,38 @@ const checkOut = async (req, res, next) => {
 
     attendance.punchOutTime = now;
     attendance.punchOutLocation = punchLocation;
-    
+
+    // Auto-close active break on Punch Out if employee is on break
+    if (attendance.isOnBreak) {
+      attendance.isOnBreak = false;
+      attendance.currentBreakType = null;
+      attendance.currentBreakStartTime = null;
+      if (attendance.breaks && attendance.breaks.length > 0) {
+        for (let i = attendance.breaks.length - 1; i >= 0; i--) {
+          if (!attendance.breaks[i].endTime) {
+            attendance.breaks[i].endTime = now;
+            const bMs = now.getTime() - new Date(attendance.breaks[i].startTime).getTime();
+            attendance.breaks[i].durationMinutes = Math.max(1, Math.round(bMs / (1000 * 60)));
+            break;
+          }
+        }
+      }
+    }
+
+    // Calculate total break minutes
+    let totalBreakMins = 0;
+    if (attendance.breaks && Array.isArray(attendance.breaks)) {
+      for (const b of attendance.breaks) {
+        if (b.durationMinutes) {
+          totalBreakMins += b.durationMinutes;
+        } else if (b.startTime && b.endTime) {
+          const bMs = new Date(b.endTime).getTime() - new Date(b.startTime).getTime();
+          if (bMs > 0) totalBreakMins += Math.round(bMs / (1000 * 60));
+        }
+      }
+    }
+    attendance.totalBreakMinutes = totalBreakMins;
+
     // Calculate total hours from all completed sessions in punchLog
     let totalHours = calcTotalSessionHours(attendance.punchLog);
     // Fallback if punchLog is somehow empty or calculation fails
@@ -635,6 +666,13 @@ const checkOut = async (req, res, next) => {
       totalHours = calcHours(attendance.punchInTime, attendance.punchOutTime);
     }
     attendance.totalHours = totalHours;
+
+    // Deduct breaks from total hours if enabled in company settings
+    const deductBreaks = company?.settings?.breaks?.deductFromWorkingHours ?? true;
+    const breakHours = totalBreakMins / 60;
+    attendance.netWorkingHours = deductBreaks
+      ? Math.max(0, Number((totalHours - breakHours).toFixed(2)))
+      : totalHours;
 
     // Recalculate status
     let finalStatus = "present";
@@ -693,21 +731,212 @@ const checkOut = async (req, res, next) => {
   }
 };
 
+// POST /api/attendance/break/start
+const startBreak = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployeeForUser(req);
+    if (!employee) {
+      return res.status(403).json({ message: "Employee profile required to start break" });
+    }
+
+    const company = await Company.findById(req.companyId).lean();
+    const breakSettings = company?.settings?.breaks || {
+      lunchBreak: { enabled: true, durationMinutes: 45 },
+      teaBreak: { enabled: true, durationMinutes: 15, maxPerDay: 2 },
+    };
+
+    const breakType = req.body.breakType || "lunch"; // 'lunch' | 'tea' | 'other'
+    const notes = req.body.notes || "";
+
+    if (breakType === "lunch" && breakSettings.lunchBreak?.enabled === false) {
+      return res.status(400).json({ message: "Lunch break is currently disabled by Admin." });
+    }
+    if (breakType === "tea" && breakSettings.teaBreak?.enabled === false) {
+      return res.status(400).json({ message: "Tea break is currently disabled by Admin." });
+    }
+
+    const now = new Date();
+    const date = getDateKey(now);
+
+    const attendance = await Attendance.findOne({
+      companyId: req.companyId,
+      employeeId: employee._id,
+      date,
+    });
+
+    if (!attendance || !attendance.punchInTime) {
+      return res.status(400).json({ message: "You must punch in before taking a break." });
+    }
+
+    // Check if employee is currently punched out
+    if (attendance.punchLog && attendance.punchLog.length > 0) {
+      const activeSession = attendance.punchLog[attendance.punchLog.length - 1];
+      if (activeSession.punchOutTime) {
+        return res.status(400).json({ message: "You are already punched out. Please punch in first to take a break." });
+      }
+    } else if (attendance.punchOutTime) {
+      return res.status(400).json({ message: "You are already punched out for today." });
+    }
+
+    if (attendance.isOnBreak) {
+      return res.status(400).json({
+        message: `You are already on a ${attendance.currentBreakType || "break"}. Please end it first.`
+      });
+    }
+
+    // Check single lunch break per day
+    if (breakType === "lunch") {
+      const lunchBreaksCount = (attendance.breaks || []).filter((b) => b.breakType === "lunch").length;
+      if (lunchBreaksCount >= 1) {
+        return res.status(400).json({
+          message: "You have already completed your lunch break for today."
+        });
+      }
+    }
+
+    // Check max tea breaks per day if breakType is 'tea'
+    if (breakType === "tea" && breakSettings.teaBreak?.maxPerDay) {
+      const teaBreaksCount = (attendance.breaks || []).filter((b) => b.breakType === "tea").length;
+      if (teaBreaksCount >= breakSettings.teaBreak.maxPerDay) {
+        return res.status(400).json({
+          message: `Maximum allowed tea breaks (${breakSettings.teaBreak.maxPerDay}) reached for today.`
+        });
+      }
+    }
+
+    if (!attendance.breaks) attendance.breaks = [];
+
+    // Ensure any previously unclosed break is closed cleanly
+    for (let i = attendance.breaks.length - 1; i >= 0; i--) {
+      if (!attendance.breaks[i].endTime) {
+        attendance.breaks[i].endTime = now;
+        const bMs = now.getTime() - new Date(attendance.breaks[i].startTime).getTime();
+        attendance.breaks[i].durationMinutes = Math.max(1, Math.round(bMs / (1000 * 60)));
+      }
+    }
+
+    attendance.breaks.push({
+      breakType,
+      startTime: now,
+      endTime: null,
+      durationMinutes: 0,
+      notes,
+    });
+
+    attendance.isOnBreak = true;
+    attendance.currentBreakType = breakType;
+    attendance.currentBreakStartTime = now;
+
+    await attendance.save();
+
+    return res.json({
+      success: true,
+      message: `${breakType === "lunch" ? "Lunch" : breakType === "tea" ? "Tea" : "Break"} started successfully.`,
+      attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/attendance/break/end
+const endBreak = async (req, res, next) => {
+  try {
+    const employee = await resolveEmployeeForUser(req);
+    if (!employee) {
+      return res.status(403).json({ message: "Employee profile required to end break" });
+    }
+
+    const company = await Company.findById(req.companyId).lean();
+    const deductBreaks = company?.settings?.breaks?.deductFromWorkingHours ?? true;
+
+    const now = new Date();
+    const date = getDateKey(now);
+
+    const attendance = await Attendance.findOne({
+      companyId: req.companyId,
+      employeeId: employee._id,
+      date,
+    });
+
+    if (!attendance || !attendance.isOnBreak) {
+      return res.status(400).json({ message: "No active break found to end." });
+    }
+
+    let activeBreak = null;
+    if (attendance.breaks && attendance.breaks.length > 0) {
+      for (let i = attendance.breaks.length - 1; i >= 0; i--) {
+        if (!attendance.breaks[i].endTime) {
+          activeBreak = attendance.breaks[i];
+          break;
+        }
+      }
+    }
+
+    if (activeBreak) {
+      activeBreak.endTime = now;
+      const ms = now.getTime() - new Date(activeBreak.startTime).getTime();
+      activeBreak.durationMinutes = Math.max(1, Math.round(ms / (1000 * 60)));
+    }
+
+    // Recalculate totalBreakMinutes
+    let totalMins = 0;
+    for (const b of attendance.breaks || []) {
+      if (b.durationMinutes) totalMins += b.durationMinutes;
+    }
+
+    attendance.totalBreakMinutes = totalMins;
+    attendance.isOnBreak = false;
+    attendance.currentBreakType = null;
+    attendance.currentBreakStartTime = null;
+
+    // Recalculate net working hours if totalHours is already computed
+    if (attendance.totalHours > 0) {
+      const breakHours = totalMins / 60;
+      attendance.netWorkingHours = deductBreaks
+        ? Math.max(0, Number((attendance.totalHours - breakHours).toFixed(2)))
+        : attendance.totalHours;
+    }
+
+    await attendance.save();
+
+    return res.json({
+      success: true,
+      message: "Break ended successfully. Welcome back!",
+      attendance,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/attendance/my-today
 const myToday = async (req, res, next) => {
   try {
     console.log("DB QUERY: getMyToday");
     const employee = await resolveEmployeeForUser(req);
     if (!employee) {
-      return res.json({ success: true, attendance: null });
+      return res.json({ success: true, attendance: null, breaksSettings: null });
     }
     const today = getDateKey(new Date());
-    const attendance = await Attendance.findOne({
-      companyId: req.companyId,
-      employeeId: employee._id,
-      date: today,
-    }).lean();
-    res.json({ success: true, attendance });
+    const [attendance, company] = await Promise.all([
+      Attendance.findOne({
+        companyId: req.companyId,
+        employeeId: employee._id,
+        date: today,
+      }).lean(),
+      Company.findById(req.companyId).select("settings.breaks").lean(),
+    ]);
+
+    res.json({
+      success: true,
+      attendance,
+      breaksSettings: company?.settings?.breaks || {
+        lunchBreak: { enabled: true, durationMinutes: 45 },
+        teaBreak: { enabled: true, durationMinutes: 15, maxPerDay: 2 },
+        deductFromWorkingHours: true,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -982,7 +1211,13 @@ const companyAttendance = async (req, res, next) => {
     if (date) filter.date = date;
     if (month) filter.month = Number(month);
     if (year) filter.year = Number(year);
-    if (status) filter.status = status;
+    if (status) {
+      if (status === "on_break") {
+        filter.isOnBreak = true;
+      } else {
+        filter.status = status;
+      }
+    }
 
     let employeesFilter = { companyId: req.companyId };
     if (departmentId) employeesFilter.departmentId = departmentId;
@@ -1121,17 +1356,41 @@ const manualUpdateAttendance = async (req, res, next) => {
       return res.status(404).json({ message: "Attendance record not found" });
     }
 
-    // Role boundary checks for HR
+    // Role boundary checks
     if (req.user.role === "HR") {
       // HR cannot edit own attendance
-      if (attendance.userId.toString() === req.user._id.toString()) {
+      const isOwnEmployee = req.user.employeeId && attendance.employeeId && req.user.employeeId.toString() === attendance.employeeId.toString();
+      const targetEmployee = await Employee.findById(attendance.employeeId).select("userId").lean();
+      const isOwnUser = targetEmployee?.userId && targetEmployee.userId.toString() === req.user._id.toString();
+
+      if (isOwnEmployee || isOwnUser) {
         return res.status(403).json({ message: "You cannot authorize or edit your own attendance. Please contact Company Admin." });
       }
       
       // HR cannot edit Admin attendance
-      const targetUser = await User.findById(attendance.userId);
-      if (targetUser && targetUser.role === "CompanyAdmin") {
-        return res.status(403).json({ message: "HR cannot edit CompanyAdmin attendance records." });
+      if (targetEmployee?.userId) {
+        const targetUser = await User.findById(targetEmployee.userId).select("role").lean();
+        if (targetUser && targetUser.role === "CompanyAdmin") {
+          return res.status(403).json({ message: "HR cannot edit CompanyAdmin attendance records." });
+        }
+      }
+    } else if (req.user.role === "Manager") {
+      const { resolveManagerEmployee, getManagerTeamEmployeeIds } = require("./managerController");
+      const manager = await resolveManagerEmployee(req);
+      if (manager) {
+        const isCompanyWide =
+          manager?.managerAccessLevel === "company" ||
+          req.user?.managerAccessLevel === "company" ||
+          req.user?.permissions?.attendance === true ||
+          (Array.isArray(req.user?.assignedModules) &&
+            req.user.assignedModules.some((m) => String(m).toLowerCase().trim() === "attendance"));
+
+        if (!isCompanyWide) {
+          const teamIds = await getManagerTeamEmployeeIds(manager, req.companyId);
+          if (!teamIds.map(id => id.toString()).includes(attendance.employeeId.toString())) {
+            return res.status(403).json({ message: "Access denied: employee not in assigned department or team" });
+          }
+        }
       }
     }
 
@@ -1466,6 +1725,8 @@ const getRegularizationRequests = async (req, res, next) => {
 module.exports = {
   checkIn,
   checkOut,
+  startBreak,
+  endBreak,
   myToday,
   myDate,
   myMonthly,

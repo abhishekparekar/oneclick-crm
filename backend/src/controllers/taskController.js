@@ -264,9 +264,10 @@ exports.createTask = async (req, res) => {
                 "New Task Assigned",
                 `You have been assigned a new task: ${title}`,
                 "task",
-                { taskId: newTask._id.toString() },
+                { taskId: newTask._id.toString(), action: "created" },
                 {
                     excludeUserId: req.user._id,
+                    isCreation: true,
                     assigneeTitle: "New Task Assigned",
                     assigneeBody: `You have been assigned a new task: ${title}`,
                     supervisorTitle: "Task Created",
@@ -332,9 +333,10 @@ exports.createTask = async (req, res) => {
             "Recurring Task Set Up",
             `A new recurring task schedule (${safeRepeatType}) has been set up: ${title}`,
             "task_template",
-            { templateId: newTemplate._id.toString() },
+            { templateId: newTemplate._id.toString(), action: "created" },
             {
                 excludeUserId: req.user._id,
+                isCreation: true,
                 assigneeTitle: "Recurring Task Assigned",
                 assigneeBody: `A recurring task schedule (${safeRepeatType}) has been assigned to you: ${title}`,
                 supervisorTitle: "Recurring Task Created",
@@ -1473,7 +1475,14 @@ exports.reInProcessTask = async (req, res) => {
             "Task Restarted",
             `Task "${task.title}" has been restarted (In Process).`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "re_in_process", status: "re_in_process" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Restarted",
+                assigneeBody: `Task "${task.title}" is now In Process again.`,
+                supervisorTitle: "Task Restarted: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} restarted task "${task.title}".`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -1556,7 +1565,14 @@ exports.reCompleteTask = async (req, res) => {
                 "Task Completed Late",
                 `Task "${task.title}" has been completed late.`,
                 "task_update",
-                { taskId: task._id.toString() }
+                { taskId: task._id.toString(), action: "late_completed", status: "re_late_complete" },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "Task Completed Late",
+                    assigneeBody: `Task "${task.title}" was completed after deadline.`,
+                    supervisorTitle: "Task Completed Late: " + task.title,
+                    supervisorBody: `${req.user.name || "Assignee"} completed overdue task "${task.title}".`
+                }
             ).catch(err => console.error("notifyTaskAll error:", err));
 
             return res.json({ success: true, data: task });
@@ -1591,7 +1607,14 @@ exports.reCompleteTask = async (req, res) => {
             "Task Completed",
             `Task "${task.title}" has been completed again.`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "completed", status: "re_complete" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Completed",
+                assigneeBody: `Task "${task.title}" has been marked completed.`,
+                supervisorTitle: "Task Completed: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} marked task "${task.title}" as completed.`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -1670,7 +1693,14 @@ exports.reLateCompleteTask = async (req, res) => {
             "Task Completed Late",
             `Task "${task.title}" has been completed late.`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "late_completed", status: "re_late_complete" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Completed Late",
+                assigneeBody: `Task "${task.title}" was completed after deadline.`,
+                supervisorTitle: "Task Completed Late: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} completed overdue task "${task.title}".`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -1726,7 +1756,14 @@ exports.shiftTask = async (req, res) => {
             "Task Assigned to You",
             `A task was shifted and assigned to you by ${req.user.name}: ${task.title}. Reason: ${shiftReason}`,
             "task",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "shifted" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Assigned to You",
+                assigneeBody: `A task was shifted and assigned to you by ${req.user.name}: ${task.title}. Reason: ${shiftReason}`,
+                supervisorTitle: "Task Shifted: " + task.title,
+                supervisorBody: `${req.user.name} shifted task "${task.title}". Reason: ${shiftReason}`
+            }
         ).catch(err => console.error("Error sending shift task notification:", err));
 
         res.json({ success: true, data: task });
@@ -1787,7 +1824,14 @@ exports.bulkShiftTasks = async (req, res) => {
                 "Task Assigned to You (Bulk Shift)",
                 `A task was shifted and assigned to you by ${req.user.name}: ${task.title}. Reason: ${shiftReason}`,
                 "task",
-                { taskId: task._id.toString() }
+                { taskId: task._id.toString(), action: "shifted" },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "Task Assigned to You (Bulk Shift)",
+                    assigneeBody: `A task was shifted and assigned to you by ${req.user.name}: ${task.title}. Reason: ${shiftReason}`,
+                    supervisorTitle: "Task Shifted: " + task.title,
+                    supervisorBody: `${req.user.name} shifted task "${task.title}". Reason: ${shiftReason}`
+                }
             ).catch(err => console.error("Error sending bulk shift task notification:", err));
         }
 
@@ -2139,7 +2183,14 @@ exports.submitFollowUp = async (req, res) => {
             "Task Follow-up Updated",
             `A follow-up was submitted by ${req.user.name} for task: ${task.title}. ${noteText ? 'Remark: ' + noteText : ''}`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "follow_up" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Follow-up Updated: " + task.title,
+                assigneeBody: `A follow-up was submitted by ${req.user.name} for task: ${task.title}. ${noteText ? 'Remark: ' + noteText : ''}`,
+                supervisorTitle: "Task Follow-up Updated: " + task.title,
+                supervisorBody: `${req.user.name} submitted a follow-up for task "${task.title}". ${noteText ? 'Remark: ' + noteText : ''}`
+            }
         ).catch(err => console.error("Error sending follow-up notification:", err));
 
         res.json({ success: true, task, message: "Follow-up submitted successfully" });

@@ -121,6 +121,8 @@ const ManagerTeamAttendanceScreen = ({ navigation }) => {
     return s === "present" || s === "late" || s === "half_day" || s === "half-day";
   }).length;
 
+  const onBreakCount = teamAttendanceData.filter((i) => i.attendance?.isOnBreak).length;
+
   const leaveCount = teamAttendanceData.filter((i) => {
     const s = i.attendance?.status?.toLowerCase();
     return s && s.includes("leave");
@@ -201,16 +203,30 @@ const ManagerTeamAttendanceScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.rosterRightBlock}>
-          <View style={[styles.statusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
-          </View>
+          {attendance?.isOnBreak ? (
+            <View style={[styles.statusBadge, { backgroundColor: "#FEF3C7", borderColor: "#FDE68A" }]}>
+              <View style={[styles.statusDot, { backgroundColor: "#F59E0B" }]} />
+              <Text style={[styles.statusText, { color: "#D97706", fontWeight: "700" }]}>
+                {attendance.currentBreakType === "lunch" ? "Lunch Break" : attendance.currentBreakType === "tea" ? "Tea Break" : "On Break"}
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.statusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+            </View>
+          )}
 
           <View style={styles.rosterTimesRow}>
             <Text style={styles.timeText}>In: {inTime}</Text>
             <Text style={styles.timeDivider}>|</Text>
             <Text style={styles.timeText}>Out: {outTime}</Text>
           </View>
+          {attendance?.totalBreakMinutes > 0 && (
+            <Text style={{ fontSize: 9.5, color: "#D97706", fontWeight: "600", marginTop: 2 }}>
+              ☕ {attendance.totalBreakMinutes}m break
+            </Text>
+          )}
 
           <TouchableOpacity
             style={styles.openMapBtn}
@@ -299,6 +315,11 @@ const ManagerTeamAttendanceScreen = ({ navigation }) => {
             </View>
             <View style={styles.statSep} />
             <View style={styles.statBox}>
+              <Text style={[styles.statNum, { color: "#FDE68A" }]}>{onBreakCount}</Text>
+              <Text style={styles.statLabel}>On Break</Text>
+            </View>
+            <View style={styles.statSep} />
+            <View style={styles.statBox}>
               <Text style={[styles.statNum, { color: "#93C5FD" }]}>{leaveCount}</Text>
               <Text style={styles.statLabel}>On Leave</Text>
             </View>
@@ -310,7 +331,7 @@ const ManagerTeamAttendanceScreen = ({ navigation }) => {
             <View style={styles.statSep} />
             <View style={styles.statBox}>
               <Text style={[styles.statNum, { color: "#FFFFFF" }]}>{totalStaffCount}</Text>
-              <Text style={styles.statLabel}>Total Staff</Text>
+              <Text style={styles.statLabel}>Total</Text>
             </View>
           </View>
         </LinearGradient>

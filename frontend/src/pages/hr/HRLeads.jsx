@@ -24,6 +24,8 @@ export default function HRLeads() {
   const [selectedProduct, setSelectedProduct] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedDateTab, setSelectedDateTab] = useState("All Time");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [viewMode, setViewMode] = useState("list"); // 'cards' | 'list'
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -220,10 +222,17 @@ export default function HRLeads() {
 
     if (selectedDateTab !== "All Time") {
       const created = new Date(lead.createdAt);
+      const followUp = lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate) : null;
       const now = new Date();
       if (selectedDateTab === "Today") {
         const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        if (created < start) return false;
+        if (created < start && (!followUp || followUp < start)) return false;
+      } else if (selectedDateTab === "Tomorrow") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+        const matchCreated = created >= start && created <= end;
+        const matchFollowUp = followUp && followUp >= start && followUp <= end;
+        if (!matchCreated && !matchFollowUp) return false;
       } else if (selectedDateTab === "This Week") {
         const start = new Date(now);
         start.setDate(now.getDate() - now.getDay());
@@ -232,6 +241,16 @@ export default function HRLeads() {
       } else if (selectedDateTab === "This Month") {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         if (created < start) return false;
+      } else if (selectedDateTab === "Custom") {
+        const startD = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
+        const endD = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
+        const checkBetween = (d) => {
+          if (!d) return false;
+          if (startD && d < startD) return false;
+          if (endD && d > endD) return false;
+          return true;
+        };
+        if (!checkBetween(created) && !checkBetween(followUp)) return false;
       }
     }
 
@@ -458,7 +477,7 @@ export default function HRLeads() {
 
           {/* Timeframe Tabs */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
-            {["All Time", "Today", "This Week", "This Month"].map((tab) => (
+            {["All Time", "Today", "Tomorrow", "This Week", "This Month", "Custom"].map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -489,6 +508,40 @@ export default function HRLeads() {
             </button>
           </div>
         </div>
+
+        {/* ── Custom Date Range Inputs Row ──────────────────────────── */}
+        {selectedDateTab === "Custom" && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs animate-fadeIn">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+              <Calendar size={13} /> Custom Range:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">From</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={e => setCustomStartDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">To</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={e => setCustomEndDate(e.target.value)}
+                className="px-2 py-0.5 h-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                className="text-[11px] font-bold text-rose-500 hover:text-rose-600 transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              >
+                Clear Range
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Filters Row: Statuses + Staff + Product + Reset */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -554,7 +607,7 @@ export default function HRLeads() {
             )}
 
             {/* Reset Button */}
-            {(selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedDateTab !== "All Time" || search) && (
+            {(selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedDateTab !== "All Time" || customStartDate || customEndDate || search) && (
               <button
                 type="button"
                 onClick={() => {
@@ -562,6 +615,8 @@ export default function HRLeads() {
                   setSelectedAssignee("all");
                   setSelectedProduct("all");
                   setSelectedDateTab("All Time");
+                  setCustomStartDate("");
+                  setCustomEndDate("");
                   setSearch("");
                 }}
                 className="px-2 h-8 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"

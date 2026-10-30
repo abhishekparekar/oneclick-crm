@@ -49,84 +49,86 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
   const company = await Company.findById(companyId).select("settings").lean();
 
   let settings = await PayrollSettings.findOne({ companyId });
-  const weeklyOffDays = settings?.weeklyOffDays?.length ? settings.weeklyOffDays : [0]; // Default: Sunday
+
+  // Map weekday names to day-of-week numbers (0=Sunday ... 6=Saturday)
+  const DAY_MAP = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+
+  // Determine weekly off days:
+  // 1. Single source of truth: derive weeklyOffDays directly from company.settings.workingDays (Active Working Days)
+  // 2. Fallback to settings.weeklyOffDays or standard [0, 6].
+  let weeklyOffDays = [];
+  if (Array.isArray(company?.settings?.workingDays) && company.settings.workingDays.length > 0) {
+    const workingDayIndices = company.settings.workingDays
+      .map((d) => DAY_MAP[String(d).toLowerCase().trim()])
+      .filter((n) => n !== undefined);
+    weeklyOffDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !workingDayIndices.includes(d));
+  } else if (Array.isArray(settings?.weeklyOffDays) && settings.weeklyOffDays.length > 0) {
+    weeklyOffDays = settings.weeklyOffDays;
+  } else {
+    weeklyOffDays = [0, 6]; // Default to Sunday & Saturday (5-day work week)
+  }
+
   const includeWeeklyOffAsPaid = settings?.includeWeeklyOffAsPaid ?? false;
   const includeHolidayAsPaid = settings?.includeHolidayAsPaid ?? true;
 
-  // Dynamically resolve fullDayMinHours from Company settings (Settings.jsx) or PayrollSettings (supports 8, 9, 10+ hours per company)
+  // Dynamically resolve fullDayMinHours from Company settings (Settings.jsx) or PayrollSettings
   const fullDayMinHours = Number(company?.settings?.fullDayHours || settings?.fullDayMinHours || 8);
   const halfDayMinHours = Number(company?.settings?.halfDayHours || settings?.halfDayMinHours || Math.round(fullDayMinHours / 2));
 
-  // 1. Determine effective start date (mid-month joiners)
-  let effectiveStartStr = startStr;
-  if (emp.joiningDate) {
-    const jDate = new Date(emp.joiningDate);
-    if (jDate > startDay) {
-      effectiveStartStr = toDateStr(jDate);
-    }
-  }
-
-  // 2. Enumerate all days and classify as working/weekly-off
-  let workingDays = 0;
-  let weeklyOffDays_count = 0;
-  const workingDaySet = new Set();
-  const weeklyOffDaySet = new Set();
-
-  for (let d = 1; d <= totalCalendarDays; d++) {
-    const current = new Date(targetYear, targetMonth - 1, d);
-    const currentStr = toDateStr(current);
-    if (currentStr < effectiveStartStr || currentStr > endStr) continue;
-
-    const dow = current.getDay();
-    if (weeklyOffDays.includes(dow)) {
-      weeklyOffDays_count++;
-      weeklyOffDaySet.add(currentStr);
-    } else {
-      workingDays++;
-      workingDaySet.add(currentStr);
-    }
-  }
-
-  // 3. Fetch holidays (only count if on a working day)
-  const holidays = await Holiday.find({
-    companyId,
-    date: { $gte: startDay, $lte: new Date(targetYear, targetMonth, 0, 23, 59, 59) },
-  });
-
-  let holidayDays = 0;
-  const holidayDaySet = new Set();
-  holidays.forEach((h) => {
-    const hDate = new Date(h.date);
-    const hStr = toDateStr(hDate);
-    if (workingDaySet.has(hStr)) {
-      holidayDays++;
-      holidayDaySet.add(hStr);
-      workingDaySet.delete(hStr);
-      workingDays--;
-    }
-  });
-
-  // 4. Fetch all attendance records for the month using STRING date comparison
+  // 1. Fetch all attendance records for the month using STRING date comparison
   const attendanceRecords = await Attendance.find({
     employeeId,
     companyId,
     date: { $gte: startStr, $lte: endStr },
   });
 
-  // Build a map of date → record for easy lookup
+  // Build a map of date -> record for easy lookup and find earliest recorded attendance
   const attMap = {};
+  let earliestAttDate = null;
   attendanceRecords.forEach((r) => {
-    attMap[r.date] = r;
+    if (r && r.date) {
+      attMap[r.date] = r;
+      if (!earliestAttDate || r.date < earliestAttDate) {
+        earliestAttDate = r.date;
+      }
+    }
   });
 
-  let presentDays = 0;
-  let halfDays = 0;
-  let absentDays = 0;
-  let lateDays = 0;
-  let paidLeaveDays = 0;
-  let unpaidLeaveDays = 0;
+  // 2. Determine effective start date (mid-month joiners)
+  let effectiveStartStr = startStr;
+  if (emp.joiningDate) {
+    const jDate = new Date(emp.joiningDate);
+    if (!isNaN(jDate.getTime()) && jDate > startDay) {
+      effectiveStartStr = toDateStr(jDate);
+      // If employee already has attendance records in this month prior to joiningDate
+      // (e.g. admin backfilled or corrected attendance), honour their actual attendance start
+      if (earliestAttDate && earliestAttDate < effectiveStartStr) {
+        effectiveStartStr = earliestAttDate;
+      }
+    }
+  }
 
-  // 5. Fetch approved Leave records from Leave model
+  // 3. Fetch holidays
+  const holidays = await Holiday.find({
+    companyId,
+    date: { $gte: startDay, $lte: new Date(targetYear, targetMonth, 0, 23, 59, 59) },
+  });
+
+  const holidayDaySet = new Set();
+  holidays.forEach((h) => {
+    const hDate = new Date(h.date);
+    holidayDaySet.add(toDateStr(hDate));
+  });
+
+  // 4. Fetch approved Leave records from Leave model
   const approvedLeaves = await Leave.find({
     employeeId,
     companyId,
@@ -138,23 +140,27 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
     ],
   });
 
-  // 6. Calculate Payable, LOP, and all Breakdowns exactly per day
-  const todayStr = toDateStr(new Date());
-  
+  // 5. Calculate daily breakdown across all calendar days of the month
+  let presentDays = 0;
+  let halfDays = 0;
+  let absentDays = 0;
+  let lateDays = 0;
+  let paidLeaveDays = 0;
+  let unpaidLeaveDays = 0;
+  let weeklyOffDays_count = 0;
+  let holidayDays_count = 0;
+
   let finalPayableDays = 0;
   let finalLOPDays = 0;
 
   for (let d = 1; d <= totalCalendarDays; d++) {
     const current = new Date(targetYear, targetMonth - 1, d);
     const dStr = toDateStr(current);
-    
-    // Out of effective dates (e.g., joined mid-month or left mid-month)
-    if (dStr < effectiveStartStr || dStr > endStr) {
-      finalLOPDays += 1;
-      continue;
-    }
+    const dow = current.getDay();
+    const isScheduledOff = weeklyOffDays.includes(dow);
+    const isHoliday = holidayDaySet.has(dStr);
 
-    // Is there an approved leave?
+    // (A) Check approved leave from Leave collection
     let leaveType = null;
     for (const leave of approvedLeaves) {
       const lStart = toDateStr(new Date(leave.startDate));
@@ -176,67 +182,103 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
       continue;
     }
 
-    // Is it a Holiday?
-    if (holidayDaySet.has(dStr)) {
+    // (B) Check attendance record in Attendance collection
+    const att = attMap[dStr];
+    let attStatus = null;
+    if (att) {
+      attStatus = (att.status || "").toLowerCase().replace(/[-_ ]/g, "").trim();
+      // Auto-classify based on hours if status missing or absent
+      if (!attStatus || attStatus === "absent") {
+        if (att.totalHours >= fullDayMinHours) {
+          attStatus = "present";
+        } else if (att.totalHours >= halfDayMinHours) {
+          attStatus = "halfday";
+        }
+      }
+    }
+
+    // Prioritize actual working punches even if performed on a weekend or holiday
+    if (attStatus === "present") {
+      presentDays += 1;
+      finalPayableDays += 1;
+      continue;
+    }
+
+    if (attStatus === "late") {
+      lateDays += 1;
+      finalPayableDays += 1;
+      continue;
+    }
+
+    if (attStatus === "halfday") {
+      halfDays += 1;
+      finalPayableDays += 0.5;
+      finalLOPDays += 0.5;
+      continue;
+    }
+
+    if (attStatus === "paidleave") {
+      paidLeaveDays += 1;
+      finalPayableDays += 1;
+      continue;
+    }
+
+    if (attStatus === "unpaidleave" || attStatus === "lop") {
+      unpaidLeaveDays += 1;
+      finalLOPDays += 1;
+      continue;
+    }
+
+    if (attStatus === "weeklyoff" || attStatus === "weekend") {
+      weeklyOffDays_count += 1;
+      if (includeWeeklyOffAsPaid) finalPayableDays += 1;
+      continue;
+    }
+
+    if (attStatus === "holiday") {
+      holidayDays_count += 1;
       if (includeHolidayAsPaid) finalPayableDays += 1;
       else finalLOPDays += 1;
       continue;
     }
 
-    // Is it a Weekly Off?
-    const dow = current.getDay();
-    if (weeklyOffDays.includes(dow)) {
-      if (includeWeeklyOffAsPaid) {
-        finalPayableDays += 1;
-      }
-      // If weekly off is unpaid, it is an off day (non-working day), neither payable nor penalized as LOP
+    // (C) Scheduled Holiday without a working punch
+    if (isHoliday) {
+      holidayDays_count += 1;
+      if (includeHolidayAsPaid) finalPayableDays += 1;
+      else finalLOPDays += 1;
       continue;
     }
 
-    // It's a regular working day. Check attendance.
-    const att = attMap[dStr];
-    if (att) {
-      let status = (att.status || "").toLowerCase();
-      
-      // Auto-classify based on totalHours if status is missing or absent
-      if (!status || status === "absent") {
-        if (att.totalHours >= fullDayMinHours) {
-          status = "present";
-        } else if (att.totalHours >= halfDayMinHours) {
-          status = "half_day";
-        }
+    // (D) Scheduled Weekly Off without a working punch
+    if (isScheduledOff) {
+      weeklyOffDays_count += 1;
+      if (includeWeeklyOffAsPaid) {
+        finalPayableDays += 1;
       }
+      continue;
+    }
 
-      if (status === "present") {
-        presentDays += 1;
-        finalPayableDays += 1;
-      } else if (status === "late") {
-        lateDays += 1;
-        finalPayableDays += 1;
-      } else if (status === "paid_leave") {
-        paidLeaveDays += 1;
-        finalPayableDays += 1;
-      } else if (status === "half_day") {
-        halfDays += 1;
-        finalPayableDays += 0.5;
-        finalLOPDays += 0.5;
-      } else { // absent or unpaid_leave
-        absentDays += 1;
-        finalLOPDays += 1;
-      }
+    // (E) Explicit absent on scheduled working day
+    if (attStatus === "absent") {
+      absentDays += 1;
+      finalLOPDays += 1;
+      continue;
+    }
+
+    // (F) Unrecorded working day
+    if (dStr < effectiveStartStr || dStr > endStr) {
+      // Days before employee started with company (no punch)
+      finalLOPDays += 1;
     } else {
-      // Unrecorded day
-      if (dStr <= todayStr) {
-        // Past unrecorded -> Absent
-        absentDays += 1;
-        finalLOPDays += 1;
-      } else {
-        // Future unrecorded -> Strict Mode: Mark as Absent/LOP since they haven't punched yet
-        absentDays += 1;
-        finalLOPDays += 1;
-      }
+      // Unrecorded working day during active tenure
+      absentDays += 1;
+      finalLOPDays += 1;
     }
   }
+
+  // Working days = calendar days minus non-working days (actual off days & holidays)
+  const workingDays = Math.max(0, totalCalendarDays - weeklyOffDays_count - holidayDays_count);
 
   let payableDays = Math.round(finalPayableDays * 100) / 100;
   let lossOfPayDays = Math.round(finalLOPDays * 100) / 100;
@@ -244,8 +286,8 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
   // Calculate Overtime Hours beyond shift minimum hours (default 8 hrs)
   let totalOvertimeHours = 0;
   attendanceRecords.forEach((att) => {
-    const status = (att.status || "").toLowerCase();
-    if (status !== "absent" && status !== "unpaid_leave") {
+    const status = (att.status || "").toLowerCase().replace(/[-_ ]/g, "").trim();
+    if (status !== "absent" && status !== "unpaidleave" && status !== "lop") {
       const h = Number(att.totalHours) || 0;
       if (h > fullDayMinHours) {
         totalOvertimeHours += (h - fullDayMinHours);
@@ -258,7 +300,7 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
     totalCalendarDays,
     workingDays,
     weeklyOffDays: weeklyOffDays_count,
-    holidayDays,
+    holidayDays: holidayDays_count,
     presentDays,
     lateDays,
     halfDays,

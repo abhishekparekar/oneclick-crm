@@ -12,19 +12,48 @@ const { parseDateTimeIST } = require("../utils/dateParser");
 
 // Resolve employee profile
 const getEmployeeProfile = async (req) => {
-  const userId = req.user._id;
+  const userId = req.user?._id;
   const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
 
   let employee = null;
-  if (req.user.employeeId) {
+  if (req.user?.employeeId) {
     employee = await Employee.findOne({ _id: req.user.employeeId, companyId }).lean();
   }
-  if (!employee) {
+  if (!employee && userId) {
     employee = await Employee.findOne({ userId, companyId }).lean();
   }
-  if (!employee && req.user.email) {
-    employee = await Employee.findOne({ email: new RegExp(`^${req.user.email.trim()}$`, "i"), companyId }).lean();
+  if (!employee && req.user?.email) {
+    const cleanEmail = req.user.email.trim();
+    employee = await Employee.findOne({ email: new RegExp(`^${cleanEmail}$`, "i"), companyId }).lean();
   }
+
+  // Fallbacks without strict companyId
+  if (!employee && req.user?.employeeId) {
+    employee = await Employee.findById(req.user.employeeId).lean();
+  }
+  if (!employee && userId) {
+    employee = await Employee.findOne({ userId }).lean();
+  }
+  if (!employee && req.user?.email) {
+    const cleanEmail = req.user.email.trim();
+    employee = await Employee.findOne({ email: new RegExp(`^${cleanEmail}$`, "i") }).lean();
+  }
+
+  // Handle Admin and HR virtual employee fallback if no Employee doc exists
+  if (!employee && ["CompanyAdmin", "HR", "SuperAdmin"].includes(req.user?.role)) {
+    employee = {
+      _id: userId,
+      userId,
+      companyId,
+      fullName: req.user.name || (req.user.role === "HR" ? "HR Staff" : "Administrator"),
+      firstName: req.user.name?.split(" ")[0] || "Admin",
+      lastName: req.user.name?.split(" ").slice(1).join(" ") || "",
+      email: req.user.email,
+      role: req.user.role,
+      isVirtualAdmin: true
+    };
+  }
+
   return employee;
 };
 

@@ -495,6 +495,8 @@ const getLeads = async (req, res) => {
     const optInState = req.query.optInState === "true" ? true : req.query.optInState === "false" ? false : undefined;
     const startDate = req.query.startDate || undefined;
     const endDate = req.query.endDate || undefined;
+    const timeframe = (req.query.timeframe || "").toLowerCase();
+    const includeFollowUp = req.query.includeFollowUp === "true" || timeframe === "tomorrow";
     const assignedTo = req.query.assignedTo || undefined;
     const unassigned = req.query.unassigned === "true" || req.query.assignedTo === "unassigned";
     const productService = req.query.productService || req.query.product || undefined;
@@ -624,10 +626,34 @@ const getLeads = async (req, res) => {
     }
 
     // Date Range Filter
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+    if (timeframe === "tomorrow") {
+      const now = new Date();
+      const startOfTomorrow = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      const endOfTomorrow = endDate ? new Date(endDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { nextFollowUpDate: { $gte: startOfTomorrow, $lte: endOfTomorrow } },
+          { createdAt: { $gte: startOfTomorrow, $lte: endOfTomorrow } },
+        ],
+      });
+    } else if (startDate || endDate) {
+      if (includeFollowUp) {
+        const dateConds = [];
+        const dateRange = {};
+        if (startDate) dateRange.$gte = new Date(startDate);
+        if (endDate) dateRange.$lte = new Date(endDate);
+
+        dateConds.push({ createdAt: dateRange });
+        dateConds.push({ nextFollowUpDate: dateRange });
+
+        query.$and = query.$and || [];
+        query.$and.push({ $or: dateConds });
+      } else {
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = new Date(startDate);
+        if (endDate) query.createdAt.$lte = new Date(endDate);
+      }
     }
 
     const sortObj = {};

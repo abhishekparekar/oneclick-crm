@@ -164,6 +164,51 @@ const attendanceSchema = new mongoose.Schema(
         punchOutSelfie: { type: String, default: null },
       }
     ],
+    breaks: [
+      {
+        breakType: {
+          type: String,
+          enum: ["lunch", "tea", "other"],
+          default: "lunch",
+        },
+        startTime: {
+          type: Date,
+          required: true,
+        },
+        endTime: {
+          type: Date,
+          default: null,
+        },
+        durationMinutes: {
+          type: Number,
+          default: 0,
+        },
+        notes: {
+          type: String,
+          default: "",
+        },
+      },
+    ],
+    isOnBreak: {
+      type: Boolean,
+      default: false,
+    },
+    currentBreakType: {
+      type: String,
+      default: null,
+    },
+    currentBreakStartTime: {
+      type: Date,
+      default: null,
+    },
+    totalBreakMinutes: {
+      type: Number,
+      default: 0,
+    },
+    netWorkingHours: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

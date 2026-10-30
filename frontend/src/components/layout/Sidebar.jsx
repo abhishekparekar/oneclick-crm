@@ -101,7 +101,7 @@ const COMPANY_SECTIONS = [
     title: "ORGANIZATION",
     items: [
       { label: "Company Profile", path: "/company/profile", icon: Building2 },
-      { label: "Upload Document", path: "/company/upload-document", icon: FileUp },
+      // { label: "Upload Document", path: "/company/upload-document", icon: FileUp },
       { label: "Announcements", path: "/company/announcements", icon: Megaphone },
     ],
   },

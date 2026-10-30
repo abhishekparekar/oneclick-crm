@@ -605,7 +605,9 @@ export default function AttendanceReport() {
           "Punch Out",
           "Attendance Status",
           "Late Time",
-          "Working Hours",
+          "Shift Hours",
+          "Break Time",
+          "Net Productive Hours",
           "Overtime",
           "Source",
         ];
@@ -615,10 +617,12 @@ export default function AttendanceReport() {
           const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
           const inTime = fmtTime(rec.punchInTime || rec.checkIn);
           const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
-          const rawStatus = (rec.status || "absent").toLowerCase();
+          const rawStatus = (rec.isOnBreak ? `ON BREAK (${rec.currentBreakType || "LIVE"})` : (rec.status || "absent")).toLowerCase();
           const totalHrs = Number(rec.totalHours) || 0;
-          const otHrs = totalHrs > 8 ? (totalHrs - 8).toFixed(1) : "0.0";
-          const lateText = rawStatus === "late" ? `${inTime} (Late Arrival)` : "None";
+          const breakMins = Number(rec.totalBreakMinutes) || 0;
+          const netHrs = rec.netWorkingHours !== undefined && rec.netWorkingHours !== null ? Number(rec.netWorkingHours) : totalHrs;
+          const otHrs = netHrs > 8 ? (netHrs - 8).toFixed(1) : "0.0";
+          const lateText = rawStatus.includes("late") ? `${inTime} (Late Arrival)` : "None";
 
           return [
             i + 1,
@@ -632,6 +636,8 @@ export default function AttendanceReport() {
             rawStatus.toUpperCase().replace(/_/g, " "),
             lateText,
             `${totalHrs.toFixed(1)} hrs`,
+            `${breakMins} mins`,
+            `${netHrs.toFixed(1)} hrs`,
             `${otHrs} hrs`,
             rec.source || "punch",
           ];
@@ -1229,6 +1235,14 @@ export default function AttendanceReport() {
                                                   </span>
                                                 )}
                                               </div>
+                                              {dr.totalBreakMinutes > 0 && (
+                                                <div className="text-[9px] font-sans font-semibold text-amber-600 dark:text-amber-400 flex items-center justify-between pt-0.5 border-t border-slate-100/60 dark:border-slate-800/60">
+                                                  <span>☕ {dr.totalBreakMinutes}m break</span>
+                                                  {dr.netWorkingHours !== undefined && dr.netWorkingHours !== null && (
+                                                    <span className="text-emerald-600 dark:text-emerald-400 font-mono">Net: {dr.netWorkingHours}h</span>
+                                                  )}
+                                                </div>
+                                              )}
                                             </div>
                                           );
                                         })}

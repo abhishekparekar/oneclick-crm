@@ -10,6 +10,8 @@ const {
 const {
   checkIn,
   checkOut,
+  startBreak,
+  endBreak,
   myToday,
   myDate,
   myMonthly,
@@ -26,6 +28,10 @@ router.use(requireCompany);
 // Punch in and punch out (Employee, Manager, HR can clock in)
 router.post("/punch-in", checkInRules, checkIn);
 router.post("/punch-out", checkOutRules, checkOut);
+
+// Breaks: Lunch break, Tea break
+router.post("/break/start", startBreak);
+router.post("/break/end", endBreak);
 
 // Geo location validation
 router.post("/validate-location", validateLocation);

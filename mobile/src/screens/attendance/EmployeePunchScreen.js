@@ -13,6 +13,7 @@ import {
   StatusBar,
   Image,
   PermissionsAndroid,
+  Modal,
 } from "react-native";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,8 @@ import { useAppData } from "../../context/AppDataContext";
 import {
   punchInApi,
   punchOutApi,
+  startBreakApi,
+  endBreakApi,
   getMyTodayApi,
   validateLocationApi,
 } from "../../api/attendanceService";
@@ -60,6 +63,107 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   const cameraRef = useRef(null);
   const isMountedRef = useRef(true);
   const isFocused = useIsFocused();
+
+  // Break System State
+  const [breakModalVisible, setBreakModalVisible] = useState(false);
+  const [submittingBreak, setSubmittingBreak] = useState(false);
+  const [breakElapsedSeconds, setBreakElapsedSeconds] = useState(0);
+  const [breaksSettings, setBreaksSettings] = useState(null);
+
+  const triggerDashboardRefresh = () => {
+    try {
+      if (typeof refreshEmployeeDashboard === "function") {
+        refreshEmployeeDashboard();
+      }
+    } catch (_) {}
+  };
+
+  // Stopwatch timer for active break
+  useEffect(() => {
+    let interval = null;
+    if (todayRecord?.isOnBreak && todayRecord?.currentBreakStartTime) {
+      const updateElapsed = () => {
+        const diffSecs = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(todayRecord.currentBreakStartTime).getTime()) / 1000)
+        );
+        setBreakElapsedSeconds(diffSecs);
+      };
+      updateElapsed();
+      interval = setInterval(updateElapsed, 1000);
+    } else {
+      setBreakElapsedSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [todayRecord?.isOnBreak, todayRecord?.currentBreakStartTime]);
+
+  // Auto-open break modal when directed from Dashboard
+  useEffect(() => {
+    if (route?.params?.openBreakModal && !todayRecord?.isOnBreak) {
+      setBreakModalVisible(true);
+    }
+  }, [route?.params?.openBreakModal, todayRecord?.isOnBreak]);
+
+  const formatElapsed = (totalSecs) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) {
+      return `${hrs}h ${mins % 60}m ${secs < 10 ? "0" : ""}${secs}s`;
+    }
+    return `${mins}m ${secs < 10 ? "0" : ""}${secs}s`;
+  };
+
+  const handleStartBreak = async (breakType) => {
+    try {
+      setSubmittingBreak(true);
+      const res = await startBreakApi({ breakType });
+      if (res?.data?.success) {
+        setTodayRecord(res.data.attendance);
+        setBreakModalVisible(false);
+        triggerDashboardRefresh();
+        Alert.alert(
+          "Break Started",
+          `${breakType === "lunch" ? "Lunch" : "Tea"} break started. Have a nice break!`
+        );
+      }
+    } catch (err) {
+      Alert.alert("Break Notice", err.response?.data?.message || "Failed to start break");
+    } finally {
+      setSubmittingBreak(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    Alert.alert(
+      "End Break Confirmation",
+      "Ready to end your break and resume work?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "End Break",
+          style: "default",
+          onPress: async () => {
+            try {
+              setSubmittingBreak(true);
+              const res = await endBreakApi();
+              if (res?.data?.success) {
+                setTodayRecord(res.data.attendance);
+                triggerDashboardRefresh();
+                Alert.alert("Welcome Back", "Your break has ended. Productive work resumed!");
+              }
+            } catch (err) {
+              Alert.alert("Break Error", err.response?.data?.message || "Failed to end break");
+            } finally {
+              setSubmittingBreak(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Animate punch button scale on press
   const animatePressIn = () => {
@@ -123,6 +227,9 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         if (todayRes?.data?.success) {
           record = todayRes.data.attendance;
           setTodayRecord(record);
+          if (todayRes.data.breaksSettings) {
+            setBreaksSettings(todayRes.data.breaksSettings);
+          }
         }
 
         if (!record || !record.punchInTime) {
@@ -310,14 +417,6 @@ const EmployeePunchScreen = ({ navigation, route }) => {
       setCapturingSelfie(false);
       return null;
     }
-  };
-
-  const triggerDashboardRefresh = () => {
-    try {
-      if (refreshEmployeeDashboard) {
-        refreshEmployeeDashboard();
-      }
-    } catch (_) {}
   };
 
   const executePunch = async (activeSelfie) => {
@@ -629,8 +728,59 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Bottom Controls */}
+      {/* Bottom Controls       {/* Bottom Controls */}
       <View style={styles.bottomControls}>
+        {/* Active Break Banner (ALWAYS accessible when on break, even outside office boundary) */}
+        {todayRecord?.isOnBreak ? (
+          <View style={styles.activeBreakCard}>
+            <View style={styles.activeBreakHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={{ fontSize: 20, marginRight: 8 }}>
+                  {todayRecord.currentBreakType === "lunch" ? "🍱" : "☕"}
+                </Text>
+                <View>
+                  <Text style={styles.activeBreakTitle}>
+                    On {todayRecord.currentBreakType === "lunch" ? "Lunch Break" : "Tea Break"}
+                  </Text>
+                  <Text style={styles.activeBreakSub}>Productive timer paused</Text>
+                </View>
+              </View>
+              <View style={styles.timerBadge}>
+                <Ionicons name="timer-outline" size={14} color="#F59E0B" style={{ marginRight: 4 }} />
+                <Text style={styles.timerText}>{formatElapsed(breakElapsedSeconds)}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.endBreakActionBtn}
+              onPress={handleEndBreak}
+              disabled={submittingBreak}
+              activeOpacity={0.8}
+            >
+              {submittingBreak ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.endBreakActionText}>End Break / Resume Work</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : action === "out" ? (
+          /* Take Break Button when already punched in and not currently on break */
+          <TouchableOpacity
+            style={styles.takeBreakActionBtn}
+            onPress={() => setBreakModalVisible(true)}
+            disabled={isWorking}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cafe" size={18} color="#F59E0B" style={{ marginRight: 8 }} />
+            <Text style={styles.takeBreakActionText}>Take a Break (Lunch / Tea)</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Punch Clock In / Out Main Button */}
         {submittingPunch ? (
           <View style={[styles.punchBtn, { backgroundColor: "#1E293B" }]}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -720,6 +870,113 @@ const EmployeePunchScreen = ({ navigation, route }) => {
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── MODAL: SELECT BREAK TYPE ── */}
+      <Modal
+        visible={breakModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setBreakModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.breakModalBox}>
+            <View style={styles.breakModalHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="cafe" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
+                <Text style={styles.breakModalTitle}>Choose Break Type</Text>
+              </View>
+              <TouchableOpacity onPress={() => setBreakModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.breakModalSub}>
+              Select the break you are taking. Your work timer will pause while on break.
+            </Text>
+
+            {/* Lunch Break Option */}
+            {(() => {
+              const isLunchDisabled = breaksSettings?.lunchBreak?.enabled === false;
+              const hasLunchToday = (todayRecord?.breaks || []).some((b) => b.breakType === "lunch");
+              const isBlocked = submittingBreak || isLunchDisabled || hasLunchToday;
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.breakOptionCard,
+                    (isLunchDisabled || hasLunchToday) && { opacity: 0.55, backgroundColor: "#f1f5f9" },
+                  ]}
+                  onPress={() => handleStartBreak("lunch")}
+                  disabled={isBlocked}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.breakOptionLeft}>
+                    <View style={[styles.breakOptionIconBox, { backgroundColor: isBlocked ? "#E2E8F0" : "#FEF3C7" }]}>
+                      <Text style={{ fontSize: 22 }}>🍱</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.breakOptionName, isBlocked && { color: "#64748B" }]}>Lunch Break</Text>
+                      <Text style={styles.breakOptionMeta}>
+                        {isLunchDisabled
+                          ? "Disabled by company policy"
+                          : hasLunchToday
+                          ? "Already completed today (1/1)"
+                          : `Allowed: ${breaksSettings?.lunchBreak?.durationMinutes || 45} mins`}
+                      </Text>
+                    </View>
+                  </View>
+                  {!isBlocked && <Ionicons name="chevron-forward" size={20} color="#D97706" />}
+                </TouchableOpacity>
+              );
+            })()}
+
+            {/* Tea Break Option */}
+            {(() => {
+              const isTeaDisabled = breaksSettings?.teaBreak?.enabled === false;
+              const teaBreaksTaken = (todayRecord?.breaks || []).filter((b) => b.breakType === "tea").length;
+              const maxTeaBreaks = breaksSettings?.teaBreak?.maxPerDay || 2;
+              const isTeaLimitReached = teaBreaksTaken >= maxTeaBreaks;
+              const isBlocked = submittingBreak || isTeaDisabled || isTeaLimitReached;
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.breakOptionCard,
+                    (isTeaDisabled || isTeaLimitReached) && { opacity: 0.55, backgroundColor: "#f1f5f9" },
+                  ]}
+                  onPress={() => handleStartBreak("tea")}
+                  disabled={isBlocked}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.breakOptionLeft}>
+                    <View style={[styles.breakOptionIconBox, { backgroundColor: isBlocked ? "#E2E8F0" : "#CCFBF1" }]}>
+                      <Text style={{ fontSize: 22 }}>☕</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.breakOptionName, isBlocked && { color: "#64748B" }]}>Tea / Short Break</Text>
+                      <Text style={styles.breakOptionMeta}>
+                        {isTeaDisabled
+                          ? "Disabled by company policy"
+                          : isTeaLimitReached
+                          ? `Daily limit reached (${teaBreaksTaken}/${maxTeaBreaks} taken)`
+                          : `Allowed: ${breaksSettings?.teaBreak?.durationMinutes || 15} mins (${teaBreaksTaken}/${maxTeaBreaks} used)`}
+                      </Text>
+                    </View>
+                  </View>
+                  {!isBlocked && <Ionicons name="chevron-forward" size={20} color="#0D9488" />}
+                </TouchableOpacity>
+              );
+            })()}
+
+            <TouchableOpacity
+              style={styles.breakModalCancelBtn}
+              onPress={() => setBreakModalVisible(false)}
+            >
+              <Text style={styles.breakModalCancelText}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -962,6 +1219,159 @@ const styles = StyleSheet.create({
     color: "#64748B",
     fontSize: 15,
     fontWeight: "600",
+  },
+  /* Break Styles */
+  activeBreakCard: {
+    width: "100%",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.35)",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  activeBreakHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  activeBreakTitle: {
+    color: "#F59E0B",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  activeBreakSub: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  timerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.4)",
+  },
+  timerText: {
+    color: "#F59E0B",
+    fontSize: 13,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
+  endBreakActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#10B981",
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  endBreakActionText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  takeBreakActionBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.35)",
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+  },
+  takeBreakActionText: {
+    color: "#F59E0B",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  /* Modal Styles */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "flex-end",
+  },
+  breakModalBox: {
+    backgroundColor: "#1E293B",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === "android" ? 28 : 40,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  breakModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  breakModalTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  breakModalSub: {
+    color: "#94A3B8",
+    fontSize: 12.5,
+    marginBottom: 18,
+    lineHeight: 18,
+  },
+  breakOptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  breakOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  breakOptionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  breakOptionName: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  breakOptionMeta: {
+    color: "#94A3B8",
+    fontSize: 11.5,
+  },
+  breakModalCancelBtn: {
+    alignItems: "center",
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  breakModalCancelText: {
+    color: "#64748B",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
 

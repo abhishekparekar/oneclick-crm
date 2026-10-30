@@ -297,18 +297,16 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
           <span className="text-slate-400 text-[9px] sm:text-[9.5px]">vs {period}</span>
         </div>
       </div>
-      <div className="hidden sm:block h-8 sm:h-9 w-10 sm:w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={32}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-att-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-att-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="hidden sm:block h-8 w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
+        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-att-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-att-${label.replace(/\s+/g, '')})`}/>
+        </AreaChart>
       </div>
     </div>
   );
@@ -603,7 +601,7 @@ const CompanyAttendance = () => {
       const matchSearch = name.includes(s) || code.includes(s);
       const matchDept = !deptFilter || rec.employeeId?.departmentId === deptFilter || rec.employeeId?.departmentId?._id === deptFilter;
       const matchBranch = !branchFilter || rec.employeeId?.branchId === branchFilter || rec.employeeId?.branchId?._id === branchFilter;
-      const matchStatus = !statusFilter || rec.status === statusFilter;
+      const matchStatus = !statusFilter || (statusFilter === "on_break" ? Boolean(rec.isOnBreak) : rec.status === statusFilter);
       const matchShift = !shiftFilter || (shiftFilter === "general" && !rec.employeeId?.shift);
 
       return matchSearch && matchDept && matchBranch && matchStatus && matchShift;
@@ -620,8 +618,9 @@ const CompanyAttendance = () => {
     const halfDay = data.filter(r => r.status === "half_day").length;
     const leaves = data.filter(r => r.status === "paid_leave" || r.status === "unpaid_leave").length;
     const pendingRegularizations = regularizationRes?.data?.requests?.length || 0;
+    const onBreak = data.filter(r => r.isOnBreak).length;
 
-    return { total, present, absent, late, halfDay, leaves, pendingRegularizations };
+    return { total, present, absent, late, halfDay, leaves, pendingRegularizations, onBreak };
   }, [fullAttendanceData, regularizationRes]);
 
   // ── Export CSV Handler ─────────────────────────────────────────────────────
@@ -1134,6 +1133,32 @@ const CompanyAttendance = () => {
                       {settingsForm.allowedRadiusMeters}m Radius
                     </span>
                   </div>
+
+                  {/* Breaks Log List if breaks were taken */}
+                  {activeRecord.breaks && activeRecord.breaks.length > 0 && (
+                    <div className="bg-amber-50/60 dark:bg-amber-950/20 p-2.5 rounded-lg border border-amber-200/70 dark:border-amber-900/40 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-900 dark:text-amber-400 flex items-center gap-1">
+                          <Coffee size={12} /> Breaks Taken ({activeRecord.breaks.length})
+                        </span>
+                        <span className="text-[9.5px] font-extrabold text-amber-800 dark:text-amber-300">
+                          Total: {activeRecord.totalBreakMinutes || 0}m
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {activeRecord.breaks.map((b, bIdx) => (
+                          <div key={bIdx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-900 px-2 py-1 rounded border border-amber-200/60 dark:border-amber-900/30">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {b.breakType === "lunch" ? "🍱 Lunch" : "☕ Tea"} ({b.startTime ? formatTime(b.startTime) : "—"} - {b.endTime ? formatTime(b.endTime) : "Active"})
+                            </span>
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400">
+                              {b.durationMinutes ? `${b.durationMinutes}m` : "On break"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="py-4 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/40">
@@ -1260,8 +1285,9 @@ const CompanyAttendance = () => {
       </div>
 
       {/* ── Top Stat KPI Cards (Matching Task Board KPI Card Style with Recharts Sparklines) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
         <KPICard label="Present" value={stats.present} trend="12.4%" isUp period="last week" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
+        <KPICard label="On Break" value={stats.onBreak} trend="Live" isUp={true} period="now" strokeColor="#F59E0B" Icon={Coffee} iconBg="bg-amber-500/10" iconColor="#D97706" />
         <KPICard label="Absent" value={stats.absent} trend="2.1%" isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={XCircle} iconBg="bg-rose-500/10" iconColor="#E11D48" />
         <KPICard label="Late" value={stats.late} trend="5.2%" isUp period="last week" strokeColor="#EAB308" Icon={Clock} iconBg="bg-amber-500/10" iconColor="#D97706" />
         <KPICard label="Half Day" value={stats.halfDay} trend="1.1%" isUp period="last week" strokeColor="#8B5CF6" Icon={Coffee} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
@@ -1304,6 +1330,7 @@ const CompanyAttendance = () => {
               onChange={setStatusFilter}
               options={[
                 {value: "present", label: "Present"},
+                {value: "on_break", label: "On Break (Live)"},
                 {value: "late", label: "Late Arrival"},
                 {value: "half_day", label: "Half Day"},
                 {value: "absent", label: "Absent"},
@@ -1437,17 +1464,32 @@ const CompanyAttendance = () => {
                         )}
                       </td>
 
-                      <td className="px-4 sm:px-6 py-3.5 text-center font-bold text-xs text-slate-700 dark:text-slate-300">
-                        {rec.totalHours ? `${Math.floor(rec.totalHours)}h ${Math.round((rec.totalHours - Math.floor(rec.totalHours)) * 60)}m` : "—"}
+                      <td className="px-4 sm:px-6 py-3.5 text-center">
+                        <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                          {rec.netWorkingHours ? `${Math.floor(rec.netWorkingHours)}h ${Math.round((rec.netWorkingHours - Math.floor(rec.netWorkingHours)) * 60)}m` : rec.totalHours ? `${Math.floor(rec.totalHours)}h ${Math.round((rec.totalHours - Math.floor(rec.totalHours)) * 60)}m` : "—"}
+                        </div>
+                        {rec.totalBreakMinutes > 0 && (
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-center gap-1 mt-0.5">
+                            <Coffee size={10} />
+                            <span>{rec.totalBreakMinutes}m break</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5 text-center">
                         {geoBadge}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
-                          {statusInfo.label}
-                        </span>
+                        {rec.isOnBreak ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 animate-pulse">
+                            <span>{rec.currentBreakType === "lunch" ? "🍱" : "☕"}</span>
+                            On {rec.currentBreakType === "lunch" ? "Lunch" : "Tea"} Break
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                            {statusInfo.label}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 sm:px-6 py-3.5 font-medium text-slate-500 dark:text-slate-400 capitalize text-xs">
                         {rec.source}

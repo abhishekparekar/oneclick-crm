@@ -461,8 +461,9 @@ const getEmployeeById = async (req, res, next) => {
         { path: "userId", select: "role profileImage name email" },
         { path: "departmentId", select: "name" },
         { path: "designationId", select: "name" },
-        { path: "branchId", select: "branchName" },
+        { path: "branchId", select: "branchName address city state" },
         { path: "accessibleDepartments", select: "name" },
+        { path: "reportingManagerId", select: "firstName lastName employeeCode email" },
       ])
       .populate("createdBy", "name email");
 
@@ -475,13 +476,71 @@ const getEmployeeById = async (req, res, next) => {
 
     try {
       const activeSs = await SalaryStructure.findOne({ employeeId: employee._id, companyId: req.companyId, status: "active" }).lean();
-      if (activeSs && activeSs.overtimeHourlyRate !== undefined) {
+      if (activeSs) {
         if (!empObj.salaryDetails) empObj.salaryDetails = {};
-        if (empObj.salaryDetails.overtimeHourlyRate === undefined || empObj.salaryDetails.overtimeHourlyRate === 0) {
+        if (activeSs.overtimeHourlyRate !== undefined && (empObj.salaryDetails.overtimeHourlyRate === undefined || empObj.salaryDetails.overtimeHourlyRate === 0)) {
           empObj.salaryDetails.overtimeHourlyRate = activeSs.overtimeHourlyRate;
+        }
+        if (activeSs.monthlyCTC && !empObj.salaryDetails.ctc) {
+          empObj.salaryDetails.ctc = activeSs.monthlyCTC * 12;
+        }
+        if (activeSs.basicSalary && !empObj.salaryDetails.basic) {
+          empObj.salaryDetails.basic = activeSs.basicSalary;
+        }
+        if (activeSs.hra !== undefined && empObj.salaryDetails.hra === undefined) {
+          empObj.salaryDetails.hra = activeSs.hra;
+        }
+        if (activeSs.specialAllowance !== undefined && empObj.salaryDetails.specialAllowance === undefined) {
+          empObj.salaryDetails.specialAllowance = activeSs.specialAllowance;
+        }
+        if (activeSs.pf !== undefined && empObj.salaryDetails.pf === undefined) {
+          empObj.salaryDetails.pf = activeSs.pf;
+        }
+        if (activeSs.esi !== undefined && empObj.salaryDetails.esi === undefined) {
+          empObj.salaryDetails.esi = activeSs.esi;
+        }
+        if (activeSs.tds !== undefined && empObj.salaryDetails.tds === undefined) {
+          empObj.salaryDetails.tds = activeSs.tds;
         }
       }
     } catch (_) {}
+
+    // Compute live stats for Present, Leaves, Tasks
+    try {
+      const Attendance = require("../models/Attendance");
+      const Leave = require("../models/Leave");
+      const Task = require("../models/Task");
+
+      const [presentCount, leaveCount, taskCount] = await Promise.all([
+        Attendance.countDocuments({
+          employeeId: employee._id,
+          companyId: req.companyId,
+          status: { $in: ["present", "late", "halfday"] }
+        }),
+        Leave.countDocuments({
+          employeeId: employee._id,
+          companyId: req.companyId,
+          status: "approved"
+        }),
+        Task.countDocuments({
+          $or: [
+            { assignedTo: employee._id },
+            { "assignedTo._id": employee._id },
+            ...(employee.userId ? [{ assignedTo: employee.userId }, { "assignedTo._id": employee.userId }] : [])
+          ],
+          companyId: req.companyId
+        })
+      ]);
+
+      empObj._stats = {
+        present: presentCount,
+        leaves: leaveCount,
+        tasks: taskCount
+      };
+    } catch (statsErr) {
+      console.error("Error computing employee stats:", statsErr.message);
+      empObj._stats = { present: 0, leaves: 0, tasks: 0 };
+    }
 
     res.json({ employee: empObj });
   } catch (error) {
@@ -817,6 +876,71 @@ const createEmployee = async (req, res, next) => {
     let employee = null;
 
     try {
+      // Normalize documents for Employee documentSchema
+      const standardDocKeys = [
+        "aadhaarFront",
+        "aadhaarBack",
+        "panCard",
+        "resume",
+        "photo",
+        "offerLetter",
+        "joiningLetter",
+        "salarySlipPrevious"
+      ];
+
+      const normalizedDocuments = {
+        aadhaarFront: "",
+        aadhaarBack: "",
+        panCard: "",
+        resume: "",
+        photo: photo || "",
+        offerLetter: "",
+        joiningLetter: "",
+        salarySlipPrevious: "",
+        customDocuments: []
+      };
+
+      if (documents && typeof documents === "object") {
+        if (Array.isArray(documents)) {
+          documents.forEach((d) => {
+            if (!d) return;
+            const key = d.docKey || d.docType || d.key;
+            const url = typeof d === "string" ? d : (d.url || d.fileUrl || "");
+            if (key && standardDocKeys.includes(key) && url) {
+              normalizedDocuments[key] = url;
+            } else if (url) {
+              normalizedDocuments.customDocuments.push({
+                title: d.title || d.name || d.fileName || "Document",
+                url,
+                uploadedAt: d.uploadedAt ? new Date(d.uploadedAt) : new Date(),
+                uploadedBy: d.uploadedBy || (req.user ? `${req.user.firstName || "Admin"}` : "Admin")
+              });
+            }
+          });
+        } else {
+          standardDocKeys.forEach((key) => {
+            const val = documents[key];
+            if (val) {
+              normalizedDocuments[key] = typeof val === "object" && val.url ? val.url : String(val);
+            }
+          });
+          if (Array.isArray(documents.customDocuments)) {
+            documents.customDocuments.forEach((cd) => {
+              if (!cd) return;
+              const url = typeof cd === "string" ? cd : (cd.url || cd.fileUrl || "");
+              if (url) {
+                normalizedDocuments.customDocuments.push({
+                  title: cd.title || cd.name || cd.fileName || "Document",
+                  url,
+                  uploadedAt: cd.uploadedAt ? new Date(cd.uploadedAt) : new Date(),
+                  uploadedBy: cd.uploadedBy || (req.user ? `${req.user.firstName || "Admin"}` : "Admin")
+                });
+              }
+            });
+          }
+        }
+      }
+
       employee = await Employee.create({
         companyId,
         userId: user._id,
@@ -878,7 +1002,7 @@ const createEmployee = async (req, res, next) => {
         panNumber: panNumber || undefined,
         maritalStatus: maritalStatus || undefined,
         noticePeriod: noticePeriod || undefined,
-        documents: (documents && !Array.isArray(documents) && typeof documents === "object") ? documents : {},
+        documents: normalizedDocuments,
         status: "active",
         managerAccessLevel: managerAccessLevel || "team",
         accessibleDepartments: allRequestedDeptIds,
@@ -888,8 +1012,8 @@ const createEmployee = async (req, res, next) => {
       });
 
       user.employeeId = employee._id;
-      if (photo || documents?.photo) {
-        user.profileImage = photo || documents?.photo;
+      if (photo || normalizedDocuments.photo) {
+        user.profileImage = photo || normalizedDocuments.photo;
       }
       await user.save();
 

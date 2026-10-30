@@ -85,6 +85,8 @@ export default function HRLeadsScreen({ navigation, route }) {
   const [selectedProduct, setSelectedProduct] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedTimeframe, setSelectedTimeframe] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [leadScope, setLeadScope] = useState("all"); // 'all' or 'my'
 
@@ -314,10 +316,17 @@ export default function HRLeadsScreen({ navigation, route }) {
 
       if (selectedTimeframe !== "all") {
         const created = new Date(item.createdAt);
+        const followUp = item.nextFollowUpDate ? new Date(item.nextFollowUpDate) : null;
         const now = new Date();
         if (selectedTimeframe === "today") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          if (created < s) return false;
+          if (created < s && (!followUp || followUp < s)) return false;
+        } else if (selectedTimeframe === "tomorrow") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+          const matchCreated = created >= s && created <= e;
+          const matchFollowUp = followUp && followUp >= s && followUp <= e;
+          if (!matchCreated && !matchFollowUp) return false;
         } else if (selectedTimeframe === "yesterday") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
           const e = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -330,12 +339,35 @@ export default function HRLeadsScreen({ navigation, route }) {
         } else if (selectedTimeframe === "this_month") {
           const s = new Date(now.getFullYear(), now.getMonth(), 1);
           if (created < s) return false;
+        } else if (selectedTimeframe === "custom") {
+          let s = null, e = null;
+          if (customStartDate) {
+            const parts = customStartDate.includes("/") ? customStartDate.split("/") : customStartDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customStartDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              s = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 0, 0, 0);
+            }
+          }
+          if (customEndDate) {
+            const parts = customEndDate.includes("/") ? customEndDate.split("/") : customEndDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customEndDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              e = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 23, 59, 59, 999);
+            }
+          }
+          const checkBetween = (d) => {
+            if (!d) return false;
+            if (s && d < s) return false;
+            if (e && d > e) return false;
+            return true;
+          };
+          if (!checkBetween(created) && !checkBetween(followUp)) return false;
         }
       }
 
       return true;
     });
-  }, [leads, searchQuery, selectedStatus, leadScope, selectedAssignee, selectedProduct, selectedSource, selectedTimeframe, currentUserId]);
+  }, [leads, searchQuery, selectedStatus, leadScope, selectedAssignee, selectedProduct, selectedSource, selectedTimeframe, customStartDate, customEndDate, currentUserId]);
 
   // Metrics calculated dynamically from filteredLeads
   const metrics = useMemo(() => {
@@ -828,9 +860,11 @@ export default function HRLeadsScreen({ navigation, route }) {
                   {[
                     { id: "all", label: "All Time" },
                     { id: "today", label: "Today" },
+                    { id: "tomorrow", label: "Tomorrow" },
                     { id: "yesterday", label: "Yesterday" },
                     { id: "this_week", label: "This Week" },
                     { id: "this_month", label: "This Month" },
+                    { id: "custom", label: "Custom Date" },
                   ].map((tf) => {
                     const isSel = selectedTimeframe === tf.id;
                     return (
@@ -849,6 +883,28 @@ export default function HRLeadsScreen({ navigation, route }) {
                     );
                   })}
                 </View>
+                {selectedTimeframe === "custom" && (
+                  <View style={{ marginTop: 10, flexDirection: "row", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>FROM DATE</Text>
+                      <AppDatePicker
+                        value={customStartDate}
+                        onChangeText={setCustomStartDate}
+                        placeholder="DD/MM/YYYY"
+                        compact={true}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>TO DATE</Text>
+                      <AppDatePicker
+                        value={customEndDate}
+                        onChangeText={setCustomEndDate}
+                        placeholder="DD/MM/YYYY"
+                        compact={true}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Status / Stage */}
@@ -1033,6 +1089,8 @@ export default function HRLeadsScreen({ navigation, route }) {
                   setSelectedProduct("all");
                   setSelectedSource("all");
                   setSelectedTimeframe("all");
+                  setCustomStartDate("");
+                  setCustomEndDate("");
                 }}
               >
                 <Text style={{ fontSize: 13, fontWeight: "700", color: "#64748B" }}>Reset All</Text>

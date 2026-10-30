@@ -76,11 +76,11 @@ const Field = ({ label, required, children, className = "", action, hint }) => (
   </div>
 );
 
-const Input = ({ label, type = "text", value, onChange, placeholder, disabled = false, required = false, hint, className = "" }) => (
+const Input = ({ label, type = "text", value, onChange, placeholder, disabled = false, required = false, hint, className = "", allowZero = false }) => (
   <Field label={label} required={required} hint={hint} className={className}>
     <input
       type={type}
-      value={type === "number" && (value === 0 || value === "0") ? "" : (value ?? "")}
+      value={type === "number" && !allowZero && (value === 0 || value === "0") ? "" : (value ?? "")}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
@@ -1379,15 +1379,15 @@ export default function EditEmployee() {
             <div className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Salary Structure (₹ INR)</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <Input label="Annual CTC (Gross)" type="number" value={formData.salaryDetails?.ctc} onChange={(v) => handleNestedChange("salaryDetails", "ctc", v)} placeholder="₹ 6,00,000" />
-                <Input label="Basic Salary (Monthly)" type="number" value={formData.salaryDetails?.basic} onChange={(v) => handleNestedChange("salaryDetails", "basic", v)} placeholder="₹ 25,000" />
-                <Input label="HRA (Monthly)" type="number" value={formData.salaryDetails?.hra} onChange={(v) => handleNestedChange("salaryDetails", "hra", v)} placeholder="₹ 10,000" />
+                <Input label="Annual CTC (Gross)" type="number" allowZero={true} value={formData.salaryDetails?.ctc} onChange={(v) => handleNestedChange("salaryDetails", "ctc", v)} placeholder="e.g. 600000" />
+                <Input label="Basic Salary (Monthly)" type="number" allowZero={true} value={formData.salaryDetails?.basic} onChange={(v) => handleNestedChange("salaryDetails", "basic", v)} placeholder="e.g. 25000" />
+                <Input label="HRA (Monthly)" type="number" allowZero={true} value={formData.salaryDetails?.hra} onChange={(v) => handleNestedChange("salaryDetails", "hra", v)} placeholder="e.g. 10000" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                <Input label="Special Allowance" type="number" value={formData.salaryDetails?.specialAllowance} onChange={(v) => handleNestedChange("salaryDetails", "specialAllowance", v)} placeholder="₹ 5,000" />
-                <Input label="PF Deductions" type="number" value={formData.salaryDetails?.pf} onChange={(v) => handleNestedChange("salaryDetails", "pf", v)} placeholder="₹ 1,800" />
-                <Input label="ESI Deductions" type="number" value={formData.salaryDetails?.esi} onChange={(v) => handleNestedChange("salaryDetails", "esi", v)} placeholder="₹ 0" />
-                <Input label="TDS Deductions" type="number" value={formData.salaryDetails?.tds} onChange={(v) => handleNestedChange("salaryDetails", "tds", v)} placeholder="₹ 1,000" />
+                <Input label="Special Allowance" type="number" allowZero={true} value={formData.salaryDetails?.specialAllowance} onChange={(v) => handleNestedChange("salaryDetails", "specialAllowance", v)} placeholder="e.g. 5000" />
+                <Input label="PF Deductions" type="number" allowZero={true} value={formData.salaryDetails?.pf} onChange={(v) => handleNestedChange("salaryDetails", "pf", v)} placeholder="e.g. 1800" />
+                <Input label="ESI Deductions" type="number" allowZero={true} value={formData.salaryDetails?.esi} onChange={(v) => handleNestedChange("salaryDetails", "esi", v)} placeholder="e.g. 0" />
+                <Input label="TDS Deductions" type="number" allowZero={true} value={formData.salaryDetails?.tds} onChange={(v) => handleNestedChange("salaryDetails", "tds", v)} placeholder="e.g. 1000" />
               </div>
             </div>
 

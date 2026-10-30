@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import leadsService from "../../api/leadsService";
 import locationTrackingService from "../../services/locationTrackingService";
+import { endBreakApi } from "../../api/attendanceService";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
@@ -394,7 +396,11 @@ export default function EmployeeDashboard({ navigation }) {
       if (!lastSession.punchOutTime) {
         isCurrentlyPunchedIn = true;
         const time = new Date(lastSession.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        clockTimeDetail = `In at ${time}`;
+        if (todayAttendance.isOnBreak) {
+          clockTimeDetail = `On ${todayAttendance.currentBreakType === "lunch" ? "Lunch" : "Tea"} Break · In at ${time}`;
+        } else {
+          clockTimeDetail = `In at ${time}`;
+        }
       } else {
         isCurrentlyPunchedIn = false;
         const time = new Date(lastSession.punchOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -404,7 +410,11 @@ export default function EmployeeDashboard({ navigation }) {
       if (todayAttendance.punchInTime && !todayAttendance.punchOutTime) {
         isCurrentlyPunchedIn = true;
         const time = new Date(todayAttendance.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        clockTimeDetail = `In at ${time}`;
+        if (todayAttendance.isOnBreak) {
+          clockTimeDetail = `On ${todayAttendance.currentBreakType === "lunch" ? "Lunch" : "Tea"} Break · In at ${time}`;
+        } else {
+          clockTimeDetail = `In at ${time}`;
+        }
       } else if (todayAttendance.punchInTime && todayAttendance.punchOutTime) {
         isCurrentlyPunchedIn = false;
         clockTimeDetail = `Out · ${todayAttendance.totalHours ? todayAttendance.totalHours.toFixed(1) : "0.0"} hrs`;
@@ -527,41 +537,103 @@ export default function EmployeeDashboard({ navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            {canAccessAttendance && (
-              <TouchableOpacity
-                style={styles.heroPunchBtn}
-                onPress={() =>
-                  navigation.navigate("CheckInCheckOut", {
-                    initialAction: isCurrentlyPunchedIn ? "out" : "in",
-                    todayRecord: todayAttendance,
-                  })
-                }
-                activeOpacity={0.6}
-                delayPressIn={0}
-              >
-                <View
-                  style={[
-                    styles.heroPunchWhiteBtn,
-                    isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
-                  ]}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {isCurrentlyPunchedIn && canAccessAttendance && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: todayAttendance?.isOnBreak ? "#F59E0B" : "rgba(255, 255, 255, 0.2)",
+                    borderWidth: 1,
+                    borderColor: todayAttendance?.isOnBreak ? "#F59E0B" : "rgba(255, 255, 255, 0.4)",
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    borderRadius: 14,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                  onPress={() => {
+                    if (todayAttendance?.isOnBreak) {
+                      Alert.alert(
+                        "End Break Confirmation",
+                        "Ready to end your break and resume work?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "End Break",
+                            style: "default",
+                            onPress: async () => {
+                              try {
+                                const res = await endBreakApi();
+                                if (res?.data?.success) {
+                                  refreshEmployeeDashboard?.();
+                                  Alert.alert("Welcome Back", "Your break has ended. Productive work resumed!");
+                                }
+                              } catch (err) {
+                                Alert.alert("Break Notice", err.response?.data?.message || "Failed to end break");
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    } else {
+                      navigation.navigate("CheckInCheckOut", {
+                        initialAction: "out",
+                        todayRecord: todayAttendance,
+                        openBreakModal: true,
+                      });
+                    }
+                  }}
+                  activeOpacity={0.7}
                 >
                   <Ionicons
-                    name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"}
-                    size={16}
-                    color={isCurrentlyPunchedIn ? "#FFFFFF" : "#1268D9"}
+                    name={todayAttendance?.isOnBreak ? "pause-circle" : "cafe-outline"}
+                    size={14}
+                    color="#FFFFFF"
                     style={{ marginRight: 4 }}
                   />
-                  <Text
+                  <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
+                    {todayAttendance?.isOnBreak
+                      ? `On ${todayAttendance.currentBreakType === "lunch" ? "Lunch" : "Tea"}`
+                      : "Take Break"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {canAccessAttendance && (
+                <TouchableOpacity
+                  style={styles.heroPunchBtn}
+                  onPress={() =>
+                    navigation.navigate("CheckInCheckOut", {
+                      initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                      todayRecord: todayAttendance,
+                    })
+                  }
+                  activeOpacity={0.6}
+                  delayPressIn={0}
+                >
+                  <View
                     style={[
-                      styles.heroPunchWhiteText,
-                      isCurrentlyPunchedIn && { color: "#FFFFFF" },
+                      styles.heroPunchWhiteBtn,
+                      isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
                     ]}
                   >
-                    {isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                    <Ionicons
+                      name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"}
+                      size={16}
+                      color={isCurrentlyPunchedIn ? "#FFFFFF" : "#1268D9"}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      style={[
+                        styles.heroPunchWhiteText,
+                        isCurrentlyPunchedIn && { color: "#FFFFFF" },
+                      ]}
+                    >
+                      {isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Glowing Line Visual / Sparkline Progress Bar */}

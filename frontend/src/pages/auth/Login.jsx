@@ -11,8 +11,6 @@ import {
   Shield,
   Zap,
   BarChart3,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   KeyRound,
   X,
@@ -35,7 +33,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showQuickFill, setShowQuickFill] = useState(false);
 
   // Forgot password OTP wizard state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -148,11 +145,6 @@ const Login = () => {
     });
   };
 
-  const fillCredentials = (fillEmail, fillPass) => {
-    setEmail(fillEmail);
-    setPassword(fillPass);
-    setError("");
-  };
 
   // Resend cooldown countdown timer
   useEffect(() => {
@@ -488,57 +480,6 @@ const Login = () => {
               </p>
             </div>
 
-            {/* Collapsible Quick Test Accounts */}
-            <div className="w-full mt-4 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowQuickFill(!showQuickFill)}
-                className="w-full flex items-center justify-between text-[10.5px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors cursor-pointer py-1"
-              >
-                <span>⚡ Quick Test Accounts</span>
-                {showQuickFill ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-
-              {showQuickFill && (
-                <div className="flex flex-wrap gap-1.5 pt-2 animate-fadeIn">
-                  <button
-                    type="button"
-                    onClick={() => fillCredentials("admin@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-all cursor-pointer"
-                  >
-                    🏢 Company Admin
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillCredentials("anita@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold border border-indigo-200 transition-all cursor-pointer"
-                  >
-                    👥 HR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillCredentials("abhiparekar58@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-all cursor-pointer"
-                  >
-                    📊 Manager
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillCredentials("omkar@gmail.com", "123456")}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold border border-emerald-200 transition-all cursor-pointer"
-                  >
-                    👷 Employee
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillCredentials("icoded@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold border border-slate-200 transition-all cursor-pointer"
-                  >
-                    👑 SuperAdmin
-                  </button>
-                </div>
-              )}
-            </div>
 
           </div>
 

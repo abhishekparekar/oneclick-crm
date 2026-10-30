@@ -243,12 +243,71 @@ const EmployeeAttendanceDetailsScreen = ({ route, navigation }) => {
 
                 <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
                   <DetailRow
-                    label="Total Logged Hours"
+                    label="Total Shift Hours"
                     value={record.totalHours ? formatWorkingHours(record.totalHours) : "—"}
                     icon="time"
                     color="#2563eb"
                   />
+                  <DetailRow
+                    label="Total Break Time"
+                    value={record.totalBreakMinutes ? `${record.totalBreakMinutes} mins` : "0 mins"}
+                    icon="cafe"
+                    color="#d97706"
+                  />
+                  <DetailRow
+                    label="Net Productive Hours"
+                    value={record.netWorkingHours ? formatWorkingHours(record.netWorkingHours) : record.totalHours ? formatWorkingHours(record.totalHours) : "—"}
+                    icon="checkmark-circle"
+                    color="#16a34a"
+                  />
                 </View>
+
+                {/* Breaks History Breakdown */}
+                {record.breaks && record.breaks.length > 0 && (
+                  <View style={{ marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#1e293b", marginBottom: 10 }}>
+                      Breaks Taken Today ({record.breaks.length})
+                    </Text>
+                    {record.breaks.map((b, bIdx) => (
+                      <View
+                        key={bIdx}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          backgroundColor: "#f8fafc",
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                          borderRadius: 10,
+                          marginBottom: 8,
+                          borderWidth: 1,
+                          borderColor: "#e2e8f0",
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <Text style={{ fontSize: 16, marginRight: 8 }}>
+                            {b.breakType === "lunch" ? "🍱" : "☕"}
+                          </Text>
+                          <View>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: "#1e293b" }}>
+                              {b.breakType === "lunch" ? "Lunch Break" : "Tea Break"}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: "#64748b" }}>
+                              {b.startTime ? new Date(b.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                              {" – "}
+                              {b.endTime ? new Date(b.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active"}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ backgroundColor: "#fef3c7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 11.5, fontWeight: "800", color: "#92400e" }}>
+                            {b.durationMinutes ? `${b.durationMinutes}m` : "In progress"}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </AppCard>
             </>
           ) : (

@@ -111,6 +111,21 @@ const notifyManyUsers = async (userIds, companyId, title, body, type = "system",
  */
 const sendNotificationToEmployees = async (companyId, employeeIds, title, body, type = "task", data = {}, idempotencyKeyPrefix = null) => {
   try {
+    if (!companyId || !employeeIds || (Array.isArray(employeeIds) && employeeIds.length === 0)) return [];
+
+    // If task notification, check taskNotifications settings
+    if (type === "task" || type === "task_update") {
+      const company = await Company.findById(companyId).select("settings.taskNotifications").lean();
+      const taskNotifSettings = company?.settings?.taskNotifications || {};
+      const eventKey = resolveTaskEventKey(type, title, data);
+      const cfg = taskNotifSettings[eventKey];
+      const isEnabled = cfg?.enabled !== undefined ? cfg.enabled : true;
+      const notifyAssignee = cfg?.notifyAssignee !== undefined ? cfg.notifyAssignee : (cfg?.notifyEmployee !== undefined ? cfg.notifyEmployee : true);
+      if (!isEnabled || !notifyAssignee) {
+        return [];
+      }
+    }
+
     const userIds = await resolveToUserIds(employeeIds, companyId);
     if (userIds.length === 0) return [];
     return await notifyManyUsers(userIds, companyId, title, body, type, data, idempotencyKeyPrefix);
@@ -240,8 +255,107 @@ const notifyDeptManagers = async (companyId, departmentId, title, body, type = "
 };
 
 /**
+ * Safely resolves task event keys matching the 8 controllable task notification categories:
+ * - taskCreated
+ * - taskAssigned
+ * - taskStatusChanged
+ * - taskCompleted
+ * - taskLateCompleted
+ * - taskOverdue
+ * - taskComments
+ * - taskFollowUp
+ */
+const resolveTaskEventKey = (type = "task", title = "", data = {}, options = {}) => {
+  if (options && options.eventKey) {
+    return options.eventKey;
+  }
+  const action = (data?.action || data?.status || "").toLowerCase();
+  const lowerTitle = (title || "").toLowerCase();
+  const lowerAssigneeTitle = (options?.assigneeTitle || "").toLowerCase();
+  const lowerSupTitle = (options?.supervisorTitle || "").toLowerCase();
+
+  // 1. Comments
+  if (action === "comment_added" || lowerTitle.includes("comment") || lowerAssigneeTitle.includes("comment") || lowerSupTitle.includes("comment")) {
+    return "taskComments";
+  }
+
+  // 2. Follow-up
+  if (action === "follow_up" || type === "task_follow_up" || lowerTitle.includes("follow-up") || lowerTitle.includes("follow up") || lowerAssigneeTitle.includes("follow-up") || lowerSupTitle.includes("follow-up")) {
+    return "taskFollowUp";
+  }
+
+  // 3. Overdue & Deadlines / Reminders
+  if (
+    action === "overdue" ||
+    action === "due_2h" ||
+    action === "due_30m" ||
+    lowerTitle.includes("overdue") ||
+    lowerTitle.includes("due in") ||
+    lowerTitle.includes("urgent: task due") ||
+    lowerAssigneeTitle.includes("due in") ||
+    lowerAssigneeTitle.includes("overdue") ||
+    lowerSupTitle.includes("due in") ||
+    lowerSupTitle.includes("overdue")
+  ) {
+    return "taskOverdue";
+  }
+
+  // 4. Late Completion
+  if (
+    action === "late_completed" ||
+    action === "re_late_complete" ||
+    action === "re_late_completed" ||
+    action === "late_complete" ||
+    lowerTitle.includes("completed late") ||
+    lowerAssigneeTitle.includes("completed late") ||
+    lowerSupTitle.includes("completed late")
+  ) {
+    return "taskLateCompleted";
+  }
+
+  // 5. Completion
+  if (
+    action === "completed" ||
+    action === "complete" ||
+    action === "re_completed" ||
+    action === "re_complete" ||
+    lowerTitle.includes("task completed") ||
+    lowerAssigneeTitle.includes("task completed") ||
+    lowerSupTitle.includes("task completed")
+  ) {
+    return "taskCompleted";
+  }
+
+  // 6. Assignment / Shift
+  if (
+    action === "assigned" ||
+    action === "shifted" ||
+    lowerTitle.includes("assigned") ||
+    lowerTitle.includes("shift") ||
+    lowerAssigneeTitle.includes("assigned")
+  ) {
+    return "taskAssigned";
+  }
+
+  // 7. Creation (new task or recurring template)
+  if (
+    action === "created" ||
+    type === "task_template" ||
+    options?.isCreation === true ||
+    lowerSupTitle === "task created" ||
+    lowerSupTitle === "recurring task created"
+  ) {
+    return "taskCreated";
+  }
+
+  // 8. Status changes / in-process / reopened / update
+  return "taskStatusChanged";
+};
+
+/**
  * Notify all supervisors of a task (CompanyAdmin, HR, Reporting Managers, Department Managers)
  * strictly excluding any IDs in excludeUserIds (e.g. assignees already notified or creator).
+ * Respects Company taskNotifications enable/disable and notifyAdmin/notifyManager controls.
  */
 const notifyTaskSupervisors = async (
   companyId,
@@ -252,9 +366,32 @@ const notifyTaskSupervisors = async (
   type = "task",
   data = {},
   excludeUserIds = [],
-  customKeyPrefix = null
+  customKeyPrefix = null,
+  eventKeyOverride = null,
+  configOverride = null
 ) => {
   try {
+    if (!companyId) return [];
+
+    // Resolve event configuration
+    let supervisorConfig = configOverride;
+    if (!supervisorConfig) {
+      const company = await Company.findById(companyId).select("settings.taskNotifications").lean();
+      const taskNotifSettings = company?.settings?.taskNotifications || {};
+      const resolvedKey = eventKeyOverride || resolveTaskEventKey(type, title, data);
+      const cfg = taskNotifSettings[resolvedKey];
+      supervisorConfig = {
+        enabled: cfg?.enabled !== undefined ? cfg.enabled : true,
+        notifyAdmin: cfg?.notifyAdmin !== undefined ? cfg.notifyAdmin : true,
+        notifyManager: cfg?.notifyManager !== undefined ? cfg.notifyManager : true,
+      };
+    }
+
+    // If notifications for this event are disabled or neither admin nor manager should be notified, exit immediately
+    if (!supervisorConfig.enabled || (!supervisorConfig.notifyAdmin && !supervisorConfig.notifyManager)) {
+      return [];
+    }
+
     const collectedUserIds = new Set();
     const excludeSet = new Set(
       (excludeUserIds || []).map(id => (id ? (id._id ? id._id.toString() : id.toString()) : "")).filter(Boolean)
@@ -266,67 +403,92 @@ const notifyTaskSupervisors = async (
       resolvedAssigneeUserIds.forEach(id => excludeSet.add(id.toString()));
     }
 
-    // 1. Company Admin users ("admin la gelch pahije")
-    const admins = await User.find({
-      companyId,
-      role: { $in: ["CompanyAdmin", "admin", "Admin", "company_admin"] },
-      isActive: { $ne: false }
-    }).select("_id").lean();
+    // 1. Company Admin users (only if notifyAdmin is true)
+    if (supervisorConfig.notifyAdmin) {
+      const admins = await User.find({
+        companyId,
+        role: { $in: ["CompanyAdmin", "admin", "Admin", "company_admin"] },
+        isActive: { $ne: false }
+      }).select("_id").lean();
 
-    admins.forEach(a => {
-      const idStr = a._id.toString();
-      if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
-    });
+      admins.forEach(a => {
+        const idStr = a._id.toString();
+        if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
+      });
+    }
 
-    // 2. Direct Reporting Managers of assigned employees (strictly verified manager role)
-    if (assignedEmployeeIds && assignedEmployeeIds.length > 0) {
-      const assignedEmps = await Employee.find({
-        $or: [{ _id: { $in: assignedEmployeeIds } }, { userId: { $in: assignedEmployeeIds } }],
-        companyId
-      }).select("reportingManagerId departmentId").lean();
+    // 2. Managers (Reporting Managers & Department Managers - only if notifyManager is true)
+    if (supervisorConfig.notifyManager) {
+      // Direct Reporting Managers of assigned employees (strictly verified manager role)
+      if (assignedEmployeeIds && assignedEmployeeIds.length > 0) {
+        const assignedEmps = await Employee.find({
+          $or: [{ _id: { $in: assignedEmployeeIds } }, { userId: { $in: assignedEmployeeIds } }],
+          companyId
+        }).select("reportingManagerId departmentId").lean();
 
-      const reportingManagerEmpIds = [
-        ...new Set(assignedEmps.map(e => e.reportingManagerId).filter(Boolean).map(id => id.toString()))
-      ];
+        const reportingManagerEmpIds = [
+          ...new Set(assignedEmps.map(e => e.reportingManagerId).filter(Boolean).map(id => id.toString()))
+        ];
 
-      if (reportingManagerEmpIds.length > 0) {
-        const reportingManagers = await Employee.find({
-          _id: { $in: reportingManagerEmpIds },
-          companyId,
-          status: "active",
-          $or: [
-            { role: { $in: ["Manager", "TeamLeader"] } },
-            { isManager: true }
-          ]
-        }).select("userId").lean();
+        if (reportingManagerEmpIds.length > 0) {
+          const reportingManagers = await Employee.find({
+            _id: { $in: reportingManagerEmpIds },
+            companyId,
+            status: "active",
+            $or: [
+              { role: { $in: ["Manager", "TeamLeader"] } },
+              { isManager: true }
+            ]
+          }).select("userId").lean();
 
-        reportingManagers.forEach(m => {
-          if (m.userId) {
-            const idStr = (m.userId._id || m.userId).toString();
-            if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
-          }
-        });
-      }
+          reportingManagers.forEach(m => {
+            if (m.userId) {
+              const idStr = (m.userId._id || m.userId).toString();
+              if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
+            }
+          });
+        }
 
-      // 3. Department Managers of that department (strictly checking role: Manager / TeamLeader or isManager: true)
-      const deptIds = [
-        ...new Set([
-          ...assignedEmps.map(e => e.departmentId).filter(Boolean).map(id => id.toString()),
-          ...(departmentId ? [departmentId.toString()] : [])
-        ])
-      ];
+        // Department Managers
+        const deptIds = [
+          ...new Set([
+            ...assignedEmps.map(e => e.departmentId).filter(Boolean).map(id => id.toString()),
+            ...(departmentId ? [departmentId.toString()] : [])
+          ])
+        ];
 
-      if (deptIds.length > 0) {
+        if (deptIds.length > 0) {
+          const deptManagers = await Employee.find({
+            companyId,
+            status: "active",
+            $or: [
+              { role: { $in: ["Manager", "TeamLeader"] }, departmentId: { $in: deptIds } },
+              { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: { $in: deptIds } },
+              { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: deptIds } },
+              { isManager: true, departmentId: { $in: deptIds } },
+              { isManager: true, departmentIds: { $in: deptIds } },
+              { isManager: true, accessibleDepartments: { $in: deptIds } }
+            ]
+          }).select("userId").lean();
+
+          deptManagers.forEach(m => {
+            if (m.userId) {
+              const idStr = (m.userId._id || m.userId).toString();
+              if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
+            }
+          });
+        }
+      } else if (departmentId) {
         const deptManagers = await Employee.find({
           companyId,
           status: "active",
           $or: [
-            { role: { $in: ["Manager", "TeamLeader"] }, departmentId: { $in: deptIds } },
-            { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: { $in: deptIds } },
-            { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: deptIds } },
-            { isManager: true, departmentId: { $in: deptIds } },
-            { isManager: true, departmentIds: { $in: deptIds } },
-            { isManager: true, accessibleDepartments: { $in: deptIds } }
+            { role: { $in: ["Manager", "TeamLeader"] }, departmentId },
+            { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: departmentId },
+            { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: [departmentId] } },
+            { isManager: true, departmentId },
+            { isManager: true, departmentIds: departmentId },
+            { isManager: true, accessibleDepartments: { $in: [departmentId] } }
           ]
         }).select("userId").lean();
 
@@ -337,26 +499,6 @@ const notifyTaskSupervisors = async (
           }
         });
       }
-    } else if (departmentId) {
-      const deptManagers = await Employee.find({
-        companyId,
-        status: "active",
-        $or: [
-          { role: { $in: ["Manager", "TeamLeader"] }, departmentId },
-          { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: departmentId },
-          { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: [departmentId] } },
-          { isManager: true, departmentId },
-          { isManager: true, departmentIds: departmentId },
-          { isManager: true, accessibleDepartments: { $in: [departmentId] } }
-        ]
-      }).select("userId").lean();
-
-      deptManagers.forEach(m => {
-        if (m.userId) {
-          const idStr = (m.userId._id || m.userId).toString();
-          if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
-        }
-      });
     }
 
     if (collectedUserIds.size === 0) return [];
@@ -376,6 +518,7 @@ const notifyTaskSupervisors = async (
  * Unified Task Notification Dispatcher
  * Coordinates Assignees vs Supervisors with ZERO overlap.
  * One event = strictly one notification per intended recipient.
+ * Fully honors Company taskNotifications granular enable/disable controls.
  */
 const notifyTaskAll = async (
   companyId,
@@ -388,13 +531,43 @@ const notifyTaskAll = async (
   options = {}
 ) => {
   try {
+    if (!companyId) return;
+
     const {
       excludeUserId = null,
       assigneeTitle = null,
       assigneeBody = null,
       supervisorTitle = null,
       supervisorBody = null,
+      isCreation = false,
+      eventKey = null
     } = options;
+
+    // Fetch company notification settings
+    const company = await Company.findById(companyId).select("settings.taskNotifications").lean();
+    const taskNotifSettings = company?.settings?.taskNotifications || {};
+
+    const getEventConfig = (key) => {
+      const cfg = taskNotifSettings[key];
+      return {
+        enabled: cfg?.enabled !== undefined ? cfg.enabled : true,
+        notifyAdmin: cfg?.notifyAdmin !== undefined ? cfg.notifyAdmin : true,
+        notifyManager: cfg?.notifyManager !== undefined ? cfg.notifyManager : true,
+        notifyAssignee: cfg?.notifyAssignee !== undefined ? cfg.notifyAssignee : (cfg?.notifyEmployee !== undefined ? cfg.notifyEmployee : true),
+      };
+    };
+
+    const isCreationEvent = isCreation ||
+      data?.action === "created" ||
+      type === "task_template" ||
+      (supervisorTitle && supervisorTitle.toLowerCase().includes("created"));
+
+    // Event keys for assignee vs supervisor
+    const assigneeEventKey = eventKey || (isCreationEvent ? "taskAssigned" : resolveTaskEventKey(type, assigneeTitle || title, data, options));
+    const supervisorEventKey = eventKey || (isCreationEvent ? "taskCreated" : resolveTaskEventKey(type, supervisorTitle || title, data, options));
+
+    const assigneeConfig = getEventConfig(assigneeEventKey);
+    const supervisorConfig = getEventConfig(supervisorEventKey);
 
     const excludeStr = excludeUserId ? (excludeUserId._id || excludeUserId).toString() : null;
 
@@ -407,8 +580,8 @@ const notifyTaskAll = async (
     const taskId = data?.taskId || data?.templateId || "";
     const actionKey = data?.action || data?.status || (data?.stage !== undefined ? `stage_${data.stage}` : "update");
 
-    // 2. Notify Assignees with assignee-tailored notification
-    if (finalAssigneeUserIds.length > 0) {
+    // 2. Notify Assignees with assignee-tailored notification (only if event is enabled AND notifyAssignee is true)
+    if (assigneeConfig.enabled && assigneeConfig.notifyAssignee && finalAssigneeUserIds.length > 0) {
       const aTitle = assigneeTitle || title;
       const aBody = assigneeBody || body;
       const aKeyPrefix = taskId ? `task_assignee_${type}_${taskId}_${actionKey}` : null;
@@ -418,26 +591,30 @@ const notifyTaskAll = async (
 
     // 3. Notify Supervisors (Admins & Managers)
     // Strictly exclude all assigneeUserIds and excludeUserId to guarantee ZERO duplicates!
-    const excludeFromSupervisors = [
-      ...assigneeUserIds,
-      ...(excludeStr ? [excludeStr] : [])
-    ];
+    if (supervisorConfig.enabled && (supervisorConfig.notifyAdmin || supervisorConfig.notifyManager)) {
+      const excludeFromSupervisors = [
+        ...assigneeUserIds,
+        ...(excludeStr ? [excludeStr] : [])
+      ];
 
-    const sTitle = supervisorTitle || title;
-    const sBody = supervisorBody || body;
-    const supKeyPrefix = taskId ? `task_sup_${type}_${taskId}_${actionKey}` : null;
+      const sTitle = supervisorTitle || title;
+      const sBody = supervisorBody || body;
+      const supKeyPrefix = taskId ? `task_sup_${type}_${taskId}_${actionKey}` : null;
 
-    await notifyTaskSupervisors(
-      companyId,
-      assignedEmployeeIds,
-      departmentId,
-      sTitle,
-      sBody,
-      type,
-      data,
-      excludeFromSupervisors,
-      supKeyPrefix
-    );
+      await notifyTaskSupervisors(
+        companyId,
+        assignedEmployeeIds,
+        departmentId,
+        sTitle,
+        sBody,
+        type,
+        data,
+        excludeFromSupervisors,
+        supKeyPrefix,
+        supervisorEventKey,
+        supervisorConfig
+      );
+    }
   } catch (err) {
     console.error("[notifyTaskAll] Error:", err);
   }
@@ -599,5 +776,6 @@ module.exports = {
   notifyDeptManagers,
   notifyTaskSupervisors,
   notifyTaskAll,
-  notifyAttendancePunch
+  notifyAttendancePunch,
+  resolveTaskEventKey
 };

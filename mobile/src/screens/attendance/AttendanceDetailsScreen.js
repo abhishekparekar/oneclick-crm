@@ -42,7 +42,18 @@ const AttendanceDetailsScreen = ({ route }) => {
         label="Check-out"
         value={record.checkOutTime ? new Date(record.checkOutTime).toLocaleString() : "-"}
       />
-      <Row label="Total hours" value={String(record.totalHours || 0)} />
+      {record.isOnBreak && (
+        <Row
+          label="Current Break"
+          value={`☕ On ${record.currentBreakType === "lunch" ? "Lunch" : record.currentBreakType === "tea" ? "Tea" : ""} Break`}
+        />
+      )}
+      <Row label="Total Shift Hours" value={String(record.totalHours || 0)} />
+      <Row label="Total Break Time" value={`${record.totalBreakMinutes || 0} mins`} />
+      <Row
+        label="Net Productive Hours"
+        value={record.netWorkingHours !== undefined && record.netWorkingHours !== null ? `${record.netWorkingHours} hrs` : String(record.totalHours || 0)}
+      />
       <Row
         label="Check-in location"
         value={

@@ -65,6 +65,8 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState("all");
   const [selectedTimeframe, setSelectedTimeframe] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   // Modal States
   const [addModalVisible, setAddModalVisible] = useState(route?.params?.openAddModal || false);
@@ -277,31 +279,59 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       }
 
       if (selectedTimeframe !== "all") {
-        if (!l.createdAt) return false;
-        const created = new Date(l.createdAt);
-        if (isNaN(created.getTime())) return false;
+        const created = l.createdAt ? new Date(l.createdAt) : null;
+        const followUp = l.nextFollowUpDate ? new Date(l.nextFollowUpDate) : null;
         const now = new Date();
         if (selectedTimeframe === "today") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          if (created < s) return false;
+          if ((!created || created < s) && (!followUp || followUp < s)) return false;
+        } else if (selectedTimeframe === "tomorrow") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+          const matchCreated = created && created >= s && created <= e;
+          const matchFollowUp = followUp && followUp >= s && followUp <= e;
+          if (!matchCreated && !matchFollowUp) return false;
         } else if (selectedTimeframe === "yesterday") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
           const e = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          if (created < s || created >= e) return false;
+          if (!created || created < s || created >= e) return false;
         } else if (selectedTimeframe === "this_week") {
           const s = new Date(now);
           s.setDate(now.getDate() - now.getDay());
           s.setHours(0, 0, 0, 0);
-          if (created < s) return false;
+          if (!created || created < s) return false;
         } else if (selectedTimeframe === "this_month") {
           const s = new Date(now.getFullYear(), now.getMonth(), 1);
-          if (created < s) return false;
+          if (!created || created < s) return false;
+        } else if (selectedTimeframe === "custom") {
+          let s = null, e = null;
+          if (customStartDate) {
+            const parts = customStartDate.includes("/") ? customStartDate.split("/") : customStartDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customStartDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              s = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 0, 0, 0);
+            }
+          }
+          if (customEndDate) {
+            const parts = customEndDate.includes("/") ? customEndDate.split("/") : customEndDate.split("-");
+            if (parts.length === 3) {
+              const [d, m, y] = customEndDate.includes("/") ? parts : [parts[2], parts[1], parts[0]];
+              e = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 23, 59, 59, 999);
+            }
+          }
+          const checkBetween = (d) => {
+            if (!d) return false;
+            if (s && d < s) return false;
+            if (e && d > e) return false;
+            return true;
+          };
+          if (!checkBetween(created) && !checkBetween(followUp)) return false;
         }
       }
 
       return true;
     });
-  }, [leads, searchQuery, selectedStatus, selectedSource, selectedProduct, selectedTimeframe]);
+  }, [leads, searchQuery, selectedStatus, selectedSource, selectedProduct, selectedTimeframe, customStartDate, customEndDate]);
 
   // Action Handlers
   const handleCall = (phone) => {
@@ -747,8 +777,10 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             {[
               { id: "all", label: "All Time" },
               { id: "today", label: "Today" },
+              { id: "tomorrow", label: "Tomorrow" },
               { id: "this_week", label: "This Week" },
               { id: "this_month", label: "This Month" },
+              { id: "custom", label: "Custom Date" },
             ].map((tf) => {
               const isSel = selectedTimeframe === tf.id;
               return (
@@ -768,6 +800,40 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             })}
           </ScrollView>
         </View>
+
+        {/* Custom Date Range Picker */}
+        {selectedTimeframe === "custom" && (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: "#F8FAFC", borderBottomWidth: 1, borderBottomColor: "#E2E8F0" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#D97706" }}>CUSTOM DATE RANGE</Text>
+              {(customStartDate || customEndDate) ? (
+                <TouchableOpacity onPress={() => { setCustomStartDate(""); setCustomEndDate(""); }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#EF4444" }}>Clear Range</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>FROM DATE</Text>
+                <AppDatePicker
+                  value={customStartDate}
+                  onChangeText={setCustomStartDate}
+                  placeholder="DD/MM/YYYY"
+                  compact={true}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#64748B", marginBottom: 4 }}>TO DATE</Text>
+                <AppDatePicker
+                  value={customEndDate}
+                  onChangeText={setCustomEndDate}
+                  placeholder="DD/MM/YYYY"
+                  compact={true}
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Status Filter Tabs */}
         <View style={styles.filterScrollWrapper}>

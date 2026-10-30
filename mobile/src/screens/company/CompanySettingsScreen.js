@@ -76,6 +76,18 @@ const CompanySettingsScreen = ({ navigation }) => {
     },
   });
 
+  // Break Policy State
+  const [lunchBreakEnabled, setLunchBreakEnabled] = useState(true);
+  const [lunchDurationMinutes, setLunchDurationMinutes] = useState("45");
+  const [lunchStartTime, setLunchStartTime] = useState("13:00");
+  const [lunchEndTime, setLunchEndTime] = useState("14:00");
+
+  const [teaBreakEnabled, setTeaBreakEnabled] = useState(true);
+  const [teaDurationMinutes, setTeaDurationMinutes] = useState("15");
+  const [teaMaxPerDay, setTeaMaxPerDay] = useState("2");
+
+  const [deductFromWorkingHours, setDeductFromWorkingHours] = useState(true);
+
   const fetchSettings = async () => {
     try {
       setLoading(true);
@@ -102,6 +114,18 @@ const CompanySettingsScreen = ({ navigation }) => {
               notifyAdmin: s.attendanceNotifications.punchOut?.notifyAdmin ?? false,
             },
           });
+        }
+        if (s.breaks) {
+          setLunchBreakEnabled(s.breaks.lunchBreak?.enabled ?? true);
+          setLunchDurationMinutes(String(s.breaks.lunchBreak?.durationMinutes ?? 45));
+          setLunchStartTime(s.breaks.lunchBreak?.startTime || "13:00");
+          setLunchEndTime(s.breaks.lunchBreak?.endTime || "14:00");
+
+          setTeaBreakEnabled(s.breaks.teaBreak?.enabled ?? true);
+          setTeaDurationMinutes(String(s.breaks.teaBreak?.durationMinutes ?? 15));
+          setTeaMaxPerDay(String(s.breaks.teaBreak?.maxPerDay ?? 2));
+
+          setDeductFromWorkingHours(s.breaks.deductFromWorkingHours ?? true);
         }
       }
       
@@ -168,6 +192,20 @@ const CompanySettingsScreen = ({ navigation }) => {
         halfDayHours: parseInt(halfDayHours) || 0,
         workingDays,
         attendanceNotifications,
+        breaks: {
+          lunchBreak: {
+            enabled: lunchBreakEnabled,
+            durationMinutes: parseInt(lunchDurationMinutes) || 45,
+            startTime: lunchStartTime || "13:00",
+            endTime: lunchEndTime || "14:00",
+          },
+          teaBreak: {
+            enabled: teaBreakEnabled,
+            durationMinutes: parseInt(teaDurationMinutes) || 15,
+            maxPerDay: parseInt(teaMaxPerDay) || 2,
+          },
+          deductFromWorkingHours,
+        },
       };
 
       const leavePayload = {
@@ -275,6 +313,128 @@ const CompanySettingsScreen = ({ navigation }) => {
               <Text style={styles.fieldHelpText}>
                 Minimum hours needed inside active session to qualify for a complete half-day payout.
               </Text>
+            </View>
+          </View>
+
+          {/* Break & Meal Policies Section */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="cafe-outline" size={20} color="#f59e0b" />
+              <Text style={styles.sectionTitle}>Break & Meal Policies</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Configure Lunch and Tea break durations, daily limits, and work-hours deduction rules for all employees.
+            </Text>
+
+            {/* Deduct Breaks Switch */}
+            <View style={[styles.switchRow, { marginTop: 8 }]}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.switchLabel}>Deduct Breaks from Work Hours</Text>
+                <Text style={styles.fieldHelpText}>
+                  Net working hours = Shift time minus total break duration
+                </Text>
+              </View>
+              <Switch
+                value={deductFromWorkingHours}
+                onValueChange={setDeductFromWorkingHours}
+                disabled={!isAdmin}
+                trackColor={{ false: "#cbd5e1", true: "#f59e0b" }}
+                thumbColor="#ffffff"
+              />
+            </View>
+
+            {/* Lunch Break Card */}
+            <View style={{ backgroundColor: "#fef3c7", padding: 14, borderRadius: 12, marginTop: 14, borderWidth: 1, borderColor: "#fde68a" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text style={{ fontSize: 18, marginRight: 6 }}>🍱</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#92400e" }}>Lunch Break</Text>
+                </View>
+                <Switch
+                  value={lunchBreakEnabled}
+                  onValueChange={setLunchBreakEnabled}
+                  disabled={!isAdmin}
+                  trackColor={{ false: "#cbd5e1", true: "#d97706" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: "#92400e" }]}>Allowed Duration (Minutes)</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: "#ffffff" }, (!isAdmin || !lunchBreakEnabled) && styles.inputDisabled]}
+                  keyboardType="numeric"
+                  value={lunchDurationMinutes}
+                  onChangeText={setLunchDurationMinutes}
+                  placeholder="e.g. 45"
+                  editable={isAdmin && lunchBreakEnabled}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: "#92400e" }]}>Start Window</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: "#ffffff" }, (!isAdmin || !lunchBreakEnabled) && styles.inputDisabled]}
+                    value={lunchStartTime}
+                    onChangeText={setLunchStartTime}
+                    placeholder="13:00"
+                    editable={isAdmin && lunchBreakEnabled}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: "#92400e" }]}>End Window</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: "#ffffff" }, (!isAdmin || !lunchBreakEnabled) && styles.inputDisabled]}
+                    value={lunchEndTime}
+                    onChangeText={setLunchEndTime}
+                    placeholder="14:00"
+                    editable={isAdmin && lunchBreakEnabled}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Tea Break Card */}
+            <View style={{ backgroundColor: "#ccfbf1", padding: 14, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: "#99f6e4" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text style={{ fontSize: 18, marginRight: 6 }}>☕</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#115e59" }}>Tea / Short Break</Text>
+                </View>
+                <Switch
+                  value={teaBreakEnabled}
+                  onValueChange={setTeaBreakEnabled}
+                  disabled={!isAdmin}
+                  trackColor={{ false: "#cbd5e1", true: "#0d9488" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: "#115e59" }]}>Duration (Mins)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: "#ffffff" }, (!isAdmin || !teaBreakEnabled) && styles.inputDisabled]}
+                    keyboardType="numeric"
+                    value={teaDurationMinutes}
+                    onChangeText={setTeaDurationMinutes}
+                    placeholder="e.g. 15"
+                    editable={isAdmin && teaBreakEnabled}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: "#115e59" }]}>Max Breaks / Day</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: "#ffffff" }, (!isAdmin || !teaBreakEnabled) && styles.inputDisabled]}
+                    keyboardType="numeric"
+                    value={teaMaxPerDay}
+                    onChangeText={setTeaMaxPerDay}
+                    placeholder="e.g. 2"
+                    editable={isAdmin && teaBreakEnabled}
+                  />
+                </View>
+              </View>
             </View>
           </View>
 
