@@ -291,40 +291,42 @@ const getManagerDashboardSummary = async (req, res, next) => {
     const { departmentId } = req.query;
     let teamEmployeeIds = await getManagerTeamEmployeeIds(managerEmployeeId, companyId);
 
-    // Resolve departments the manager has access to (for project and task visibility)
-    const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
-    
-    if (manager.departmentIds && manager.departmentIds.length > 0) {
-      manager.departmentIds.forEach(d => {
-        const id = d?._id || d;
-        if (id) {
-          const idStr = id.toString();
-          if (!allowedDeptIds.map(x => x.toString()).includes(idStr)) {
-            allowedDeptIds.push(id);
-          }
-        }
-      });
+    // Resolve departments the manager has access to (including multiple assigned departments)
+    const Department = require("../models/Department");
+    const isAllAccess = (
+      manager.managerAccessLevel === "all" ||
+      ["CompanyAdmin", "HR", "SuperAdmin"].includes(manager.role) ||
+      manager.isVirtualAdmin === true
+    );
+
+    let accessibleDeptsList = [];
+    if (isAllAccess || !manager.departmentId) {
+      accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
+    } else {
+      const dIds = [
+        manager.departmentId?._id || manager.departmentId,
+        ...(Array.isArray(manager.departmentIds) ? manager.departmentIds.map(d => d?._id || d) : []),
+        ...(Array.isArray(manager.accessibleDepartments) ? manager.accessibleDepartments.map(d => d?._id || d) : [])
+      ].filter(Boolean);
+      accessibleDeptsList = await Department.find({ _id: { $in: dIds }, companyId }).select("_id name").lean();
+      if (accessibleDeptsList.length === 0) {
+        accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
+      }
     }
 
-    if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
-      manager.accessibleDepartments.forEach(d => {
-        const id = d?._id || d;
-        if (id) {
-          const idStr = id.toString();
-          if (!allowedDeptIds.map(x => x.toString()).includes(idStr)) {
-            allowedDeptIds.push(id);
-          }
-        }
-      });
-    }
-
+    const allowedDeptIds = accessibleDeptsList.map(d => d._id);
     const deptMatchList = [];
-    allowedDeptIds.forEach(id => {
-      if (!id) return;
-      const str = id.toString();
+    const deptNameList = [];
+    accessibleDeptsList.forEach(d => {
+      if (!d) return;
+      const str = (d._id || d.id || d).toString();
       deptMatchList.push(str);
       if (mongoose.Types.ObjectId.isValid(str)) {
         deptMatchList.push(new mongoose.Types.ObjectId(str));
+      }
+      if (d.name) {
+        deptNameList.push(d.name);
+        deptNameList.push(d.name.trim().toLowerCase());
       }
     });
 
@@ -605,6 +607,9 @@ const getManagerDashboardSummary = async (req, res, next) => {
     const completedTeamTasksCount = teamTasks.filter(t => isDoneStatus(t.status)).length;
 
     const totalAllTasks = (allRawTasks || []).length + (allRawTemplates || []).length;
+    const allCompletedTasksCount = (allRawTasks || []).filter(t => isDoneStatus(t.status)).length;
+    const allOpenTasksCount = (allRawTasks || []).filter(t => !isDoneStatus(t.status)).length + (allRawTemplates || []).length;
+    const allOverdueTasksCount = (allRawTasks || []).filter(t => isOverdueTask(t)).length;
 
     recentMyTasks.forEach(t => t.assignees = t.assignedTo);
     recentTeamTasks.forEach(t => t.assignees = t.assignedTo);
@@ -684,22 +689,6 @@ const getManagerDashboardSummary = async (req, res, next) => {
       todayHours: (totalTeamWorkMinutesToday / 60).toFixed(1),
     };
 
-    const Department = require("../models/Department");
-    let accessibleDeptsList = [];
-    if (manager.managerAccessLevel === "all" || !manager.departmentId) {
-      accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
-    } else {
-      const dIds = [
-        manager.departmentId?._id || manager.departmentId,
-        ...(Array.isArray(manager.departmentIds) ? manager.departmentIds.map(d => d?._id || d) : []),
-        ...(Array.isArray(manager.accessibleDepartments) ? manager.accessibleDepartments.map(d => d?._id || d) : [])
-      ].filter(Boolean);
-      accessibleDeptsList = await Department.find({ _id: { $in: dIds }, companyId }).select("_id name").lean();
-      if (accessibleDeptsList.length === 0) {
-        accessibleDeptsList = await Department.find({ companyId }).select("_id name").lean();
-      }
-    }
-
     return res.json({
       success: true,
       data: {
@@ -732,6 +721,12 @@ const getManagerDashboardSummary = async (req, res, next) => {
           totalTasks: totalAllTasks,
           totalAllTasks,
           totalCombinedTasks: totalAllTasks,
+          completedTasks: allCompletedTasksCount,
+          allCompletedTasks: allCompletedTasksCount,
+          openTasks: allOpenTasksCount,
+          allOpenTasks: allOpenTasksCount,
+          overdueTasks: allOverdueTasksCount,
+          allOverdueTasks: allOverdueTasksCount,
           totalTeamTasks: totalTeamTasksCount,
           openTeamTasks: openTeamTasksCount,
           overdueTeamTasks: overdueTeamTasksCount,

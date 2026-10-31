@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   getManagerDashboardApi,
   getManagerTeamTasksApi,
+  getManagerMyTasksApi,
   getManagerProjectsApi,
   getManagerTeamApi,
   getManagerLeadsApi,
@@ -204,20 +205,34 @@ export default function ManagerDashboard() {
     staleTime: 30000,
   });
 
-  // ── 2. Team Tasks (Isolated queryKey to avoid cache collision with ManagerTeamTasks) ──
+  // ── 2. Team & Department Tasks (Across all assigned departments) ──
   const { data: teamTasksRes, isLoading: isLoadingTasks } = useQuery({
     queryKey: ["managerDashboardTeamTasks", timeRange],
     queryFn: async () => {
-      const [regRes, tplRes] = await Promise.all([
+      const [regRes, tplRes, myRes, myTplRes] = await Promise.all([
         getManagerTeamTasksApi({ limit: 1000 }).catch(() => ({ data: { data: [] } })),
         getManagerTeamTasksApi({ isTemplate: true, limit: 1000 }).catch(() => ({ data: { data: [] } })),
+        getManagerMyTasksApi({ limit: 1000 }).catch(() => ({ data: { data: [] } })),
+        getManagerMyTasksApi({ isTemplate: true, limit: 1000 }).catch(() => ({ data: { data: [] } })),
       ]);
       const reg = regRes.data?.tasks || regRes.data?.data || (Array.isArray(regRes.data) ? regRes.data : []);
       const tpls = (tplRes.data?.tasks || tplRes.data?.data || (Array.isArray(tplRes.data) ? tplRes.data : [])).map((t) => ({
         ...t,
         isTemplate: true,
       }));
-      return [...reg, ...tpls];
+      const myReg = myRes.data?.tasks || myRes.data?.data || (Array.isArray(myRes.data) ? myRes.data : []);
+      const myTpls = (myTplRes.data?.tasks || myTplRes.data?.data || (Array.isArray(myTplRes.data) ? myTplRes.data : [])).map((t) => ({
+        ...t,
+        isTemplate: true,
+      }));
+
+      const taskMap = new Map();
+      [...reg, ...myReg, ...tpls, ...myTpls].forEach((t) => {
+        if (t && (t._id || t.id)) {
+          taskMap.set(String(t._id || t.id), t);
+        }
+      });
+      return Array.from(taskMap.values());
     },
     staleTime: 10000,
   });
@@ -477,19 +492,24 @@ export default function ManagerDashboard() {
   }, [activeProjects, realTasks]);
 
   // ── Tasks Tab Data ──
-  const totalTasksCount = Math.max(realTasks.length, tasks.totalTeamTasks ?? 0);
+  const totalTasksCount = Math.max(
+    realTasks.length,
+    tasks.totalTasks ?? 0,
+    tasks.totalAllTasks ?? 0,
+    tasks.totalCombinedTasks ?? 0
+  );
   const completedTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
       ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
     ).length;
-    return Math.max(count, tasks.completedTeamTasks ?? 0, tasks.teamTaskDoneCount ?? 0);
+    return Math.max(count, tasks.completedTasks ?? tasks.allCompletedTasks ?? (tasks.completedTeamTasks ?? 0));
   }, [realTasks, tasks]);
 
   const activeTasksCount = useMemo(() => {
     const count = realTasks.filter((t) =>
       ["in_process", "re_in_process", "in-progress", "working", "in progress", "started", "active"].includes((t.status || "").toLowerCase())
     ).length;
-    return Math.max(count, tasks.openTeamTasks ?? 0);
+    return Math.max(count, tasks.activeTasks ?? 0);
   }, [realTasks, tasks]);
 
   const pendingTasksCount = useMemo(() => {
@@ -497,7 +517,7 @@ export default function ManagerDashboard() {
       ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase()) ||
       (t.isTemplate && (t.isActive || t.status === "active"))
     ).length;
-    return Math.max(count, tasks.openTeamTasks ?? 0);
+    return Math.max(count, tasks.openTasks ?? tasks.allOpenTasks ?? (tasks.openTeamTasks ?? 0));
   }, [realTasks, tasks]);
 
   const overdueTasksCount = useMemo(() => {
@@ -513,7 +533,7 @@ export default function ManagerDashboard() {
       const dueTime = new Date(raw).getTime();
       return !isNaN(dueTime) && now >= dueTime;
     }).length;
-    return Math.max(count, tasks.overdueTeamTasks ?? 0);
+    return Math.max(count, tasks.overdueTasks ?? tasks.allOverdueTasks ?? (tasks.overdueTeamTasks ?? 0));
   }, [realTasks, tasks]);
 
   const taskCompletionRate = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
