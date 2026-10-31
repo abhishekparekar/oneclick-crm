@@ -177,9 +177,7 @@ export default function TaskCreateModal({
     title: "",
     description: "",
     departmentId: "",
-    assignedTo: canAssignOthers
-      ? (typeof window !== "undefined" && window.location.pathname.includes("my-tasks") && defaultSelfId ? [defaultSelfId] : [])
-      : (defaultSelfId ? [defaultSelfId] : []),
+    assignedTo: [],
     priority: "medium",
     repeatEnabled: false,
     repeatType: "daily",
@@ -205,7 +203,6 @@ export default function TaskCreateModal({
     if (isOpen) {
       const nowStr = getNowDateTimeString();
       const endStr = getDefaultEndDateTimeString();
-      const isMyTasksPage = typeof window !== "undefined" && window.location.pathname.includes("my-tasks");
       if (!canAssignOthers) {
         const selfDeptId = authUser?.departmentId?._id || authUser?.departmentId || "";
         setForm(prev => ({
@@ -214,7 +211,7 @@ export default function TaskCreateModal({
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
           finishDate: prev.finishDate || "",
-          assignedTo: defaultSelfId ? [defaultSelfId] : prev.assignedTo,
+          assignedTo: prev.assignedTo && prev.assignedTo.length > 0 ? prev.assignedTo : [],
           departmentId: prev.departmentId || selfDeptId
         }));
       } else {
@@ -224,7 +221,7 @@ export default function TaskCreateModal({
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
           finishDate: prev.finishDate || "",
-          assignedTo: isMyTasksPage && defaultSelfId && prev.assignedTo.length === 0 ? [defaultSelfId] : prev.assignedTo,
+          assignedTo: prev.assignedTo && prev.assignedTo.length > 0 ? prev.assignedTo : [],
           // Keep the current departmentId selection (defaults to "" which is "All Departments")
           departmentId: prev.departmentId !== undefined ? prev.departmentId : ""
         }));
@@ -266,14 +263,10 @@ export default function TaskCreateModal({
   const departmentFilteredEmployees = useMemo(() => {
     if (taskEligibleEmployees.length === 0) return [];
 
-    // Always identify self item so it can stay visible even when department is filtered
     const selfId = defaultSelfId || String(authUser?._id || "");
-    const selfItem = taskEligibleEmployees.find(e => {
-      const eid = String(e._id || e.id || e.userId?._id || e.userId || "");
-      return eid === selfId || eid === String(authUser?._id || "");
-    });
+    const targetDeptVal = (form.departmentId || "").toString().trim();
 
-    if (!form.departmentId || form.departmentId === "all") {
+    if (!targetDeptVal || targetDeptVal === "all") {
       return [...taskEligibleEmployees].sort((a, b) => {
         if (a.isSelf || String(a._id) === selfId) return -1;
         if (b.isSelf || String(b._id) === selfId) return 1;
@@ -283,31 +276,69 @@ export default function TaskCreateModal({
       });
     }
 
-    const targetDeptId = form.departmentId.toString();
-    const deptObj = departments.find(d => (d._id || d.id || "").toString() === targetDeptId);
-    const targetDeptName = (deptObj?.name || deptObj?.departmentName || "").trim().toLowerCase();
+    // Resolve target department object, id, and name from departments list
+    const matchedDept = departments.find(d => {
+      const dId = String(d._id || d.id || "");
+      const dName = (d.name || d.departmentName || "").trim().toLowerCase();
+      return (dId && dId === targetDeptVal) || (dName && dName === targetDeptVal.toLowerCase());
+    });
+
+    const targetDeptId = (matchedDept?._id || matchedDept?.id || targetDeptVal).toString().trim();
+    const targetDeptName = (matchedDept?.name || matchedDept?.departmentName || targetDeptVal).trim().toLowerCase();
+
+    // Map department ID -> name for cross-referencing
+    const deptIdToNameMap = new Map();
+    departments.forEach(d => {
+      const id = String(d._id || d.id || "");
+      const name = (d.name || d.departmentName || "").trim().toLowerCase();
+      if (id && name) deptIdToNameMap.set(id, name);
+    });
 
     const filtered = taskEligibleEmployees.filter(e => {
-      // Keep self in list so user can always self-assign
-      if (selfItem && (String(e._id) === String(selfItem._id) || String(e.id) === String(selfItem.id))) return true;
+      // 1. Collect all department IDs associated with this employee
+      const empDeptIds = [];
+      const collectId = (raw) => {
+        if (!raw) return;
+        if (typeof raw === "object") {
+          if (raw._id) empDeptIds.push(String(raw._id));
+          if (raw.id) empDeptIds.push(String(raw.id));
+        } else {
+          empDeptIds.push(String(raw));
+        }
+      };
 
-      // 1. Direct departmentId matching
-      const d1 = (e.departmentId?._id || e.departmentId || e.department?._id || e.department || "").toString();
-      if (d1 && d1 === targetDeptId) return true;
+      collectId(e.departmentId);
+      collectId(e.department);
+      if (Array.isArray(e.departmentIds)) e.departmentIds.forEach(collectId);
+      if (Array.isArray(e.accessibleDepartments)) e.accessibleDepartments.forEach(collectId);
 
-      // 2. Department name matching
-      const empDeptName = (e.departmentId?.name || e.department?.name || (typeof e.department === "string" ? e.department : "")).trim().toLowerCase();
-      if (targetDeptName && empDeptName && targetDeptName === empDeptName) return true;
+      // Direct ID match
+      if (empDeptIds.some(id => id === targetDeptId || id === targetDeptVal)) return true;
 
-      // 3. Array of departmentIds
-      if (Array.isArray(e.departmentIds)) {
-        if (e.departmentIds.some(x => (x?._id || x || "").toString() === targetDeptId)) return true;
-      }
+      // 2. Collect all department Names associated with this employee
+      const empDeptNames = [];
+      const collectName = (raw) => {
+        if (!raw) return;
+        if (typeof raw === "string") {
+          empDeptNames.push(raw.trim().toLowerCase());
+        } else if (typeof raw === "object") {
+          if (raw.name) empDeptNames.push(String(raw.name).trim().toLowerCase());
+          if (raw.departmentName) empDeptNames.push(String(raw.departmentName).trim().toLowerCase());
+        }
+      };
 
-      // 4. Array of accessibleDepartments
-      if (Array.isArray(e.accessibleDepartments)) {
-        if (e.accessibleDepartments.some(x => (x?._id || x || "").toString() === targetDeptId)) return true;
-      }
+      collectName(e.departmentName);
+      collectName(e.department);
+      collectName(e.departmentId);
+
+      // Also map employee's department IDs into names
+      empDeptIds.forEach(id => {
+        const mappedName = deptIdToNameMap.get(id);
+        if (mappedName) empDeptNames.push(mappedName);
+      });
+
+      // Direct name match
+      if (targetDeptName && empDeptNames.some(name => name === targetDeptName)) return true;
 
       return false;
     });
@@ -382,6 +413,10 @@ export default function TaskCreateModal({
         ...prev,
         [name]: type === "checkbox" ? checked : value
       };
+      if (name === "departmentId") {
+        // Clear assigned staff on department change
+        updated.assignedTo = [];
+      }
       if (name === "startDate") {
         const timePart = prev.nextFollowUpDate && prev.nextFollowUpDate.includes("T")
           ? prev.nextFollowUpDate.split("T")[1]
@@ -427,8 +462,6 @@ export default function TaskCreateModal({
     if (canAssignOthers) {
       if (Array.isArray(form.assignedTo) && form.assignedTo.length > 0) {
         assignedList = form.assignedTo;
-      } else if (defaultSelfId) {
-        assignedList = [defaultSelfId];
       }
     } else {
       assignedList = defaultSelfId ? [defaultSelfId] : [];

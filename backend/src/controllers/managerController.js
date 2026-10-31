@@ -49,11 +49,16 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
   );
 
   if (!isPlainId && typeof managerOrId === 'object' && managerOrId._id) {
-    manager = managerOrId;
-    managerId = managerOrId._id;
+    if (managerOrId.employeeId) {
+      manager = await Employee.findById(managerOrId.employeeId).lean() || await Employee.findOne({ userId: managerOrId._id }).lean();
+      managerId = manager ? manager._id : managerOrId.employeeId;
+    } else {
+      manager = managerOrId;
+      managerId = managerOrId._id;
+    }
   } else {
     // managerOrId is either a string or ObjectId — fetch the full document
-    manager = await Employee.findById(managerOrId).lean();
+    manager = await Employee.findById(managerOrId).lean() || await Employee.findOne({ userId: managerOrId }).lean();
     managerId = manager ? manager._id : managerOrId;
   }
 
@@ -76,7 +81,9 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
     ).lean();
     return allCompanyEmployees.map((e) => e._id.toString());
   }
-  
+
+  const allowedDeptIds = [manager.departmentId?._id || manager.departmentId].filter(Boolean);
+
   if (manager.departmentIds && manager.departmentIds.length > 0) {
     manager.departmentIds.forEach(d => {
       const id = d?._id || d;

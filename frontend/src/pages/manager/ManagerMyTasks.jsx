@@ -357,14 +357,20 @@ export default function ManagerMyTasks() {
   const allTasks = Array.isArray(_raw) ? _raw : [];
 
   const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
-  const employees = rawMembers.map(m => ({
-    ...m,
-    _id: m._id,
-    name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
-    firstName: m.firstName || m.name,
-    lastName: m.lastName || "",
-    departmentId: m.departmentId?._id || m.departmentId,
-  }));
+  const employees = rawMembers.map(m => {
+    const deptId = m.departmentId?._id || m.departmentId;
+    const deptName = m.departmentId?.name || m.departmentName || (typeof m.department === "string" ? m.department : (m.department?.name || ""));
+    return {
+      ...m,
+      _id: m._id,
+      name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
+      firstName: m.firstName || m.name,
+      lastName: m.lastName || "",
+      departmentId: deptId,
+      departmentName: deptName,
+      department: deptName,
+    };
+  });
 
   const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
   const allowedDepts = useMemo(() => [
@@ -375,19 +381,48 @@ export default function ManagerMyTasks() {
 
   const departments = useMemo(() => {
     const map = new Map();
-    // 1. Process manager's departments
+
+    // 1. Process departments returned from dashboard summary (real Department documents)
+    const dashDepts = dashRes?.departments || dashRes?.data?.departments || [];
+    if (Array.isArray(dashDepts)) {
+      dashDepts.forEach(d => {
+        if (!d) return;
+        const id = String(d._id || d.id || "");
+        const name = (d.name || d.departmentName || "").trim();
+        if (id && name) {
+          map.set(name.toLowerCase(), { _id: id, id, name });
+        }
+      });
+    }
+
+    // 2. Process manager's departments from manager profile
     allowedDepts.forEach(d => {
       if (!d) return;
       const id = typeof d === "object" ? String(d._id || d.id || "") : String(d);
       const name = (typeof d === "object" && d.name ? d.name : "").trim();
-      const displayName = name || "Manager Department";
-      const normKey = displayName.toLowerCase();
-      if (!map.has(normKey)) {
-        map.set(normKey, { _id: id || normKey, name: displayName });
+      if (name) {
+        const normKey = name.toLowerCase();
+        if (!map.has(normKey)) {
+          map.set(normKey, { _id: id || normKey, id: id || normKey, name });
+        }
       }
     });
 
-    // 2. Also incorporate any departments from allTasks if not yet present
+    // 3. Process departments from rawMembers (team members)
+    if (Array.isArray(rawMembers)) {
+      rawMembers.forEach(m => {
+        const dObj = m.departmentId;
+        if (dObj && typeof dObj === "object" && dObj.name) {
+          const id = String(dObj._id || dObj.id || "");
+          const name = dObj.name.trim();
+          if (name && !map.has(name.toLowerCase())) {
+            map.set(name.toLowerCase(), { _id: id || name.toLowerCase(), id: id || name.toLowerCase(), name });
+          }
+        }
+      });
+    }
+
+    // 4. Also incorporate any departments from allTasks if not yet present
     allTasks.forEach(t => {
       const d = t.departmentId || t.department;
       let id = "";
@@ -404,13 +439,13 @@ export default function ManagerMyTasks() {
       if (name) {
         const normKey = name.toLowerCase();
         if (!map.has(normKey)) {
-          map.set(normKey, { _id: id || normKey, name });
+          map.set(normKey, { _id: id || normKey, id: id || normKey, name });
         }
       }
     });
 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allowedDepts, allTasks]);
+  }, [dashRes, allowedDepts, rawMembers, allTasks]);
 
   const taskDepts = departments;
 
