@@ -79,31 +79,89 @@ const sanitizeSelfieUrl = async (selfieInput, userId = "selfie") => {
 
 // Check if punch-in is late based on shiftStartTime and graceMinutes
 const checkIsLate = (punchInTime, shiftStartTime, graceMinutes) => {
+  if (!punchInTime || !shiftStartTime) return false;
   const [shiftHours, shiftMinutes] = shiftStartTime.split(":").map(Number);
   
-  const inHours = punchInTime.getHours();
-  const inMinutes = punchInTime.getMinutes();
+  const istTimeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(punchInTime));
+  
+  const [inHours, inMinutes] = istTimeStr.split(":").map(Number);
   
   const shiftTotalMinutes = shiftHours * 60 + shiftMinutes;
   const inTotalMinutes = inHours * 60 + inMinutes;
   
-  return inTotalMinutes > shiftTotalMinutes + graceMinutes;
+  return inTotalMinutes > shiftTotalMinutes + (graceMinutes || 0);
 };
-
 
 // Check if punch-out is early based on shiftEndTime and earlyGraceMinutes
 const checkIsEarlyLeave = (punchOutTime, shiftEndTime, earlyGraceMinutes) => {
-  if (!shiftEndTime) return false;
+  if (!punchOutTime || !shiftEndTime) return false;
   const [shiftHours, shiftMinutes] = shiftEndTime.split(":").map(Number);
   
-  const outHours = punchOutTime.getHours();
-  const outMinutes = punchOutTime.getMinutes();
+  const istTimeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(punchOutTime));
+  
+  const [outHours, outMinutes] = istTimeStr.split(":").map(Number);
   
   const shiftTotalMinutes = shiftHours * 60 + shiftMinutes;
   const outTotalMinutes = outHours * 60 + outMinutes;
   
   // They left earlier than the allowed grace period
-  return outTotalMinutes < (shiftTotalMinutes - earlyGraceMinutes);
+  return outTotalMinutes < (shiftTotalMinutes - (earlyGraceMinutes || 0));
+};
+
+/**
+ * Safely parse date and time into a Date object anchored to Asia/Kolkata (+05:30)
+ * avoiding UTC server shifting issues when running on live VPS.
+ */
+const parseAttendanceTime = (dateStr, timeInput) => {
+  if (!timeInput) return null;
+  if (timeInput instanceof Date) return isNaN(timeInput.getTime()) ? null : timeInput;
+
+  const str = String(timeInput).trim();
+  if (!str) return null;
+
+  // If already full ISO with timezone (ends with Z or +/-offset), parse directly
+  if (/Z$|[+-]\d{2}:?\d{2}$/i.test(str)) {
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Determine base date (YYYY-MM-DD)
+  let baseDate = dateStr ? String(dateStr).slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate)) {
+    baseDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
+
+  // Format "HH:mm" or "HH:mm:ss"
+  const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (timeMatch) {
+    const hh = String(timeMatch[1]).padStart(2, "0");
+    const mm = String(timeMatch[2]).padStart(2, "0");
+    const ss = String(timeMatch[3] || "00").padStart(2, "0");
+    return new Date(`${baseDate}T${hh}:${mm}:${ss}+05:30`);
+  }
+
+  // Format "YYYY-MM-DDTHH:mm..."
+  const fullMatch = str.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (fullMatch) {
+    const ymd = fullMatch[1];
+    const hh = String(fullMatch[2]).padStart(2, "0");
+    const mm = String(fullMatch[3]).padStart(2, "0");
+    const ss = String(fullMatch[4] || "00").padStart(2, "0");
+    return new Date(`${ymd}T${hh}:${mm}:${ss}+05:30`);
+  }
+
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? null : fallback;
 };
 
 // Locate matching employee document for req.user
@@ -1425,23 +1483,41 @@ const manualUpdateAttendance = async (req, res, next) => {
 
     const oldData = { ...attendance.toObject() };
 
-    // Format new times
+    // Format new times strictly in Asia/Kolkata (IST = UTC+05:30)
+    const baseDate = attendance.date || date || getDateKey();
+
     if (punchInTime) {
-      const [h, m] = punchInTime.split(":");
-      const inDate = attendance.punchInTime ? new Date(attendance.punchInTime) : new Date(attendance.date);
-      inDate.setHours(Number(h), Number(m), 0, 0);
-      attendance.punchInTime = inDate;
+      attendance.punchInTime = parseAttendanceTime(baseDate, punchInTime);
     }
     
     if (punchOutTime) {
-      const [h, m] = punchOutTime.split(":");
-      const outDate = attendance.punchOutTime ? new Date(attendance.punchOutTime) : new Date(attendance.date);
-      outDate.setHours(Number(h), Number(m), 0, 0);
+      let outDate = parseAttendanceTime(baseDate, punchOutTime);
+      if (outDate && attendance.punchInTime && outDate < attendance.punchInTime) {
+        // Shift past midnight: punch out on next morning
+        outDate = new Date(outDate.getTime() + 24 * 60 * 60 * 1000);
+      }
       attendance.punchOutTime = outDate;
     }
 
     if (attendance.punchInTime && attendance.punchOutTime) {
       attendance.totalHours = calcHours(attendance.punchInTime, attendance.punchOutTime);
+    }
+
+    // Keep punchLog in sync so detailed logs match manual update
+    if (attendance.punchInTime) {
+      if (!attendance.punchLog || attendance.punchLog.length === 0) {
+        attendance.punchLog = [{
+          punchInTime: attendance.punchInTime,
+          punchOutTime: attendance.punchOutTime || null,
+          punchInLocation: attendance.punchInLocation || { address: "Manual Entry" },
+          punchOutLocation: attendance.punchOutLocation || (attendance.punchOutTime ? { address: "Manual Entry" } : null),
+        }];
+      } else {
+        attendance.punchLog[0].punchInTime = attendance.punchInTime;
+        if (attendance.punchOutTime) {
+          attendance.punchLog[attendance.punchLog.length - 1].punchOutTime = attendance.punchOutTime;
+        }
+      }
     }
 
     attendance.status = status || attendance.status;
@@ -1646,10 +1722,7 @@ const approveRegularization = async (req, res, next) => {
 
     if (!attendance.punchInTime) {
       const shiftStartTime = settings?.shiftStartTime || "09:30";
-      const [h, m] = shiftStartTime.split(":").map(Number);
-      const inDate = new Date(attendance.date);
-      inDate.setHours(h, m, 0, 0);
-      attendance.punchInTime = inDate;
+      attendance.punchInTime = parseAttendanceTime(attendance.date, shiftStartTime);
     }
     if (!attendance.punchOutTime && attendance.punchInTime) {
       const outDate = new Date(attendance.punchInTime);

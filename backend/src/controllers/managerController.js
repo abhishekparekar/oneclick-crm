@@ -267,6 +267,48 @@ const getDateKey = (d = new Date()) => {
   }
 };
 
+/**
+ * Safely parse date and time into a Date object anchored to Asia/Kolkata (+05:30)
+ * avoiding UTC server shifting issues on VPS.
+ */
+const parseAttendanceTime = (dateStr, timeInput) => {
+  if (!timeInput) return null;
+  if (timeInput instanceof Date) return isNaN(timeInput.getTime()) ? null : timeInput;
+
+  const str = String(timeInput).trim();
+  if (!str) return null;
+
+  if (/Z$|[+-]\d{2}:?\d{2}$/i.test(str)) {
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  let baseDate = dateStr ? String(dateStr).slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate)) {
+    baseDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
+
+  const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (timeMatch) {
+    const hh = String(timeMatch[1]).padStart(2, "0");
+    const mm = String(timeMatch[2]).padStart(2, "0");
+    const ss = String(timeMatch[3] || "00").padStart(2, "0");
+    return new Date(`${baseDate}T${hh}:${mm}:${ss}+05:30`);
+  }
+
+  const fullMatch = str.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (fullMatch) {
+    const ymd = fullMatch[1];
+    const hh = String(fullMatch[2]).padStart(2, "0");
+    const mm = String(fullMatch[3]).padStart(2, "0");
+    const ss = String(fullMatch[4] || "00").padStart(2, "0");
+    return new Date(`${ymd}T${hh}:${mm}:${ss}+05:30`);
+  }
+
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
 // ═══════════════════════════════════════════════════════════════
 // GET /api/manager/dashboard-summary
 // ═══════════════════════════════════════════════════════════════
@@ -1376,10 +1418,7 @@ const approveRegularization = async (req, res, next) => {
     // Ensure there's a dummy punchIn and punchOut if missing so reports don't crash
     if (!record.punchInTime) {
       const shiftStartTime = settings?.shiftStartTime || "09:30";
-      const [h, m] = shiftStartTime.split(":").map(Number);
-      const inDate = new Date(record.date);
-      inDate.setHours(h, m, 0, 0);
-      record.punchInTime = inDate;
+      record.punchInTime = parseAttendanceTime(record.date, shiftStartTime);
     }
     if (!record.punchOutTime && record.punchInTime) {
       const outDate = new Date(record.punchInTime);
@@ -1451,7 +1490,7 @@ const manualUpdateTeamAttendance = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const { id } = req.params;
-    const { status, punchInTime, punchOutTime, manualReason } = req.body;
+    const { status, punchInTime, punchOutTime, manualReason, employeeId, date } = req.body;
 
     const settings = await CompanyAttendanceSettings.findOne({ companyId }).lean();
     if (settings && settings.allowManagerManualAttendance === false) {
@@ -1462,24 +1501,74 @@ const manualUpdateTeamAttendance = async (req, res, next) => {
     if (!manager) return res.status(404).json({ success: false, message: "Manager profile not found" });
     const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
 
-    const record = await Attendance.findOne({ _id: id, companyId });
+    let record = null;
+    const mongoose = require("mongoose");
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      record = await Attendance.findOne({ _id: id, companyId });
+    }
+
+    if (!record && employeeId && date) {
+      record = await Attendance.findOne({ companyId, employeeId, date });
+      if (!record) {
+        const emp = await Employee.findOne({ _id: employeeId, companyId });
+        if (!emp) return res.status(404).json({ success: false, message: "Employee not found" });
+        const dateParts = date.split("-").map(Number);
+        record = new Attendance({
+          companyId,
+          employeeId: emp._id,
+          userId: emp.userId || req.user._id,
+          date,
+          month: dateParts[1] || new Date().getMonth() + 1,
+          year: dateParts[0] || new Date().getFullYear(),
+          status: status || "absent",
+          source: "manual",
+        });
+      }
+    }
+
     if (!record) return res.status(404).json({ success: false, message: "Record not found" });
 
     if (!teamIds.map(eId => eId.toString()).includes(record.employeeId.toString())) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    if (status) record.status = status;
-    if (punchInTime) record.punchInTime = new Date(punchInTime);
-    if (punchOutTime) record.punchOutTime = new Date(punchOutTime);
+    const baseDate = record.date || date || getDateKey();
+    if (punchInTime) {
+      record.punchInTime = parseAttendanceTime(baseDate, punchInTime);
+    }
+    if (punchOutTime) {
+      let outDate = parseAttendanceTime(baseDate, punchOutTime);
+      if (outDate && record.punchInTime && outDate < record.punchInTime) {
+        outDate = new Date(outDate.getTime() + 24 * 60 * 60 * 1000);
+      }
+      record.punchOutTime = outDate;
+    }
     
     if (record.punchInTime && record.punchOutTime) {
-      const ms = new Date(record.punchOutTime) - new Date(record.punchInTime);
-      record.totalHours = parseFloat((ms / (1000 * 60 * 60)).toFixed(2));
+      const ms = new Date(record.punchOutTime).getTime() - new Date(record.punchInTime).getTime();
+      record.totalHours = ms > 0 ? parseFloat((ms / (1000 * 60 * 60)).toFixed(2)) : 0;
     }
 
+    if (record.punchInTime) {
+      if (!record.punchLog || record.punchLog.length === 0) {
+        record.punchLog = [{
+          punchInTime: record.punchInTime,
+          punchOutTime: record.punchOutTime || null,
+          punchInLocation: record.punchInLocation || { address: "Manual Entry" },
+          punchOutLocation: record.punchOutLocation || (record.punchOutTime ? { address: "Manual Entry" } : null),
+        }];
+      } else {
+        record.punchLog[0].punchInTime = record.punchInTime;
+        if (record.punchOutTime) {
+          record.punchLog[record.punchLog.length - 1].punchOutTime = record.punchOutTime;
+        }
+      }
+    }
+
+    if (status) record.status = status;
     record.source = "manual";
     record.isManuallyUpdated = true;
+    record.manualStatus = status || record.status;
     record.manualReason = manualReason || "Updated by manager";
     record.updatedBy = req.user._id;
 
@@ -1491,7 +1580,7 @@ const manualUpdateTeamAttendance = async (req, res, next) => {
       performedBy: req.user._id,
     });
 
-    return res.json({ success: true, message: "Attendance manually updated" });
+    return res.json({ success: true, message: "Attendance manually updated", attendance: record });
   } catch (error) {
     next(error);
   }

@@ -20,9 +20,22 @@ import {
 } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+const getLocalTimeString = (dateVal, defaultVal = "") => {
+  if (!dateVal) return defaultVal;
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return defaultVal;
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  } catch (e) {
+    return defaultVal;
+  }
+};
+
 const formatTime = (v) => {
   if (!v) return "—";
-  try { return new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+  try { return new Date(v).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); }
   catch { return "—"; }
 };
 
@@ -310,8 +323,8 @@ export default function ManagerAttendanceOverview() {
   useEffect(() => {
     if (activeRecord) {
       setManualStatus(activeRecord.status || "present");
-      setManualInTime(activeRecord.punchInTime ? new Date(activeRecord.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "09:30");
-      setManualOutTime(activeRecord.punchOutTime ? new Date(activeRecord.punchOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "18:30");
+      setManualInTime(getLocalTimeString(activeRecord.punchInTime, "09:30"));
+      setManualOutTime(getLocalTimeString(activeRecord.punchOutTime, "18:30"));
       setManualReasonText(activeRecord.manualReason || "");
     } else {
       setManualStatus(activeCalculatedStatus === "" ? "absent" : activeCalculatedStatus);

@@ -1,3 +1,4 @@
+process.env.TZ = process.env.TZ || "Asia/Kolkata";
 require("dotenv").config();
 
 // ─── ANTI-CRASH SAFEGUARDS ──────────────────────────────────────────────────

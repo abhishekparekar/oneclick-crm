@@ -48,7 +48,7 @@ const initMissingCheckoutCron = () => {
   cron.schedule("0 3 * * *", () => {
     console.log("Running Missing Checkout Cron...");
     checkMissingCheckouts();
-  });
+  }, { timezone: "Asia/Kolkata" });
   console.log("Missing Checkout Cron initialized.");
 };
 

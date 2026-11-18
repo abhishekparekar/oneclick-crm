@@ -89,10 +89,23 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // in meters
 };
 
+const getLocalTimeString = (dateVal, defaultVal = "") => {
+  if (!dateVal) return defaultVal;
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return defaultVal;
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  } catch (e) {
+    return defaultVal;
+  }
+};
+
 const formatTime = (isoString) => {
   if (!isoString) return "—";
   try {
-    return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(isoString).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
   } catch (e) {
     return "—";
   }
@@ -516,8 +529,8 @@ const CompanyAttendance = () => {
   useEffect(() => {
     if (activeRecord) {
       setManualStatus(activeRecord.status || "present");
-      setManualInTime(activeRecord.punchInTime ? new Date(activeRecord.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "09:30");
-      setManualOutTime(activeRecord.punchOutTime ? new Date(activeRecord.punchOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "18:30");
+      setManualInTime(getLocalTimeString(activeRecord.punchInTime, "09:30"));
+      setManualOutTime(getLocalTimeString(activeRecord.punchOutTime, "18:30"));
       setManualReasonText(activeRecord.manualReason || "");
     } else {
       const fallbackStatus = activeCalculatedStatus === "" ? "absent" : activeCalculatedStatus;
