@@ -33,9 +33,12 @@ import { captureGPSLocation } from "../../utils/locationService";
 import { promptEnableLocation } from "../../utils/locationEnabler";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
 import locationTrackingService from "../../services/locationTrackingService";
+import * as FileSystem from "expo-file-system";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const EmployeePunchScreen = ({ navigation, route }) => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { refreshEmployeeDashboard } = useAppData();
 
   const initialAction = route?.params?.initialAction || "in";
@@ -334,9 +337,11 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         mediaTypes: ["images"],
         cameraSide: "front",
         cameraType: "front",
+        maxWidth: 600,
+        maxHeight: 600,
         quality: 0.5,
         allowsEditing: false,
-        base64: true,
+        base64: false,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         return result.assets[0].uri;
@@ -425,15 +430,21 @@ const EmployeePunchScreen = ({ navigation, route }) => {
 
       let finalSelfieUri = activeSelfie || selfieUri;
 
-      // Upload to Firebase if local file uri with 3-second timeout to prevent hanging
-      if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
+      // Upload to Firebase if local file uri with 10-second timeout
+      if (
+        finalSelfieUri &&
+        (finalSelfieUri.startsWith("file://") ||
+          finalSelfieUri.startsWith("content://") ||
+          finalSelfieUri.startsWith("/") ||
+          finalSelfieUri.startsWith("data:image/"))
+      ) {
         try {
           const uploadPromise = uploadSelfieToFirebase(
             finalSelfieUri,
             user?._id || "unknown"
           );
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Firebase upload timeout")), 3000)
+            setTimeout(() => reject(new Error("Firebase upload timeout")), 10000)
           );
           const uploadedUrl = await Promise.race([uploadPromise, timeoutPromise]);
           if (uploadedUrl) {
@@ -441,6 +452,20 @@ const EmployeePunchScreen = ({ navigation, route }) => {
           }
         } catch (fbErr) {
           console.warn("Firebase upload timeout/error, continuing with punch:", fbErr?.message || fbErr);
+        }
+
+        // Slow network fallback: if Firebase upload didn't return an http URL, convert to base64 so backend can process it server-side
+        if (finalSelfieUri && !finalSelfieUri.startsWith("http")) {
+          try {
+            const base64 = await FileSystem.readAsStringAsync(finalSelfieUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            if (base64) {
+              finalSelfieUri = `data:image/jpeg;base64,${base64}`;
+            }
+          } catch (b64Err) {
+            console.warn("[Punch] Failed to read selfie as base64 fallback:", b64Err?.message);
+          }
         }
       }
 
@@ -595,7 +620,7 @@ const EmployeePunchScreen = ({ navigation, route }) => {
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Dark Navy Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + (Platform.OS === "android" ? 10 : 0), Platform.OS === "android" ? 44 : 54) }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
           <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
@@ -728,8 +753,8 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Bottom Controls       {/* Bottom Controls */}
-      <View style={styles.bottomControls}>
+      {/* Bottom Controls */}
+      <View style={[styles.bottomControls, { paddingBottom: Math.max(insets.bottom + 16, Platform.OS === "android" ? 32 : 44) }]}>
         {/* Active Break Banner (ALWAYS accessible when on break, even outside office boundary) */}
         {todayRecord?.isOnBreak ? (
           <View style={styles.activeBreakCard}>

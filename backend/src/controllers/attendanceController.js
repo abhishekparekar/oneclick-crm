@@ -50,6 +50,33 @@ const calcTotalSessionHours = (punchLog) => {
   return Number((totalMs / (1000 * 60 * 60)).toFixed(2));
 };
 
+// Helper to sanitize and persist selfie URLs (uploads base64 to Firebase if needed, rejects broken local file:// paths)
+const sanitizeSelfieUrl = async (selfieInput, userId = "selfie") => {
+  if (!selfieInput || typeof selfieInput !== "string") return null;
+  const trimmed = selfieInput.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  // If base64 data string was sent, upload to Firebase Storage to keep DB lightweight (~200 bytes)
+  if (trimmed.startsWith("data:image/") || (trimmed.length > 500 && !trimmed.startsWith("file:") && !trimmed.startsWith("content:"))) {
+    try {
+      const { uploadFileToFirebase } = require("../services/firebaseService");
+      const base64Data = trimmed.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const fileName = `${userId}_${Date.now()}.jpg`;
+      const uploadedUrl = await uploadFileToFirebase(buffer, fileName, "selfies");
+      if (uploadedUrl) return uploadedUrl;
+    } catch (err) {
+      console.warn("[AttendanceController] Base64 selfie upload to Firebase error:", err.message);
+    }
+  }
+  // Local file:// or content:// paths cannot be viewed on remote clients/browsers
+  if (trimmed.startsWith("file://") || trimmed.startsWith("content://") || (trimmed.startsWith("/") && !trimmed.startsWith("/uploads/"))) {
+    return null;
+  }
+  return trimmed;
+};
+
 // Check if punch-in is late based on shiftStartTime and graceMinutes
 const checkIsLate = (punchInTime, shiftStartTime, graceMinutes) => {
   const [shiftHours, shiftMinutes] = shiftStartTime.split(":").map(Number);
@@ -302,11 +329,12 @@ const checkIn = async (req, res, next) => {
 
     // Geo-fencing validation
     const punchLocation = req.body.punchInLocation || req.body.checkInLocation || {};
-    const punchInSelfie = req.body.punchInSelfie || null;
+    const rawPunchInSelfie = req.body.punchInSelfie || null;
+    const punchInSelfie = await sanitizeSelfieUrl(rawPunchInSelfie, req.user?._id || "unknown");
     const { latitude, longitude } = punchLocation;
 
     // Check Selfie Requirement
-    if (geoSettings.requireSelfie && !punchInSelfie) {
+    if (geoSettings.requireSelfie && !punchInSelfie && !rawPunchInSelfie) {
       return res.status(400).json({ message: "A selfie photo is required to Punch In" });
     }
 
@@ -544,11 +572,12 @@ const checkOut = async (req, res, next) => {
 
     // Geo-fencing validation
     const punchLocation = req.body.punchOutLocation || req.body.checkOutLocation || {};
-    const punchOutSelfie = req.body.punchOutSelfie || null;
+    const rawPunchOutSelfie = req.body.punchOutSelfie || null;
+    const punchOutSelfie = await sanitizeSelfieUrl(rawPunchOutSelfie, req.user?._id || "unknown");
     const { latitude, longitude } = punchLocation;
 
     // Check Selfie Requirement
-    if (geoSettings.requireSelfie && !punchOutSelfie) {
+    if (geoSettings.requireSelfie && !punchOutSelfie && !rawPunchOutSelfie) {
       return res.status(400).json({ message: "A selfie photo is required to Punch Out" });
     }
 

@@ -60,10 +60,16 @@ export const getCameraPermissionsAsync = async () => {
 
 export const launchImageLibraryAsync = async (options = {}) => {
   try {
+    const maxWidth = typeof options.maxWidth === 'number' ? options.maxWidth : 800;
+    const maxHeight = typeof options.maxHeight === 'number' ? options.maxHeight : 800;
+    const quality = typeof options.quality === 'number' ? options.quality : 0.6;
+
     const result = await launchImageLibrary({
       mediaType: 'photo',
-      quality: typeof options.quality === 'number' ? options.quality : 0.8,
-      includeBase64: options.base64 || false,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      quality: quality,
+      includeBase64: options.base64 ? Boolean(options.base64) : false,
     });
     if (result.didCancel || !result.assets || result.assets.length === 0) {
       return { canceled: true, assets: [] };
@@ -117,11 +123,17 @@ export const launchCameraAsync = async (options = {}) => {
         ? 'front'
         : (options.cameraType === 'back' || options.cameraSide === 'back' ? 'back' : 'front');
 
+    const maxWidth = typeof options.maxWidth === 'number' ? options.maxWidth : 600;
+    const maxHeight = typeof options.maxHeight === 'number' ? options.maxHeight : 600;
+    const quality = typeof options.quality === 'number' ? options.quality : 0.5;
+
     const result = await launchCamera({
       mediaType: 'photo',
       cameraType: cameraType,
-      quality: typeof options.quality === 'number' ? options.quality : 0.5,
-      includeBase64: options.base64 !== undefined ? Boolean(options.base64) : true,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      quality: quality,
+      includeBase64: options.base64 ? Boolean(options.base64) : false,
       saveToPhotos: false,
     });
 

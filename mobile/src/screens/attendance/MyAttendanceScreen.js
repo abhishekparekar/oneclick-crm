@@ -232,8 +232,10 @@ const MyAttendanceScreen = ({ navigation }) => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.4,
-        base64: true,
+        maxWidth: 600,
+        maxHeight: 600,
+        quality: 0.5,
+        base64: false,
         cameraSide: "front",
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -318,7 +320,13 @@ const MyAttendanceScreen = ({ navigation }) => {
       setLoading(true);
 
       let finalSelfieUri = selfie;
-      if (selfie && selfie.startsWith("file://")) {
+      if (
+        selfie &&
+        (selfie.startsWith("file://") ||
+          selfie.startsWith("content://") ||
+          selfie.startsWith("/") ||
+          selfie.startsWith("data:image/"))
+      ) {
         finalSelfieUri = await uploadSelfieToFirebase(selfie, user?._id || "unknown");
       }
 
@@ -393,7 +401,13 @@ const MyAttendanceScreen = ({ navigation }) => {
       setLoading(true);
 
       let finalSelfieUri = selfie;
-      if (selfie && selfie.startsWith("file://")) {
+      if (
+        selfie &&
+        (selfie.startsWith("file://") ||
+          selfie.startsWith("content://") ||
+          selfie.startsWith("/") ||
+          selfie.startsWith("data:image/"))
+      ) {
         finalSelfieUri = await uploadSelfieToFirebase(selfie, user?._id || "unknown");
       }
 

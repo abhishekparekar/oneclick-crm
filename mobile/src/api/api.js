@@ -127,15 +127,16 @@ api.interceptors.response.use(
     const url = originalRequest?.url || "";
     const message = error.response?.data?.message || error.message;
 
-    // ─── One User One Login Per Platform: Handle Session Invalidated ───────────
-    if (status === 401 && code === "SESSION_INVALIDATED") {
-      console.warn("[API] Session invalidated on server (logged in elsewhere). Logging out.");
+    // ─── One User One Login Per Platform / Token Expired: Handle 401 ───────────
+    if (status === 401 && !url.includes("/auth/login") && !url.includes("/auth/register")) {
+      const isSessionInvalidated = code === "SESSION_INVALIDATED";
+      console.warn(`[API] 401 Unauthorized (${isSessionInvalidated ? "Session superseded" : "Token expired/invalid"}). Logging out.`);
       try {
         await AsyncStorage.multiRemove(["hrms_token", "hrms_user"]);
       } catch (_) {}
       setAuthToken(null);
       if (typeof _onSessionInvalidatedCallback === "function") {
-        _onSessionInvalidatedCallback();
+        _onSessionInvalidatedCallback(isSessionInvalidated ? "SESSION_INVALIDATED" : "TOKEN_EXPIRED");
       }
       return Promise.reject(error);
     }

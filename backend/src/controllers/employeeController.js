@@ -749,7 +749,12 @@ const createEmployee = async (req, res, next) => {
     const rawSubscribed = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
       ? company.subscribedModules
       : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
-    const subscribed = rawSubscribed.map(m => String(m).toLowerCase().trim());
+    const subscribedSet = new Set(rawSubscribed.map(m => String(m).toLowerCase().trim()));
+    if (company.moduleLimits) {
+      Object.keys(company.moduleLimits).forEach(k => subscribedSet.add(k.toLowerCase().trim()));
+    }
+    ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "mobileapp", "webadmin"].forEach(k => subscribedSet.add(k));
+    const subscribed = Array.from(subscribedSet);
     const limits = company.moduleLimits || {};
 
     let finalAssignedModules = req.body.assignedModules;
@@ -1352,7 +1357,12 @@ const updateEmployee = async (req, res, next) => {
       const rawSubscribed = Array.isArray(company?.subscribedModules) && company.subscribedModules.length > 0
         ? company.subscribedModules
         : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
-      const subscribed = rawSubscribed.map(m => String(m).toLowerCase().trim());
+      const subscribedSet = new Set(rawSubscribed.map(m => String(m).toLowerCase().trim()));
+    if (company.moduleLimits) {
+      Object.keys(company.moduleLimits).forEach(k => subscribedSet.add(k.toLowerCase().trim()));
+    }
+    ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "mobileapp", "webadmin"].forEach(k => subscribedSet.add(k));
+    const subscribed = Array.from(subscribedSet);
       const limits = company?.moduleLimits || {};
 
       const sanitizedModules = req.body.assignedModules.map(m => String(m).toLowerCase().trim());

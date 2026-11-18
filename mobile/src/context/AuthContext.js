@@ -19,12 +19,14 @@ export const AuthProvider = ({ children }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    setOnSessionInvalidated(() => {
+    setOnSessionInvalidated((reason) => {
       setUser(null);
       setToken(null);
       Alert.alert(
         "Session Expired",
-        "Your session has ended because this account was logged in on another mobile device."
+        reason === "SESSION_INVALIDATED"
+          ? "Your session has ended because this account was logged in on another mobile device."
+          : "Your login session has expired. Please log in again to continue."
       );
     });
     loadStoredAuth();

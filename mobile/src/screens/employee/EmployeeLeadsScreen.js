@@ -419,8 +419,8 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       loadData();
       Alert.alert("Success", "Lead registered in CRM successfully!");
     } catch (err) {
-      console.warn("[handleSaveNewLead] error:", err.message);
-      Alert.alert("Error", err.message || "Failed to create lead.");
+      console.warn("[handleSaveNewLead] error:", err?.response?.data?.message || err.message);
+      Alert.alert("Error", err.response?.data?.message || err.message || "Failed to create lead.");
     } finally {
       setSavingLead(false);
     }

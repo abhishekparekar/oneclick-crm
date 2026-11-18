@@ -17,6 +17,24 @@ const queryClient = new QueryClient({
   },
 });
 
+// Backward-compatibility shim for TanStack Query v5:
+// Automatically normalize legacy array queryKey calls like queryClient.invalidateQueries(["tasks"])
+const origInvalidate = queryClient.invalidateQueries.bind(queryClient);
+queryClient.invalidateQueries = (filters, options) => {
+  if (Array.isArray(filters)) {
+    return origInvalidate({ queryKey: filters }, options);
+  }
+  return origInvalidate(filters, options);
+};
+
+const origRefetch = queryClient.refetchQueries.bind(queryClient);
+queryClient.refetchQueries = (filters, options) => {
+  if (Array.isArray(filters)) {
+    return origRefetch({ queryKey: filters }, options);
+  }
+  return origRefetch(filters, options);
+};
+
 function App() {
   return (
     <ErrorBoundary>

@@ -44,13 +44,12 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const code = error.response?.data?.code;
 
-    // ─── Session Invalidated — force logout on web ────────────────────────────
-    // This fires when another device/browser has logged in with the same account,
-    // invalidating this session's token hash on the server.
-    if (status === 401 && code === "SESSION_INVALIDATED") {
+    // ─── 401 Unauthorized (Session Invalidated or Token Expired) ─────────────
+    if (status === 401 && !error.config?.url?.includes("/auth/login")) {
       localStorage.removeItem("token");
-      // Store a flag so LoginPage can show the right message
-      sessionStorage.setItem("session_invalidated", "1");
+      if (code === "SESSION_INVALIDATED") {
+        sessionStorage.setItem("session_invalidated", "1");
+      }
       if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }

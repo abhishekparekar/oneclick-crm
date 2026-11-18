@@ -32,6 +32,7 @@ import {
 import { createEmployeeApi, getEmployeesApi } from "../../api/employeeService";
 import { useAuth } from "../../context/AuthContext";
 import { parseDDMMYYYYToISO } from "../../utils/dateFormatter";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -117,6 +118,7 @@ const BANK_ACCOUNT_TYPES = [
 // ═══════════════════════════════════════════════════════════════
 const AddEmployeeScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Company plan subscribed modules
   const authCompanyModules = useMemo(() => {
@@ -605,6 +607,25 @@ const AddEmployeeScreen = ({ navigation }) => {
         return v.toLowerCase().replace(/_/g, "-");
       };
 
+      const safeIsoDate = (val) => {
+        if (!val) return undefined;
+        try {
+          const s = String(val).trim();
+          if (!s) return undefined;
+          const iso = parseDDMMYYYYToISO(s);
+          if (!iso) return undefined;
+          const dt = new Date(iso);
+          if (!isNaN(dt.getTime())) {
+            return dt.toISOString();
+          }
+        } catch (_) {}
+        return undefined;
+      };
+
+      const allDepts = formData.accessibleDepartments?.length
+        ? formData.accessibleDepartments
+        : (formData.departmentId ? [formData.departmentId] : []);
+
       const payload = {
         firstName: formData.firstName.trim(),
         middleName: formData.middleName?.trim() || undefined,
@@ -614,13 +635,15 @@ const AddEmployeeScreen = ({ navigation }) => {
         password: formData.password?.trim() || undefined,
         photo: formData.photo || undefined,
         gender: formData.gender,
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
+        dateOfBirth: safeIsoDate(formData.dateOfBirth),
         maritalStatus: formData.maritalStatus || undefined,
 
-        departmentId: formData.accessibleDepartments?.[0] || formData.departmentId || undefined,
-        accessibleDepartments: formData.accessibleDepartments || [],
+        departmentId: allDepts[0] || formData.departmentId || undefined,
+        departmentIds: allDepts,
+        accessibleDepartments: allDepts,
         designationId: formData.designationId || undefined,
         branchId: formData.branchId || undefined,
+        branchIds: formData.branchId ? [formData.branchId] : [],
         reportingManagerId: formData.reportingManagerId || undefined,
         role: formData.role || "Employee",
         loginRole: formData.role || "Employee",
@@ -630,18 +653,19 @@ const AddEmployeeScreen = ({ navigation }) => {
         workMode: formData.workMode || "office",
         allowRemotePunch: Boolean(formData.allowRemotePunch),
         isLocationTrackingEnabled: Boolean(formData.isLocationTrackingEnabled),
-        joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : undefined,
-        confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : undefined,
+        joiningDate: safeIsoDate(formData.joiningDate),
+        confirmationDate: safeIsoDate(formData.confirmationDate),
         noticePeriod: formData.noticePeriod || undefined,
 
         address: formData.address,
         permanentAddress: formData.permanentAddress,
         emergencyContact: formData.emergencyContact,
+        salary: formData.salaryDetails?.ctc ? Number(formData.salaryDetails.ctc) : undefined,
         salaryDetails: formData.salaryDetails || undefined,
         bankDetails: formData.bankDetails || undefined,
         aadhaarNumber: formData.aadhaarNumber?.trim() || undefined,
         panNumber: formData.panNumber?.trim() || undefined,
-        documents: {},
+        documents: Array.isArray(formData.documents) ? formData.documents : [],
         assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
       };
 
@@ -653,7 +677,14 @@ const AddEmployeeScreen = ({ navigation }) => {
         [{ text: "Done", onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      Alert.alert("Registration Failed", err.response?.data?.message || "Failed to create employee.");
+      console.error("[AddEmployeeScreen] Registration error:", err);
+      const serverMsg =
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data?.errors) ? err.response?.data?.errors[0]?.msg : null) ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to create employee.";
+      Alert.alert("Registration Failed", serverMsg);
     } finally {
       setSubmitting(false);
     }
@@ -1739,7 +1770,14 @@ const AddEmployeeScreen = ({ navigation }) => {
   return (
     <View style={styles.screen}>
       {/* ── Top Header ── */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: Math.max(insets.top + (Platform.OS === "android" ? 8 : 4), Platform.OS === "ios" ? 48 : 16),
+          },
+        ]}
+      >
         <TouchableOpacity
           style={styles.headerBackBtn}
           onPress={() => navigation.goBack()}
@@ -1846,7 +1884,14 @@ const AddEmployeeScreen = ({ navigation }) => {
       </KeyboardAwareScrollView>
 
       {/* ── Bottom Action Footer ── */}
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            paddingBottom: Math.max(insets.bottom + 12, 16),
+          },
+        ]}
+      >
         {activeStep > 1 ? (
           <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={submitting}>
             <Ionicons name="arrow-back" size={16} color={THEME.textSecondary} style={{ marginRight: 4 }} />
@@ -1884,7 +1929,7 @@ const AddEmployeeScreen = ({ navigation }) => {
       {/* 1. Generic Selection Modal */}
       <Modal visible={!!activePickerModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+          <View style={[styles.modalBox, { paddingBottom: Math.max(insets.bottom + 16, 20) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {activePickerModal === "role" && "Select System Role"}
@@ -2157,7 +2202,7 @@ const AddEmployeeScreen = ({ navigation }) => {
       {/* 2. Quick Create Modal (Dept / Desig / Branch) */}
       <Modal visible={!!quickModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+          <View style={[styles.modalBox, { paddingBottom: Math.max(insets.bottom + 16, 20) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {quickModal === "dept" && "Create New Department"}
@@ -2868,47 +2913,59 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: THEME.card,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: THEME.border,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: THEME.border,
+    backgroundColor: THEME.cardSubtle,
+    minHeight: 46,
   },
   backButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.bodyBold,
     color: THEME.textSecondary,
   },
   nextButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: THEME.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
     borderRadius: 10,
+    minHeight: 46,
   },
   nextButtonText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontFamily: FONTS.bodyBold,
     color: "#FFFFFF",
   },
   registerButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#10B981",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
     borderRadius: 10,
+    minHeight: 46,
   },
   registerButtonText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontFamily: FONTS.bodyBold,
     color: "#FFFFFF",
   },
