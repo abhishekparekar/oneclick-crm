@@ -122,39 +122,185 @@ const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "le
   }
 };
 
-// Helper to seed default statuses & sources if none exist
-const seedDefaultsForCompany = async (companyId) => {
+// Active seeding promises to prevent concurrent runs for the same company
+const activeSeedPromises = new Map();
+
+// Helper to deduplicate any statuses and sources in database for a company
+const deduplicateCompanyLeadData = async (companyId) => {
   if (!companyId) return;
 
-  const defaultStatuses = [
-    { name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true },
-    { name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false },
-    { name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false },
-    { name: "Won", color: "#10B981", displayOrder: 4, isDefault: false },
-    { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
-  ];
+  try {
+    // 1. Deduplicate LeadStatus
+    const allStatuses = await LeadStatus.find({ companyId }).sort({ createdAt: 1, displayOrder: 1 });
+    const statusGroups = new Map();
+    for (const st of allStatuses) {
+      const key = (st.name || "").trim().toLowerCase();
+      if (!key) continue;
+      if (!statusGroups.has(key)) {
+        statusGroups.set(key, []);
+      }
+      statusGroups.get(key).push(st);
+    }
 
-  const statusCount = await LeadStatus.countDocuments({ companyId });
-  if (statusCount === 0) {
-    await LeadStatus.insertMany(
-      defaultStatuses.map((s) => ({ ...s, companyId }))
-    );
+    for (const [_, items] of statusGroups) {
+      if (items.length > 1) {
+        // Pick primary: prefer isDefault: true, then lowest displayOrder, then first created
+        const primary = items.find((s) => s.isDefault) || items[0];
+        const dupes = items.filter((s) => s._id.toString() !== primary._id.toString());
+        const dupeIds = dupes.map((s) => s._id);
+
+        if (dupeIds.length > 0) {
+          await Lead.updateMany(
+            { companyId, statusId: { $in: dupeIds } },
+            { $set: { statusId: primary._id } }
+          );
+          await LeadStatus.deleteMany({ _id: { $in: dupeIds } });
+        }
+      }
+    }
+
+    // 2. Deduplicate LeadSource
+    const allSources = await LeadSource.find({ companyId }).sort({ createdAt: 1 });
+    const sourceGroups = new Map();
+    for (const src of allSources) {
+      const key = (src.name || "").trim().toLowerCase();
+      if (!key) continue;
+      if (!sourceGroups.has(key)) {
+        sourceGroups.set(key, []);
+      }
+      sourceGroups.get(key).push(src);
+    }
+
+    for (const [_, items] of sourceGroups) {
+      if (items.length > 1) {
+        const primary = items[0];
+        const dupes = items.slice(1);
+        const dupeIds = dupes.map((s) => s._id);
+        const dupeNames = dupes.map((s) => s.name);
+
+        if (dupeIds.length > 0) {
+          await Lead.updateMany(
+            { companyId, sourceId: { $in: dupeIds } },
+            { $set: { sourceId: primary._id, source: primary.name } }
+          );
+          await Lead.updateMany(
+            { companyId, source: { $in: dupeNames } },
+            { $set: { source: primary.name, sourceId: primary._id } }
+          );
+          await LeadSource.deleteMany({ _id: { $in: dupeIds } });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[deduplicateCompanyLeadData error]:", err.message);
+  }
+};
+
+// Global helper to clean up duplicate statuses and sources across all companies
+const cleanupAllLeadDuplicates = async () => {
+  try {
+    const statusCompanyIds = await LeadStatus.distinct("companyId");
+    const sourceCompanyIds = await LeadSource.distinct("companyId");
+    const allCompanyIds = Array.from(new Set([
+      ...(statusCompanyIds || []),
+      ...(sourceCompanyIds || [])
+    ].filter(Boolean).map(id => id.toString())));
+
+    for (const cId of allCompanyIds) {
+      await deduplicateCompanyLeadData(cId);
+    }
+    await LeadStatus.syncIndexes().catch(() => {});
+    await LeadSource.syncIndexes().catch(() => {});
+    console.log(`[LeadManager] Cleaned up duplicate lead stages & channels for ${allCompanyIds.length} companies.`);
+  } catch (err) {
+    console.error("[cleanupAllLeadDuplicates error]:", err.message);
+  }
+};
+
+// Helper to seed default statuses & sources idempotently (no duplicate creation)
+const seedDefaultsForCompany = async (companyId) => {
+  if (!companyId) return;
+  const key = String(companyId);
+
+  if (activeSeedPromises.has(key)) {
+    return activeSeedPromises.get(key);
   }
 
-  const defaultSources = [
-    "Walk-in",
-    "Website Form",
-    "Facebook Ad",
-    "Google Search",
-    "Referral",
-    "Instagram Direct",
-  ];
-  const sourceCount = await LeadSource.countDocuments({ companyId });
-  if (sourceCount === 0 && statusCount === 0) {
-    await LeadSource.insertMany(
-      defaultSources.map((name) => ({ name, companyId }))
-    );
-  }
+  const p = (async () => {
+    try {
+      // 1. Clean up any existing duplicates first
+      await deduplicateCompanyLeadData(companyId);
+
+      const defaultStatuses = [
+        { name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true },
+        { name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false },
+        { name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false },
+        { name: "Won", color: "#10B981", displayOrder: 4, isDefault: false },
+        { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
+      ];
+
+      const defaultSources = [
+        "Walk-in",
+        "Website Form",
+        "Facebook Ad",
+        "Google Search",
+        "Referral",
+        "Instagram Direct",
+      ];
+
+      // Atomic bulkWrite with $setOnInsert: creates if not exists, completely ignores if already exists
+      const statusOps = defaultStatuses.map((s) => ({
+        updateOne: {
+          filter: { companyId, name: s.name },
+          update: {
+            $setOnInsert: {
+              companyId,
+              name: s.name,
+              color: s.color,
+              displayOrder: s.displayOrder,
+              isDefault: s.isDefault,
+              isActive: true,
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      const sourceOps = defaultSources.map((name) => ({
+        updateOne: {
+          filter: { companyId, name },
+          update: {
+            $setOnInsert: {
+              companyId,
+              name,
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      await Promise.allSettled([
+        LeadStatus.bulkWrite(statusOps, { ordered: false }),
+        LeadSource.bulkWrite(sourceOps, { ordered: false }),
+      ]);
+
+      // Ensure at least one default status is flagged
+      const hasDefault = await LeadStatus.findOne({ companyId, isDefault: true });
+      if (!hasDefault) {
+        await LeadStatus.findOneAndUpdate(
+          { companyId, name: "New" },
+          { $set: { isDefault: true } }
+        );
+      }
+    } catch (err) {
+      console.error("[seedDefaultsForCompany error]:", err.message);
+    } finally {
+      activeSeedPromises.delete(key);
+    }
+  })();
+
+  activeSeedPromises.set(key, p);
+  return p;
 };
 
 // ── PRODUCTS & SERVICES ──
@@ -222,16 +368,25 @@ const getStatuses = async (req, res) => {
     await seedDefaultsForCompany(companyId);
 
     const query = buildCompanyQuery(req, { isActive: true });
-    const statuses = await LeadStatus.find(query).sort({ displayOrder: 1 });
-    const formatted = statuses.map((s) => ({
-      id: s._id.toString(),
-      _id: s._id.toString(),
-      name: s.name,
-      color: s.color,
-      displayOrder: s.displayOrder,
-      isDefault: s.isDefault,
-      isActive: s.isActive,
-    }));
+    const statuses = await LeadStatus.find(query).sort({ displayOrder: 1, createdAt: 1 });
+    
+    // In-memory deduplication by name so duplicate tabs NEVER appear in response
+    const seen = new Set();
+    const formatted = [];
+    for (const s of statuses) {
+      const lower = (s.name || "").trim().toLowerCase();
+      if (!lower || seen.has(lower)) continue;
+      seen.add(lower);
+      formatted.push({
+        id: s._id.toString(),
+        _id: s._id.toString(),
+        name: s.name,
+        color: s.color,
+        displayOrder: s.displayOrder,
+        isDefault: Boolean(s.isDefault),
+        isActive: s.isActive !== false,
+      });
+    }
     return res.json(formatted);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -242,12 +397,25 @@ const createStatus = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
     const { name, color, displayOrder, isDefault } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Stage name is required" });
+    }
+    const trimmedName = name.trim();
+    if (companyId) {
+      const existing = await LeadStatus.findOne({
+        companyId,
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+      });
+      if (existing) {
+        return res.status(400).json({ message: "A stage with this name already exists" });
+      }
+    }
     if (isDefault && companyId) {
       await LeadStatus.updateMany({ companyId }, { $set: { isDefault: false } });
     }
     const status = await LeadStatus.create({
       companyId,
-      name,
+      name: trimmedName,
       color: color || "#EAB308",
       displayOrder: displayOrder || 1,
       isDefault: isDefault || false,
@@ -261,6 +429,9 @@ const createStatus = async (req, res) => {
       isDefault: status.isDefault,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "A stage with this name already exists" });
+    }
     return res.status(500).json({ message: err.message });
   }
 };
@@ -271,15 +442,28 @@ const updateStatus = async (req, res) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid status ID" });
     }
+    const companyId = getCompanyId(req);
     const { name, color, displayOrder, isDefault, isActive } = req.body;
+
+    if (name && name.trim() && companyId) {
+      const trimmedName = name.trim();
+      const existing = await LeadStatus.findOne({
+        companyId,
+        _id: { $ne: id },
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+      });
+      if (existing) {
+        return res.status(400).json({ message: "Another stage with this name already exists" });
+      }
+    }
+
     const updateData = {};
-    if (name !== undefined) updateData.name = name;
+    if (name !== undefined) updateData.name = name.trim();
     if (color !== undefined) updateData.color = color;
     if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
     if (isDefault !== undefined) {
       updateData.isDefault = isDefault;
       if (isDefault) {
-        const companyId = getCompanyId(req);
         if (companyId) {
           await LeadStatus.updateMany({ companyId, _id: { $ne: id } }, { $set: { isDefault: false } });
         }
@@ -299,6 +483,9 @@ const updateStatus = async (req, res) => {
       isActive: updated.isActive,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "Another stage with this name already exists" });
+    }
     return res.status(500).json({ message: err.message });
   }
 };
@@ -363,12 +550,21 @@ const getSources = async (req, res) => {
     const companyId = getCompanyId(req);
     await seedDefaultsForCompany(companyId);
     const query = buildCompanyQuery(req);
-    const sources = await LeadSource.find(query).sort({ name: 1 });
-    const formatted = sources.map((s) => ({
-      id: s._id.toString(),
-      _id: s._id.toString(),
-      name: s.name,
-    }));
+    const sources = await LeadSource.find(query).sort({ name: 1, createdAt: 1 });
+    
+    // In-memory deduplication by name so duplicate sources NEVER appear in response
+    const seen = new Set();
+    const formatted = [];
+    for (const s of sources) {
+      const lower = (s.name || "").trim().toLowerCase();
+      if (!lower || seen.has(lower)) continue;
+      seen.add(lower);
+      formatted.push({
+        id: s._id.toString(),
+        _id: s._id.toString(),
+        name: s.name,
+      });
+    }
     return res.json(formatted);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -382,13 +578,26 @@ const createSource = async (req, res) => {
     if (!name || !name.trim()) {
       return res.status(400).json({ message: "Source name is required" });
     }
-    const source = await LeadSource.create({ companyId, name: name.trim() });
+    const trimmedName = name.trim();
+    if (companyId) {
+      const existing = await LeadSource.findOne({
+        companyId,
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+      });
+      if (existing) {
+        return res.status(400).json({ message: "An acquisition channel with this name already exists" });
+      }
+    }
+    const source = await LeadSource.create({ companyId, name: trimmedName });
     return res.status(201).json({
       id: source._id.toString(),
       _id: source._id.toString(),
       name: source.name,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "An acquisition channel with this name already exists" });
+    }
     return res.status(500).json({ message: err.message });
   }
 };
@@ -399,13 +608,25 @@ const updateSource = async (req, res) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid source ID" });
     }
+    const companyId = getCompanyId(req);
     const { name } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ message: "Source name is required" });
     }
+    const trimmedName = name.trim();
+    if (companyId) {
+      const existing = await LeadSource.findOne({
+        companyId,
+        _id: { $ne: id },
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+      });
+      if (existing) {
+        return res.status(400).json({ message: "Another acquisition channel with this name already exists" });
+      }
+    }
     const updated = await LeadSource.findByIdAndUpdate(
       id,
-      { name: name.trim() },
+      { name: trimmedName },
       { new: true }
     );
     if (!updated) {
@@ -417,6 +638,9 @@ const updateSource = async (req, res) => {
       name: updated.name,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "Another acquisition channel with this name already exists" });
+    }
     return res.status(500).json({ message: err.message });
   }
 };
@@ -2789,10 +3013,22 @@ const getRecentActivity = async (req, res) => {
 
 const getLeadStatusCounts = async (req, res) => {
   try {
+    const companyId = getCompanyId(req);
+    await seedDefaultsForCompany(companyId);
     const companyQuery = buildCompanyQuery(req);
-    const statuses = await LeadStatus.find(companyQuery).sort({ displayOrder: 1 });
+    const statuses = await LeadStatus.find(companyQuery).sort({ displayOrder: 1, createdAt: 1 });
+
+    const seen = new Set();
+    const uniqueStatuses = [];
+    for (const st of statuses || []) {
+      const lower = (st.name || "").trim().toLowerCase();
+      if (!lower || seen.has(lower)) continue;
+      seen.add(lower);
+      uniqueStatuses.push(st);
+    }
+
     const counts = await Promise.all(
-      (statuses || []).map(async (st) => {
+      uniqueStatuses.map(async (st) => {
         const c = await Lead.countDocuments({ ...companyQuery, statusId: st._id, deletedAt: null });
         return {
           id: st._id,
@@ -4304,4 +4540,5 @@ module.exports = {
   sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
   searchMapPlaces, importMapLeads,
+  seedDefaultsForCompany, cleanupAllLeadDuplicates,
 };

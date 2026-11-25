@@ -146,8 +146,18 @@ export default function LeadSettings() {
         setSandboxTemplate(tpls[0].name);
       }
 
-      setStatuses(Array.isArray(statusesRes) ? statusesRes : (statusesRes?.statuses || statusesRes?.data || []));
-      setSources(Array.isArray(sourcesRes) ? sourcesRes : (sourcesRes?.sources || sourcesRes?.data || []));
+      const dedupeList = (arr: any[]) => {
+        const seen = new Set<string>();
+        return (arr || []).filter((item: any) => {
+          const k = (item?.name || '').trim().toLowerCase();
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+      };
+
+      setStatuses(dedupeList(Array.isArray(statusesRes) ? statusesRes : (statusesRes?.statuses || statusesRes?.data || [])));
+      setSources(dedupeList(Array.isArray(sourcesRes) ? sourcesRes : (sourcesRes?.sources || sourcesRes?.data || [])));
       setWaLogs(Array.isArray(logsRes) ? logsRes : (logsRes?.logs || logsRes?.data || []));
     } catch (err) {
       console.error(err);
@@ -171,7 +181,14 @@ export default function LeadSettings() {
   const fetchSources = async () => {
     try {
       const res = await api.get('/api/sources');
-      setSources(Array.isArray(res) ? res : (res?.sources || res?.data || []));
+      const list = Array.isArray(res) ? res : (res?.sources || res?.data || []);
+      const seen = new Set<string>();
+      setSources(list.filter((item: any) => {
+        const k = (item?.name || '').trim().toLowerCase();
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      }));
     } catch (err) {
       console.error(err);
     }

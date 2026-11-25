@@ -14,6 +14,7 @@ const { getUserPermissions } = require("../utils/permissionCheck");
 const connectDB = require("../config/db");
 const { sendPasswordResetEmail, sendPasswordResetOtpEmail } = require("../services/notificationService");
 const { hashToken, detectPlatform } = require("../middleware/authMiddleware");
+const { seedDefaultsForCompany } = require("./leadController");
 
 // Roles that bypass One-User-One-Login enforcement (system admins)
 const BYPASS_SESSION_ROLES = ["SuperAdmin", "SubSuperAdmin"];
@@ -603,6 +604,13 @@ const registerCompany = async (req, res, next) => {
       employeeLimit: plan.employeeLimit,
       createdBy: userId,
     });
+
+    // Auto-seed default lead stages & acquisition channels cleanly
+    try {
+      await seedDefaultsForCompany(company._id);
+    } catch (seedErr) {
+      console.warn("Notice: Lead default seeding on company registration:", seedErr.message);
+    }
 
     // 2. Create the CompanyAdmin User
     const companyAdmin = await User.create({

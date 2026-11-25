@@ -788,7 +788,14 @@ export default function Leads() {
   const fetchStatuses = async () => {
     try {
       const res = await api.get('/api/statuses');
-      const list = Array.isArray(res) ? res : (res?.statuses || res?.data || []);
+      const rawList = Array.isArray(res) ? res : (res?.statuses || res?.data || []);
+      const seen = new Set<string>();
+      const list = rawList.filter((s: any) => {
+        const key = (s.name || '').trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       setStatuses(list);
       if (list.length > 0 && !newLead.statusId) {
         const def = list.find((s: any) => s.isDefault) || list[0];
@@ -800,7 +807,14 @@ export default function Leads() {
   const fetchSources = async () => {
     try {
       const res = await api.get('/api/sources');
-      const list = Array.isArray(res) ? res : (res?.sources || res?.data || []);
+      const rawList = Array.isArray(res) ? res : (res?.sources || res?.data || []);
+      const seen = new Set<string>();
+      const list = rawList.filter((s: any) => {
+        const key = (s.name || '').trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       setSources(list);
       if (list.length > 0) {
         setNewLead(prev => ({ ...prev, source: prev.source || list[0].name }));

@@ -33,4 +33,7 @@ const leadStatusSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound unique index to guarantee no duplicate status names within the same company
+leadStatusSchema.index({ companyId: 1, name: 1 }, { unique: true });
+
 module.exports = mongoose.model("LeadStatus", leadStatusSchema);

@@ -17,4 +17,7 @@ const leadSourceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound unique index to guarantee no duplicate source names within the same company
+leadSourceSchema.index({ companyId: 1, name: 1 }, { unique: true });
+
 module.exports = mongoose.model("LeadSource", leadSourceSchema);

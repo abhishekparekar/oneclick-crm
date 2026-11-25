@@ -49,8 +49,8 @@ android {
         applicationId 'com.oneclick.hrms'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.0.2"
+        versionCode 8
+        versionName "2.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
         externalNativeBuild {
@@ -188,3 +188,26 @@ dependencies {
 
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
 apply plugin: 'com.google.gms.google-services'
+
+// Hook to patch native libraries for 16KB page size before stripping and packaging
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('merge') && task.name.endsWith('NativeLibs')) {
+        task.doLast {
+            def raw = task.name.substring('merge'.length(), task.name.length() - 'NativeLibs'.length())
+            def variant = raw.substring(0, 1).toLowerCase() + raw.substring(1)
+            def buildDirectory = layout.buildDirectory.asFile.get()
+            def mergedDir = new File(buildDirectory, "intermediates/merged_native_libs/${variant}/${task.name}/out/lib")
+            if (!mergedDir.exists()) {
+                mergedDir = new File(buildDirectory, "intermediates/merged_native_libs/${variant}/out/lib")
+            }
+            if (mergedDir.exists()) {
+                println "16KB ELF patch: scanning ${mergedDir}"
+                exec {
+                    commandLine 'python', "${projectDir}/../scripts/patch_elf_16kb.py", mergedDir.absolutePath
+                }
+            } else {
+                println "16KB ELF patch: directory not found, skipping"
+            }
+        }
+    }
+}

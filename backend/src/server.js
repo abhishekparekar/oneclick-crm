@@ -22,8 +22,11 @@ const connectDB = require("./config/db");
 const apiRoutes = require("./routes/index");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { apiResponse } = require("./middleware/apiResponse");
+const { cleanupAllLeadDuplicates } = require("./controllers/leadController");
 
-connectDB();
+connectDB().then(() => {
+  cleanupAllLeadDuplicates().catch(err => console.warn("[Lead Cleanup Warning]:", err.message));
+});
 
 const isVercel = process.env.VERCEL === "1" || !!process.env.VERCEL;
 

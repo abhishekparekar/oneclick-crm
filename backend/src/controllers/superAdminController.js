@@ -18,6 +18,7 @@ const formatUser = require("../utils/formatUser");
 const generateTempPassword = require("../utils/generateTempPassword");
 const { bustSubscriptionCache } = require("../middleware/subscriptionMiddleware");
 const { sendPasswordResetEmail } = require("../services/notificationService");
+const { seedDefaultsForCompany } = require("./leadController");
 
 const createCompany = async (req, res, next) => {
   try {
@@ -133,6 +134,13 @@ const createCompany = async (req, res, next) => {
         moduleLimits: finalModuleLimits,
         createdBy: req.user._id,
       });
+
+      // Auto-seed default lead stages & acquisition channels cleanly
+      try {
+        await seedDefaultsForCompany(company._id);
+      } catch (seedErr) {
+        console.warn("Notice: Lead default seeding on company creation:", seedErr.message);
+      }
 
       // Auto-provision initial Subscription entity with specified dates
       try {
