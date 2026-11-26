@@ -26,15 +26,15 @@ const { checkUserPermission } = require("../utils/permissionCheck");
 const { parseDateTimeIST, formatISTDateTime } = require("../utils/dateParser");
 
 const getCompanyId = (req) => {
-  return req.user?.companyId || req.user?._id || null;
+  return req.companyId || req.user?.companyId || req.user?.company_id || null;
 };
 
 const buildCompanyQuery = (req, base = {}) => {
   const companyId = getCompanyId(req);
   if (companyId) {
-    return { ...base, $or: [{ companyId }, { companyId: null }] };
+    return { ...base, companyId };
   }
-  return base;
+  return { ...base, companyId: new mongoose.Types.ObjectId("000000000000000000000000") };
 };
 
 // ── Notification Helpers ─────────────────────────────────────
@@ -128,10 +128,16 @@ const activeSeedPromises = new Map();
 // Helper to deduplicate any statuses and sources in database for a company
 const deduplicateCompanyLeadData = async (companyId) => {
   if (!companyId) return;
+  const cIdObj = mongoose.Types.ObjectId.isValid(companyId) ? new mongoose.Types.ObjectId(companyId) : null;
+  if (!cIdObj) return;
+  const cIdStr = String(companyId);
 
   try {
     // 1. Deduplicate LeadStatus
-    const allStatuses = await LeadStatus.find({ companyId }).sort({ createdAt: 1, displayOrder: 1 });
+    const allStatuses = await LeadStatus.find({
+      $or: [{ companyId: cIdObj }, { companyId: cIdStr }],
+    }).sort({ createdAt: 1, displayOrder: 1 });
+
     const statusGroups = new Map();
     for (const st of allStatuses) {
       const key = (st.name || "").trim().toLowerCase();
@@ -151,16 +157,24 @@ const deduplicateCompanyLeadData = async (companyId) => {
 
         if (dupeIds.length > 0) {
           await Lead.updateMany(
-            { companyId, statusId: { $in: dupeIds } },
+            { $or: [{ companyId: cIdObj }, { companyId: cIdStr }], statusId: { $in: dupeIds } },
             { $set: { statusId: primary._id } }
           );
           await LeadStatus.deleteMany({ _id: { $in: dupeIds } });
         }
+        // Ensure primary has standard ObjectId companyId
+        await LeadStatus.updateOne({ _id: primary._id }, { $set: { companyId: cIdObj } });
+      } else if (items[0]) {
+        // Normalize companyId to ObjectId
+        await LeadStatus.updateOne({ _id: items[0]._id }, { $set: { companyId: cIdObj } });
       }
     }
 
     // 2. Deduplicate LeadSource
-    const allSources = await LeadSource.find({ companyId }).sort({ createdAt: 1 });
+    const allSources = await LeadSource.find({
+      $or: [{ companyId: cIdObj }, { companyId: cIdStr }],
+    }).sort({ createdAt: 1 });
+
     const sourceGroups = new Map();
     for (const src of allSources) {
       const key = (src.name || "").trim().toLowerCase();
@@ -180,15 +194,20 @@ const deduplicateCompanyLeadData = async (companyId) => {
 
         if (dupeIds.length > 0) {
           await Lead.updateMany(
-            { companyId, sourceId: { $in: dupeIds } },
+            { $or: [{ companyId: cIdObj }, { companyId: cIdStr }], sourceId: { $in: dupeIds } },
             { $set: { sourceId: primary._id, source: primary.name } }
           );
           await Lead.updateMany(
-            { companyId, source: { $in: dupeNames } },
+            { $or: [{ companyId: cIdObj }, { companyId: cIdStr }], source: { $in: dupeNames } },
             { $set: { source: primary.name, sourceId: primary._id } }
           );
           await LeadSource.deleteMany({ _id: { $in: dupeIds } });
         }
+        // Ensure primary has standard ObjectId companyId
+        await LeadSource.updateOne({ _id: primary._id }, { $set: { companyId: cIdObj } });
+      } else if (items[0]) {
+        // Normalize companyId to ObjectId
+        await LeadSource.updateOne({ _id: items[0]._id }, { $set: { companyId: cIdObj } });
       }
     }
   } catch (err) {
@@ -199,6 +218,10 @@ const deduplicateCompanyLeadData = async (companyId) => {
 // Global helper to clean up duplicate statuses and sources across all companies
 const cleanupAllLeadDuplicates = async () => {
   try {
+    // Delete any orphaned statuses and sources without a valid companyId
+    await LeadStatus.deleteMany({ $or: [{ companyId: null }, { companyId: { $exists: false } }] });
+    await LeadSource.deleteMany({ $or: [{ companyId: null }, { companyId: { $exists: false } }] });
+
     const statusCompanyIds = await LeadStatus.distinct("companyId");
     const sourceCompanyIds = await LeadSource.distinct("companyId");
     const allCompanyIds = Array.from(new Set([
@@ -222,85 +245,86 @@ const seedDefaultsForCompany = async (companyId) => {
   if (!companyId) return;
   const key = String(companyId);
 
+  // Return existing in-flight seed promise if already running for this company
   if (activeSeedPromises.has(key)) {
     return activeSeedPromises.get(key);
   }
 
-  const p = (async () => {
+  const cIdObj = mongoose.Types.ObjectId.isValid(companyId) ? new mongoose.Types.ObjectId(companyId) : null;
+  if (!cIdObj) return;
+
+  const seedPromise = (async () => {
     try {
       // 1. Clean up any existing duplicates first
-      await deduplicateCompanyLeadData(companyId);
+      await deduplicateCompanyLeadData(cIdObj);
 
-      const defaultStatuses = [
-        { name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true },
-        { name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false },
-        { name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false },
-        { name: "Won", color: "#10B981", displayOrder: 4, isDefault: false },
-        { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
-      ];
+      // Check existing status count
+      const existingStatusCount = await LeadStatus.countDocuments({
+        $or: [{ companyId: cIdObj }, { companyId: key }],
+      });
 
-      const defaultSources = [
-        "Walk-in",
-        "Website Form",
-        "Facebook Ad",
-        "Google Search",
-        "Referral",
-        "Instagram Direct",
-      ];
+      if (existingStatusCount === 0) {
+        const defaultStatuses = [
+          { companyId: cIdObj, name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true, isActive: true },
+          { companyId: cIdObj, name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false, isActive: true },
+          { companyId: cIdObj, name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false, isActive: true },
+          { companyId: cIdObj, name: "Won", color: "#10B981", displayOrder: 4, isDefault: false, isActive: true },
+          { companyId: cIdObj, name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false, isActive: true },
+        ];
+        for (const s of defaultStatuses) {
+          await LeadStatus.findOneAndUpdate(
+            { companyId: cIdObj, name: s.name },
+            { $setOnInsert: s },
+            { upsert: true, new: true }
+          ).catch(() => {});
+        }
+      }
 
-      // Atomic bulkWrite with $setOnInsert: creates if not exists, completely ignores if already exists
-      const statusOps = defaultStatuses.map((s) => ({
-        updateOne: {
-          filter: { companyId, name: s.name },
-          update: {
-            $setOnInsert: {
-              companyId,
-              name: s.name,
-              color: s.color,
-              displayOrder: s.displayOrder,
-              isDefault: s.isDefault,
-              isActive: true,
-            },
-          },
-          upsert: true,
-        },
-      }));
+      // Check existing source count
+      const existingSourceCount = await LeadSource.countDocuments({
+        $or: [{ companyId: cIdObj }, { companyId: key }],
+      });
 
-      const sourceOps = defaultSources.map((name) => ({
-        updateOne: {
-          filter: { companyId, name },
-          update: {
-            $setOnInsert: {
-              companyId,
-              name,
-            },
-          },
-          upsert: true,
-        },
-      }));
-
-      await Promise.allSettled([
-        LeadStatus.bulkWrite(statusOps, { ordered: false }),
-        LeadSource.bulkWrite(sourceOps, { ordered: false }),
-      ]);
+      if (existingSourceCount === 0) {
+        const defaultSources = [
+          "Walk-in",
+          "Website Form",
+          "Facebook Ad",
+          "Google Search",
+          "Referral",
+          "Instagram Direct",
+        ];
+        for (const name of defaultSources) {
+          await LeadSource.findOneAndUpdate(
+            { companyId: cIdObj, name },
+            { $setOnInsert: { companyId: cIdObj, name } },
+            { upsert: true, new: true }
+          ).catch(() => {});
+        }
+      }
 
       // Ensure at least one default status is flagged
-      const hasDefault = await LeadStatus.findOne({ companyId, isDefault: true });
+      const hasDefault = await LeadStatus.findOne({
+        $or: [{ companyId: cIdObj }, { companyId: key }],
+        isDefault: true,
+      });
       if (!hasDefault) {
         await LeadStatus.findOneAndUpdate(
-          { companyId, name: "New" },
+          { $or: [{ companyId: cIdObj }, { companyId: key }], name: "New" },
           { $set: { isDefault: true } }
         );
       }
     } catch (err) {
       console.error("[seedDefaultsForCompany error]:", err.message);
-    } finally {
-      activeSeedPromises.delete(key);
     }
   })();
 
-  activeSeedPromises.set(key, p);
-  return p;
+  activeSeedPromises.set(key, seedPromise);
+  try {
+    await seedPromise;
+  } finally {
+    activeSeedPromises.delete(key);
+  }
 };
 
 // ── PRODUCTS & SERVICES ──
@@ -2410,7 +2434,7 @@ const getTemplates = async (req, res) => {
     const companyId = getCompanyId(req);
     const query = {
       isActive: { $ne: false },
-      ...(companyId ? { $or: [{ companyId }, { companyId: null }, { companyId: { $exists: false } }] } : {}),
+      companyId: companyId || new mongoose.Types.ObjectId("000000000000000000000000"),
     };
     if (req.query.status) {
       query.status = req.query.status;
@@ -2439,9 +2463,7 @@ const syncWhatsappTemplates = async (req, res) => {
     const companyId = getCompanyId(req);
     let { businessAccountId, accessToken, apiEndpoint } = req.body || {};
 
-    let waSetting = await WhatsappSetting.findOne(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
-    ).sort({ companyId: -1 });
+    let waSetting = companyId ? await WhatsappSetting.findOne({ companyId }).sort({ createdAt: -1 }) : null;
 
     businessAccountId = businessAccountId || waSetting?.businessAccountId || "";
     accessToken = (accessToken && !accessToken.startsWith("•••")) ? accessToken : (waSetting?.accessToken || "");
@@ -2508,7 +2530,7 @@ const syncWhatsappTemplates = async (req, res) => {
     // Wipe old synced non-custom templates for this company/account before inserting new templates
     await LeadTemplate.deleteMany({
       isCustom: { $ne: true },
-      ...(companyId ? { $or: [{ companyId }, { companyId: null }] } : {}),
+      companyId: companyId || new mongoose.Types.ObjectId("000000000000000000000000"),
     });
 
     let metaSyncedCount = 0;
@@ -2616,7 +2638,7 @@ const syncWhatsappTemplates = async (req, res) => {
 
     const allTemplates = await LeadTemplate.find({
       isActive: { $ne: false },
-      ...(companyId ? { $or: [{ companyId }, { companyId: null }, { companyId: { $exists: false } }] } : {}),
+      companyId: companyId || new mongoose.Types.ObjectId("000000000000000000000000"),
     }).sort({ createdAt: -1 });
 
     const seen = new Set();
@@ -2721,7 +2743,7 @@ const deleteTemplate = async (req, res) => {
 
     if (companyId) {
       await WhatsappSetting.updateMany(
-        { $or: [{ companyId }, { companyId: null }] },
+        { companyId },
         { $pull: { customTemplates: { $or: [{ id }, { name: id }] } } }
       );
     }
@@ -2735,7 +2757,7 @@ const deleteTemplate = async (req, res) => {
 const getCampaigns = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
-    const query = companyId ? { $or: [{ companyId }, { companyId: null }] } : {};
+    const query = companyId ? { companyId } : { companyId: new mongoose.Types.ObjectId("000000000000000000000000") };
     const campaigns = await LeadCampaign.find(query).sort({ createdAt: -1 });
     const formatted = campaigns.map((c) => (c.toJSON ? c.toJSON() : c));
     return res.json({ success: true, campaigns: formatted, data: formatted, broadcasts: formatted });
@@ -3417,13 +3439,11 @@ const addLeadNote = async (req, res) => {
 const getWhatsappAccount = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
-    let setting = await WhatsappSetting.findOne(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
-    ).sort({ companyId: -1 });
+    let setting = companyId ? await WhatsappSetting.findOne({ companyId }) : null;
 
-    if (!setting) {
+    if (!setting && companyId) {
       setting = await WhatsappSetting.create({
-        companyId: companyId || null,
+        companyId: companyId,
         apiProvider: "OFFICIAL_META",
         businessAccountId: "",
         phoneNumberId: "",
@@ -3488,9 +3508,7 @@ const connectWhatsapp = async (req, res) => {
       delete update.thirdPartyToken;
     }
 
-    let setting = await WhatsappSetting.findOne(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
-    ).sort({ companyId: -1 });
+    let setting = companyId ? await WhatsappSetting.findOne({ companyId }) : null;
 
     const hasAccountChanged = setting && (
       (update.businessAccountId && setting.businessAccountId && setting.businessAccountId !== update.businessAccountId) ||
@@ -3501,7 +3519,7 @@ const connectWhatsapp = async (req, res) => {
       // Clear old synced templates when switching to a different WhatsApp account
       await LeadTemplate.deleteMany({
         isCustom: { $ne: true },
-        ...(companyId ? { $or: [{ companyId }, { companyId: null }] } : {}),
+        companyId: companyId || new mongoose.Types.ObjectId("000000000000000000000000"),
       });
       if (setting) setting.customTemplates = [];
     }
@@ -3537,8 +3555,9 @@ const connectWhatsapp = async (req, res) => {
 const disconnectWhatsapp = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
+    if (!companyId) return res.status(403).json({ success: false, message: "Company ID is required" });
     await WhatsappSetting.updateMany(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {},
+      { companyId },
       {
         status: "DISCONNECTED",
         connectionStatus: "DISCONNECTED",
@@ -3555,7 +3574,7 @@ const disconnectWhatsapp = async (req, res) => {
     // Clear synced templates on disconnect
     await LeadTemplate.deleteMany({
       isCustom: { $ne: true },
-      ...(companyId ? { $or: [{ companyId }, { companyId: null }] } : {}),
+      companyId,
     });
     return res.json({
       success: true,
@@ -3577,9 +3596,7 @@ const disconnectWhatsapp = async (req, res) => {
 const testWhatsappConnection = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
-    const setting = await WhatsappSetting.findOne(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
-    ).sort({ companyId: -1 });
+    const setting = companyId ? await WhatsappSetting.findOne({ companyId }) : null;
 
     const apiProvider = req.body?.apiProvider || setting?.apiProvider || "THIRD_PARTY_CLICK2API";
     const bodyToken = req.body?.accessToken?.trim() || req.body?.thirdPartyToken?.trim();
@@ -3817,11 +3834,9 @@ const sendTestWhatsappMessage = async (req, res) => {
 const getWhatsappLogs = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
-    const logs = await WhatsappLog.find(
-      companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
-    )
+    const logs = companyId ? await WhatsappLog.find({ companyId })
       .sort({ sentAt: -1 })
-      .limit(50);
+      .limit(50) : [];
 
     return res.json({ success: true, data: logs, logs });
   } catch (error) {
@@ -3837,7 +3852,7 @@ const sendBroadcastWhatsAppMessage = async (req, res) => {
     const leads = await Lead.find({
       deletedAt: null,
       whatsappOptIn: { $ne: false },
-      ...(companyId ? { $or: [{ companyId }, { companyId: null }] } : {}),
+      companyId: companyId || new mongoose.Types.ObjectId("000000000000000000000000"),
       ...targetFilter,
     }).select("name whatsappPhone phone");
 
@@ -4185,6 +4200,14 @@ const getLeadStats = async (req, res) => {
     const newStatus = statuses.find((s) => s.name?.toLowerCase().includes("new") || s.isDefault);
     const newLeadsCount = newStatus ? (statusMap[newStatus._id.toString()] || 0) : recentLeads;
 
+    const seenStatuses = new Set();
+    const uniqueStatusesList = (statuses || []).filter((s) => {
+      const lower = (s.name || "").trim().toLowerCase();
+      if (!lower || seenStatuses.has(lower)) return false;
+      seenStatuses.add(lower);
+      return true;
+    });
+
     return res.json({
       success: true,
       totalContacts,
@@ -4197,7 +4220,7 @@ const getLeadStats = async (req, res) => {
       lostValue,
       optedInCount,
       newLeadsCount,
-      pipelineStagesCount: statuses.length,
+      pipelineStagesCount: uniqueStatusesList.length,
       activeTagsCount: tags.length,
       statusCounts: statusMap,
     });

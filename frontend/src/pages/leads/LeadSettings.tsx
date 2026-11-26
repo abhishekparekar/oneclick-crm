@@ -33,6 +33,17 @@ function SectionCard({ title, icon, children, action }: { title: string; icon: R
   );
 }
 
+// Helper to deduplicate array by name
+const dedupeList = (arr: any[]) => {
+  const seen = new Set<string>();
+  return (arr || []).filter((item: any) => {
+    const k = (item?.name || '').trim().toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+};
+
 export default function LeadSettings() {
   const { success, error, warning, confirm } = useToast();
   const { isLoading, run } = useActionLoader();
@@ -145,16 +156,6 @@ export default function LeadSettings() {
       if (tpls.length > 0 && !sandboxTemplate) {
         setSandboxTemplate(tpls[0].name);
       }
-
-      const dedupeList = (arr: any[]) => {
-        const seen = new Set<string>();
-        return (arr || []).filter((item: any) => {
-          const k = (item?.name || '').trim().toLowerCase();
-          if (!k || seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-      };
 
       setStatuses(dedupeList(Array.isArray(statusesRes) ? statusesRes : (statusesRes?.statuses || statusesRes?.data || [])));
       setSources(dedupeList(Array.isArray(sourcesRes) ? sourcesRes : (sourcesRes?.sources || sourcesRes?.data || [])));
@@ -481,7 +482,7 @@ export default function LeadSettings() {
       if (editingStatus) await api.patch(`/api/statuses/${editingStatus.id}`, payload);
       else { const maxOrder = statuses.reduce((max, s) => (s.displayOrder > max ? s.displayOrder : max), 0); await api.post('/api/statuses', { ...payload, displayOrder: maxOrder + 1 }); }
       setShowStatusModal(false); setEditingStatus(null); setStatusName(''); setStatusColor('#6366f1'); setStatusIsDefault(false);
-      const updated = await api.get('/api/statuses'); setStatuses(Array.isArray(updated) ? updated : (updated?.statuses || updated?.data || []));
+      const updated = await api.get('/api/statuses'); setStatuses(dedupeList(Array.isArray(updated) ? updated : (updated?.statuses || updated?.data || [])));
       success(editingStatus ? 'Stage updated!' : 'Stage created!');
     } catch (err: any) { error('Failed to save stage', err.message); }
     finally { setStatusSaving(false); }
@@ -498,7 +499,7 @@ export default function LeadSettings() {
       try {
         await api.delete(`/api/statuses/${targetId}`);
         const u = await api.get('/api/statuses');
-        setStatuses(Array.isArray(u) ? u : (u?.statuses || u?.data || []));
+        setStatuses(dedupeList(Array.isArray(u) ? u : (u?.statuses || u?.data || [])));
         success('Stage deleted');
       } catch (err: any) {
         error('Failed to delete stage', err.message);
@@ -517,7 +518,7 @@ export default function LeadSettings() {
     } catch (err: any) {
       error('Failed to reorder', err.message);
       const r = await api.get('/api/statuses');
-      setStatuses(Array.isArray(r) ? r : (r?.statuses || r?.data || []));
+      setStatuses(dedupeList(Array.isArray(r) ? r : (r?.statuses || r?.data || [])));
     }
   };
 
@@ -1172,7 +1173,7 @@ export default function LeadSettings() {
 
         {/* Status Stages */}
         <SectionCard
-          title="Lead  Stages"
+          title="Lead Stages"
           icon={<Zap size={16} />}
           action={
             <button
@@ -1185,10 +1186,10 @@ export default function LeadSettings() {
           }
         >
           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-            {statuses.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-8 font-semibold">No  stages configured.</p>
+            {dedupeList(statuses).length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-8 font-semibold">No lead stages configured.</p>
             ) : (
-              statuses.map((status, index) => {
+              dedupeList(statuses).map((status, index) => {
                 const sId = status.id || status._id;
                 return (
                   <div key={sId} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
@@ -1203,7 +1204,7 @@ export default function LeadSettings() {
                     </div>
                     <div className="flex items-center space-x-1">
                       <button disabled={index === 0} onClick={() => handleReorderStatus(index, 'UP')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▲</button>
-                      <button disabled={index === statuses.length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▼</button>
+                      <button disabled={index === dedupeList(statuses).length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▼</button>
                       <button onClick={() => { setEditingStatus(status); setStatusName(status.name); setStatusColor(status.color); setStatusIsDefault(status.isDefault); setShowStatusModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
                         <Edit2 size={13} />
                       </button>
@@ -1233,10 +1234,10 @@ export default function LeadSettings() {
           }
         >
           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-            {(!Array.isArray(sources) || sources.length === 0) ? (
+            {dedupeList(sources).length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-8 font-semibold">No lead acquisition channels configured.</p>
             ) : (
-              (Array.isArray(sources) ? sources : []).map((source) => {
+              dedupeList(sources).map((source) => {
                 const srcId = source.id || source._id;
                 return (
                   <div key={srcId} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">

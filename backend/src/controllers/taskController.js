@@ -690,10 +690,13 @@ exports.getTasks = async (req, res) => {
 exports.getTaskDetails = async (req, res) => {
     try {
         const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
+        if (!companyId) {
+            return res.status(403).json({ success: false, message: "Company ID is required" });
+        }
         const isObjectId = mongoose.Types.ObjectId.isValid(req.params.id);
         const query = isObjectId
-            ? (companyId ? { _id: req.params.id, companyId } : { _id: req.params.id })
-            : (companyId ? { taskId: req.params.id, companyId } : { taskId: req.params.id });
+            ? { _id: req.params.id, companyId }
+            : { taskId: req.params.id, companyId };
 
         let task = await Task.findOne(query)
             .populate({
@@ -2111,7 +2114,8 @@ exports.submitFollowUp = async (req, res) => {
         const { nextFollowUpDate, remark, remarks, comment, attachments } = req.body;
         const noteText = (remark || remarks || comment || "").trim();
 
-        const task = await Task.findById(id);
+        const companyId = req.companyId || req.user?.companyId;
+        const task = await Task.findOne({ _id: id, ...(companyId ? { companyId } : {}) });
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         // Only update nextFollowUpDate if a valid date was explicitly provided
@@ -2293,17 +2297,14 @@ exports.uploadTaskAttachment = async (req, res) => {
             if (emp) companyId = emp.companyId;
         }
 
-        let task = companyId ? await Task.findOne({ _id: req.params.id, companyId }) : await Task.findById(req.params.id);
+        if (!companyId) {
+            return res.status(403).json({ success: false, message: "Company ID is required" });
+        }
+
+        let task = await Task.findOne({ _id: req.params.id, companyId });
         let isTemplate = false;
-        if (!task && companyId) {
+        if (!task) {
             task = await TaskTemplate.findOne({ _id: req.params.id, companyId });
-            if (task) isTemplate = true;
-        }
-        if (!task) {
-            task = await Task.findById(req.params.id);
-        }
-        if (!task) {
-            task = await TaskTemplate.findById(req.params.id);
             if (task) isTemplate = true;
         }
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
@@ -2367,15 +2368,12 @@ exports.toggleChecklistItem = async (req, res) => {
         const { subtaskId, completed, isCompleted, itemIndex, checklist } = req.body;
 
         const companyId = req.companyId || req.user?.companyId;
-        let task = companyId ? await Task.findOne({ _id: id, companyId }) : await Task.findById(id);
-        if (!task) {
-            task = await Task.findById(id);
+        if (!companyId) {
+            return res.status(403).json({ success: false, message: "Company ID is required" });
         }
-        if (!task && companyId) {
+        let task = await Task.findOne({ _id: id, companyId });
+        if (!task) {
             task = await TaskTemplate.findOne({ _id: id, companyId });
-        }
-        if (!task) {
-            task = await TaskTemplate.findById(id);
         }
         if (!task) {
             return res.status(404).json({ success: false, message: "Task not found" });

@@ -9,7 +9,7 @@ const fs = require("fs");
 
 // Helper to get companyId from req
 const getCompanyId = (req) => {
-  return req.user?.companyId || req.user?._id;
+  return req.companyId || req.user?.companyId || req.user?.company_id || null;
 };
 
 // Generate next request code e.g. REQ-1001

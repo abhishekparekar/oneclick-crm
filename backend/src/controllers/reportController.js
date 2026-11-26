@@ -12,10 +12,11 @@ const Department = require("../models/Department");
 const Designation = require("../models/Designation");
 
 const allowCompanyScope = (req) => {
-  if (req.user && req.user.role === "SuperAdmin") {
-    return req.query.companyId || req.companyId || null;
+  const role = (req.user?.role || "").toLowerCase();
+  if (role === "superadmin" || role === "subsuperadmin" || role === "sub-superadmin") {
+    return req.query?.companyId || req.headers?.["x-company-id"] || req.companyId || (req.user && (req.user.companyId || req.user.company_id)) || null;
   }
-  return req.companyId || (req.user && req.user.companyId) || null;
+  return req.companyId || (req.user && (req.user.companyId || req.user.company_id)) || null;
 };
 
 const buildDateFilter = (req, dateField = "createdAt") => {
@@ -228,15 +229,13 @@ const getDashboardSummary = async (req, res, next) => {
 const getAttendanceSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    let filter = buildDateFilter(req, "date");
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access attendance summary" });
+    }
+    let filter = { companyId: queryCompanyId, ...buildDateFilter(req, "date") };
 
-    if (req.user.role === "SuperAdmin") {
-      if (queryCompanyId) filter.companyId = queryCompanyId;
-    } else if (req.user.role === "Employee") {
+    if (req.user.role === "Employee") {
       filter.userId = req.user._id;
-      if (queryCompanyId) filter.companyId = queryCompanyId;
-    } else {
-      if (queryCompanyId) filter.companyId = queryCompanyId;
     }
 
     const [present, absent, late, halfDay, total, list] = await Promise.all([
@@ -258,8 +257,10 @@ const getAttendanceSummary = async (req, res, next) => {
 const getLeaveSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access leave summary" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     const leaves = await Leave.find(filter).populate("employeeId").sort({ createdAt: -1 });
     let pending = 0, approved = 0, rejected = 0;
@@ -279,8 +280,10 @@ const getLeaveSummary = async (req, res, next) => {
 const getPayrollSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access payroll summary" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     const payrolls = await Payroll.find(filter).populate("employeeId").sort({ createdAt: -1 });
     let totalPayroll = 0, paid = 0, due = 0;
@@ -300,8 +303,10 @@ const getPayrollSummary = async (req, res, next) => {
 const getTaskSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { status: { $ne: "cancelled" }, ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access task summary" });
+    }
+    const filter = { companyId: queryCompanyId, status: { $ne: "cancelled" }, ...buildDateFilter(req, "createdAt") };
 
     const { buildTaskReportSummary } = require("../utils/taskReportUtils");
     const tasks = await Task.find(filter)
@@ -330,8 +335,10 @@ const getTaskSummary = async (req, res, next) => {
 const getProjectSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access project summary" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     const projects = await Project.find(filter).populate("projectManager members").sort({ createdAt: -1 });
     let activeProjects = 0, completedProjects = 0, otherProjects = 0;
@@ -351,15 +358,16 @@ const getProjectSummary = async (req, res, next) => {
 const getPerformanceReport = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access performance report" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
     
-    // We get tasks and attendance for this period
+    // We get tasks and attendance for this period strictly scoped to companyId
     const tasks = await Task.find(filter).populate("assignedTo");
-    const attendances = await Attendance.find(buildDateFilter(req, "date")).populate("userId");
+    const attendances = await Attendance.find({ companyId: queryCompanyId, ...buildDateFilter(req, "date") }).populate("userId");
     
-    let empFilter = { status: "active" };
-    if (queryCompanyId) empFilter.companyId = queryCompanyId;
+    let empFilter = { companyId: queryCompanyId, status: "active" };
     const employees = await Employee.find(empFilter).populate("userId designationId");
 
     const performanceData = employees.map(emp => {
@@ -400,12 +408,14 @@ const getPerformanceReport = async (req, res, next) => {
 const getEmployeeSummary = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access employee summary" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     if (req.user.role === "Employee") {
-      const employee = await Employee.findById(req.user.employeeId);
-      const attendanceCount = await Attendance.countDocuments({ userId: req.user._id, ...buildDateFilter(req, "date") });
+      const employee = await Employee.findOne({ _id: req.user.employeeId, companyId: queryCompanyId });
+      const attendanceCount = await Attendance.countDocuments({ companyId: queryCompanyId, userId: req.user._id, ...buildDateFilter(req, "date") });
       await logReport(req, "employee-summary", { companyId: queryCompanyId, userId: req.user._id });
       return res.json({
         name: req.user.name,
@@ -413,7 +423,7 @@ const getEmployeeSummary = async (req, res, next) => {
         email: req.user.email,
         attendanceCount,
         status: employee?.status || "unknown",
-        companyId: req.user.companyId,
+        companyId: queryCompanyId,
       });
     }
 
@@ -437,12 +447,14 @@ const getEmployeeSummary = async (req, res, next) => {
 const getTaskDetailedAnalytics = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { status: { $ne: "cancelled" }, ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access task analytics" });
+    }
+    const filter = { companyId: queryCompanyId, status: { $ne: "cancelled" }, ...buildDateFilter(req, "createdAt") };
 
     const [tasks, departments] = await Promise.all([
       Task.find(filter).populate("assignedTo", "firstName lastName fullName departmentId designationId").sort({ createdAt: -1 }),
-      Department.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) })
+      Department.find({ companyId: queryCompanyId })
     ]);
 
     const statusBreakdown = {};
@@ -508,14 +520,16 @@ const getTaskDetailedAnalytics = async (req, res, next) => {
 const getEmployeeDetailedAnalytics = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access employee analytics" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     const [employees, tasks, leaves, departments] = await Promise.all([
       Employee.find(filter).populate("designationId departmentId").sort({ createdAt: -1 }),
-      Task.find({ status: { $ne: "cancelled" }, ...(queryCompanyId ? { companyId: queryCompanyId } : {}) }).populate("assignedTo", "firstName lastName fullName email userId"),
-      Leave.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) }).populate("employeeId", "firstName lastName fullName email userId"),
-      Department.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) })
+      Task.find({ companyId: queryCompanyId, status: { $ne: "cancelled" } }).populate("assignedTo", "firstName lastName fullName email userId"),
+      Leave.find({ companyId: queryCompanyId }).populate("employeeId", "firstName lastName fullName email userId"),
+      Department.find({ companyId: queryCompanyId })
     ]);
 
     const departmentBreakdown = {};
@@ -598,12 +612,14 @@ const getEmployeeDetailedAnalytics = async (req, res, next) => {
 const getLeaveDetailedAnalytics = async (req, res, next) => {
   try {
     const queryCompanyId = allowCompanyScope(req);
-    const filter = { ...buildDateFilter(req, "createdAt") };
-    if (queryCompanyId) filter.companyId = queryCompanyId;
+    if (!queryCompanyId) {
+      return res.status(403).json({ success: false, message: "Company ID is required to access leave analytics" });
+    }
+    const filter = { companyId: queryCompanyId, ...buildDateFilter(req, "createdAt") };
 
     const [leaves, departments] = await Promise.all([
       Leave.find(filter).populate("employeeId", "firstName lastName fullName email departmentId designationId status").sort({ createdAt: -1 }),
-      Department.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) })
+      Department.find({ companyId: queryCompanyId })
     ]);
 
     const leaveTypeBreakdown = {};

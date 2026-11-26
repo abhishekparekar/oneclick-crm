@@ -479,15 +479,7 @@ const getManagerDashboardSummary = async (req, res, next) => {
 
     // Lead filter
     const leadFilter = {
-      $and: [
-        {
-          $or: [
-            { companyId: new mongoose.Types.ObjectId(companyId) },
-            { companyId: companyId ? companyId.toString() : null },
-            { companyId: null }
-          ]
-        }
-      ],
+      companyId: new mongoose.Types.ObjectId(companyId),
       deletedAt: null
     };
     if (dObj) {
@@ -3288,12 +3280,6 @@ const getManagerProjectById = async (req, res, next) => {
       .lean();
 
     if (!project) {
-      project = await Project.findById(id)
-        .populate("members", "fullName photo designationId")
-        .lean();
-    }
-
-    if (!project || (project.companyId && project.companyId.toString() !== companyId.toString())) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
@@ -3338,10 +3324,7 @@ const getManagerProjectActivity = async (req, res, next) => {
     const companyId = req.companyId;
     const { id } = req.params;
     
-    let project = await Project.findOne({ _id: id, companyId }, { activityLog: 1 }).lean();
-    if (!project) {
-      project = await Project.findById(id, { activityLog: 1 }).lean();
-    }
+    const project = await Project.findOne({ _id: id, companyId }, { activityLog: 1 }).lean();
     if (!project) return res.status(404).json({ success: false, message: "Project not found" });
 
     return res.json({ success: true, data: project.activityLog || [], activityLog: project.activityLog || [] });
@@ -3779,12 +3762,8 @@ const updateManagerProject = async (req, res, next) => {
     const companyId = req.companyId;
     const { id } = req.params;
 
-    let project = await Project.findOne({ _id: id, companyId });
+    const project = await Project.findOne({ _id: id, companyId });
     if (!project) {
-      project = await Project.findById(id);
-    }
-
-    if (!project || (project.companyId && project.companyId.toString() !== companyId.toString())) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
@@ -3814,11 +3793,7 @@ const deleteManagerProject = async (req, res, next) => {
     const companyId = req.companyId;
     const { id } = req.params;
 
-    let project = await Project.findOneAndDelete({ _id: id, companyId });
-    if (!project) {
-      project = await Project.findByIdAndDelete(id);
-    }
-
+    const project = await Project.findOneAndDelete({ _id: id, companyId });
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }

@@ -314,7 +314,15 @@ export default function Campaigns() {
 
   const safeCampaigns = Array.isArray(campaigns) ? campaigns : [];
   const safeTemplates = Array.isArray(templates) ? templates : [];
-  const safeStatuses = Array.isArray(statuses) ? statuses : [];
+  const safeStatuses = useMemo(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(statuses) ? statuses : []).filter((s: any) => {
+      const k = (s?.name || '').trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [statuses]);
 
   const selectedTpl = safeTemplates.find(t => t.id === selectedTemplateId);
   const approvedCount = safeTemplates.filter(t => t.status === 'APPROVED').length;

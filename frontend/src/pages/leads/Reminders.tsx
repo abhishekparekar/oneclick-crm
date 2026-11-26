@@ -264,7 +264,15 @@ export default function Reminders() {
   const safeReminders = Array.isArray(reminders) ? reminders : [];
   const safeLeads = Array.isArray(leads) ? leads : [];
   const safeTemplates = Array.isArray(templates) ? templates : [];
-  const safeStatuses = Array.isArray(statuses) ? statuses : [];
+  const safeStatuses = useMemo(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(statuses) ? statuses : []).filter((s: any) => {
+      const k = (s?.name || '').trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [statuses]);
 
   const filtered = safeReminders.filter(r => {
     const term = search.toLowerCase();

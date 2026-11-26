@@ -420,6 +420,27 @@ export default function Leads() {
   const [sources, setSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Memoized unique statuses and sources to prevent duplicate rendering under any condition
+  const uniqueStatuses = useMemo(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(statuses) ? statuses : []).filter((s: any) => {
+      const key = (s.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [statuses]);
+
+  const uniqueSources = useMemo(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(sources) ? sources : []).filter((s: any) => {
+      const key = (s.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [sources]);
+
   // Timeframe & View State
   const [activeTab, setActiveTab] = useState<'All Time' | 'Today' | 'Tomorrow' | 'Yesterday' | 'This Week' | 'This Month' | 'Custom'>('All Time');
   const [viewMode, setViewMode] = useState<'cards' | 'kanban' | 'list'>('list');
@@ -1606,7 +1627,7 @@ export default function Leads() {
             </span>
           </button>
 
-          {statuses.map((st) => {
+          {uniqueStatuses.map((st) => {
             const isSelected = selectedStatusId === st.id;
             const count = leadStats.statusCounts?.[st.id] !== undefined
               ? leadStats.statusCounts[st.id]
@@ -1656,7 +1677,7 @@ export default function Leads() {
             <CustomSelect
               value={selectedSource}
               onChange={setSelectedSource}
-              options={(Array.isArray(sources) ? sources : []).map(s => ({ value: s.name, label: s.name }))}
+              options={uniqueSources.map(s => ({ value: s.name, label: s.name }))}
               defaultLabel="All Sources"
             />
 
@@ -1874,7 +1895,7 @@ export default function Leads() {
                   onChange={e => setBulkStatusId(e.target.value)}
                 >
                   <option value="">Pick status…</option>
-                  {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {uniqueStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <button
                   onClick={handleBulkStatus}

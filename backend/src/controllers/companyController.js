@@ -243,9 +243,7 @@ const getDashboardStats = async (req, res, next) => {
             Project.countDocuments({ companyId, status: "completed", ...(deptProjectCondition || {}) }),
             // Lead count definitions
             Lead.countDocuments({
-                ...(companyId && mongoose.Types.ObjectId.isValid(companyId)
-                    ? { $or: [{ companyId: new mongoose.Types.ObjectId(companyId) }, { companyId: null }] }
-                    : {}),
+                companyId: (companyId && mongoose.Types.ObjectId.isValid(companyId)) ? new mongoose.Types.ObjectId(companyId) : companyId,
                 deletedAt: null,
                 ...(deptLeadCondition || {})
             }).catch(() => 0)
@@ -761,11 +759,7 @@ const getCompanyDashboard = async (req, res, next) => {
             Project.countDocuments({ companyId, status: "active" }),
             TaskTemplate.countDocuments({ companyId }),
             Lead.countDocuments({
-                $or: [
-                    { companyId: compObjId },
-                    { companyId: companyId ? companyId.toString() : null },
-                    { companyId: null }
-                ],
+                companyId: compObjId,
                 deletedAt: null
             }),
             // Monthly payroll cost via aggregation (no full-collection load)
@@ -2797,7 +2791,7 @@ const addProjectNotice = async (req, res) => {
 
         const project = await Project.findOne({
             _id: id,
-            companyId: req.company._id,
+            companyId: req.companyId || req.company?._id || req.user?.companyId,
         });
 
         if (!project) {

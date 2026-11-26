@@ -94,7 +94,14 @@ export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = fa
         api.get('/api/assignable-users').catch(() => api.get('/api/leads/assignable-users').catch(() => [])),
       ]);
 
-      const safeStatuses = Array.isArray(stRes?.data) ? stRes.data : Array.isArray(stRes) ? stRes : [];
+      const rawStatuses = Array.isArray(stRes?.data) ? stRes.data : Array.isArray(stRes) ? stRes : [];
+      const seen = new Set<string>();
+      const safeStatuses = rawStatuses.filter((s: any) => {
+        const k = (s?.name || '').trim().toLowerCase();
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
       setStatuses(safeStatuses);
       if (safeStatuses.length > 0) {
         const def = safeStatuses.find((s: any) => s.isDefault) || safeStatuses[0];

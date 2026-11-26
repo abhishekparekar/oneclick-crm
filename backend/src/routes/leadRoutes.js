@@ -24,28 +24,15 @@ const {
   searchMapPlaces, importMapLeads,
 } = require("../controllers/leadController");
 const upload = require("../middleware/uploadMiddleware");
+const { protect } = require("../middleware/authMiddleware");
+const { requireCompany } = require("../middleware/companyMiddleware");
 
-const optionalAuth = async (req, res, next) => {
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    try {
-      const token = req.headers.authorization.split(" ")[1];
-      const secret = process.env.JWT_SECRET || "oneclick_secret_key_2026";
-      let decoded = null;
-      try {
-        decoded = jwt.verify(token, secret);
-      } catch (err) {
-        decoded = jwt.decode(token);
-      }
-      const uid = decoded?.id || decoded?.userId || decoded?._id;
-      if (uid) {
-        req.user = await User.findById(uid).select("-password");
-      }
-    } catch (_) {}
-  }
-  next();
-};
+// Public endpoints
+router.get("/organization/public-token", getPublicToken);
 
-router.use(optionalAuth);
+// All lead management endpoints require authentication and company context
+router.use(protect);
+router.use(requireCompany);
 
 // Dashboard
 router.get("/dashboard/summary", getDashboardSummary);

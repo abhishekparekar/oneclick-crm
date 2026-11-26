@@ -895,12 +895,19 @@ export default function CompanyDashboard() {
   ], [attendanceRate]);
 
   // ── Project Distribution ──
-  const projectStatusDistribution = useMemo(() => [
-    { name: "In Progress", value: activeProjectsCount || 2, color: "#3B82F6" },
-    { name: "Planning", value: 1, color: "#F59E0B" },
-    { name: "Completed", value: 3, color: "#10B981" },
-    { name: "On Hold", value: 1, color: "#94A3B8" },
-  ], [activeProjectsCount]);
+  const projectStatusDistribution = useMemo(() => {
+    const inProgress = realProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length;
+    const planning = realProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length;
+    const completed = realProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length;
+    const onHold = realProjects.filter((p) => (p.status || "").toLowerCase().includes("hold")).length;
+
+    return [
+      { name: "In Progress", value: inProgress, color: "#3B82F6" },
+      { name: "Planning", value: planning, color: "#F59E0B" },
+      { name: "Completed", value: completed, color: "#10B981" },
+      { name: "On Hold", value: onHold, color: "#94A3B8" },
+    ];
+  }, [realProjects]);
 
   // Tabs configuration
   const tabs = [
@@ -1879,64 +1886,75 @@ export default function CompanyDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             <TaskBoardKPICard
               label="Total Projects"
-              value={realProjects.length || 2}
+              value={realProjects.length}
               theme="blue"
               Icon={Folder}
               to="/company/projects"
             />
             <TaskBoardKPICard
               label="In Progress"
-              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length || 2}
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length}
               theme="amber"
               Icon={Clock}
               to="/company/projects"
             />
             <TaskBoardKPICard
               label="Completed"
-              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length || 0}
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length}
               theme="emerald"
               Icon={CheckCircle2}
               to="/company/projects"
             />
             <TaskBoardKPICard
               label="Planning"
-              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length || 1}
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length}
               theme="purple"
               Icon={Briefcase}
               to="/company/projects"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(realProjects.length > 0 ? realProjects : [
-              { _id: "p1", name: "Jsp Client Portal", client: "Jsp Enterprises", status: "active", progress: 65, deadline: "2026-07-08" },
-              { _id: "p2", name: "For demo CRM System", client: "One Click AI", status: "active", progress: 40, deadline: "2026-07-10" }
-            ]).map((proj) => (
-              <div key={proj._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 capitalize">
-                    {proj.status || "In Progress"}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-semibold">
-                    Deadline: {proj.deadline ? new Date(proj.deadline).toLocaleDateString() : "Upcoming"}
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{proj.name}</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{proj.client || "Internal Company Project"}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <span>Progress</span>
-                    <span>{proj.progress || 50}%</span>
+          {realProjects.length === 0 ? (
+            <div className="bg-white dark:bg-[#111C24] p-8 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+              <Folder className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No Projects Found</h4>
+              <p className="text-xs text-slate-400 mt-1">Create your company's first project to start tracking delivery and progress.</p>
+              <Link
+                to="/company/projects"
+                className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+              >
+                Create Project
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {realProjects.map((proj) => (
+                <div key={proj._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 capitalize">
+                      {proj.status || "In Progress"}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-semibold">
+                      Deadline: {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : (proj.deadline ? new Date(proj.deadline).toLocaleDateString() : "Upcoming")}
+                    </span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${proj.progress || 50}%` }} />
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">{proj.name}</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{proj.clientName || proj.client || "Company Project"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span>Progress</span>
+                      <span>{proj.progress || 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${proj.progress || 0}%` }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1960,26 +1978,31 @@ export default function CompanyDashboard() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(realBranches.length > 0 ? realBranches : [
-              { _id: "b1", name: "Main Headquarters", city: "Mumbai", address: "Corporate Park, Bandra", employeeCount: totalEmployees },
-              { _id: "b2", name: "Tech Development Center", city: "Pune", address: "IT Hub, Hinjewadi", employeeCount: 4 }
-            ]).map((b) => (
-              <div key={b._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                  <Building2 size={16} />
+          {realBranches.length === 0 ? (
+            <div className="bg-white dark:bg-[#111C24] p-8 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+              <Building2 className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No Branches Configured</h4>
+              <p className="text-xs text-slate-400 mt-1">Configure your company branches in Settings.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {realBranches.map((b) => (
+                <div key={b._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                    <Building2 size={16} />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{b.branchName || b.name}</h4>
+                  <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <MapPin size={11} /> {b.city || "Head Office"}, {b.address || ""}
+                  </p>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-semibold">Staff count</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">{b.employeeCount || 0} Employees</span>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">{b.name}</h4>
-                <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                  <MapPin size={11} /> {b.city || "Head Office"}, {b.address || "Corporate Center"}
-                </p>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-semibold">Staff count</span>
-                  <span className="font-extrabold text-slate-900 dark:text-white">{b.employeeCount || 4} Employees</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

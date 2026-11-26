@@ -233,7 +233,15 @@ export default function Flows() {
   };
 
   const safeFlows = Array.isArray(flows) ? flows : [];
-  const safeStatuses = Array.isArray(statuses) ? statuses : [];
+  const safeStatuses = useMemo(() => {
+    const seen = new Set<string>();
+    return (Array.isArray(statuses) ? statuses : []).filter((s: any) => {
+      const k = (s?.name || '').trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [statuses]);
   const safeTags = Array.isArray(tags) ? tags : [];
   const safeTemplates = Array.isArray(templates) ? templates : [];
 

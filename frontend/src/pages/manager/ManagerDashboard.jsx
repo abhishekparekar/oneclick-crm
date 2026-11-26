@@ -692,11 +692,17 @@ export default function ManagerDashboard() {
   ], [attendanceRate]);
 
   // Project Distribution
-  const projectStatusDistribution = useMemo(() => [
-    { name: "In Progress", value: activeProjects.length || 2, color: "#3B82F6" },
-    { name: "Planning", value: 1, color: "#F59E0B" },
-    { name: "Completed", value: 2, color: "#10B981" },
-  ], [activeProjects]);
+  const projectStatusDistribution = useMemo(() => {
+    const inProgress = activeProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length;
+    const planning = activeProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length;
+    const completed = activeProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length;
+
+    return [
+      { name: "In Progress", value: inProgress, color: "#3B82F6" },
+      { name: "Planning", value: planning, color: "#F59E0B" },
+      { name: "Completed", value: completed, color: "#10B981" },
+    ];
+  }, [activeProjects]);
 
   // Tabs configuration
   const tabs = [
@@ -1672,64 +1678,75 @@ export default function ManagerDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             <TaskBoardKPICard
               label="Total Projects"
-              value={activeProjects.length || 2}
+              value={activeProjects.length}
               theme="blue"
               Icon={Folder}
               to="/manager/projects"
             />
             <TaskBoardKPICard
               label="In Progress"
-              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length || 2}
+              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length}
               theme="amber"
               Icon={Clock}
               to="/manager/projects"
             />
             <TaskBoardKPICard
               label="Completed"
-              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length || 0}
+              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length}
               theme="emerald"
               Icon={CheckCircle2}
               to="/manager/projects"
             />
             <TaskBoardKPICard
               label="Planning"
-              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length || 1}
+              value={activeProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length}
               theme="purple"
               Icon={Briefcase}
               to="/manager/projects"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(activeProjects.length > 0 ? activeProjects : [
-              { _id: "p1", name: "Jsp Client Portal", client: "Jsp Enterprises", status: "active", progress: 65, deadline: "2026-07-08" },
-              { _id: "p2", name: "For demo CRM System", client: "One Click AI", status: "active", progress: 40, deadline: "2026-07-10" }
-            ]).map((proj) => (
-              <div key={proj._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 capitalize">
-                    {proj.status || "In Progress"}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-semibold">
-                    Deadline: {proj.deadline ? new Date(proj.deadline).toLocaleDateString() : "Upcoming"}
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{proj.name}</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{proj.client || "Team Milestone Project"}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <span>Progress</span>
-                    <span>{proj.progress || 50}%</span>
+          {activeProjects.length === 0 ? (
+            <div className="bg-white dark:bg-[#111C24] p-8 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+              <Folder className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No Projects Found</h4>
+              <p className="text-xs text-slate-400 mt-1">There are no projects assigned to you or your team currently.</p>
+              <Link
+                to="/manager/projects"
+                className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+              >
+                Go to Projects Hub
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {activeProjects.map((proj) => (
+                <div key={proj._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 capitalize">
+                      {proj.status || "In Progress"}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-semibold">
+                      Deadline: {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : (proj.deadline ? new Date(proj.deadline).toLocaleDateString() : "Upcoming")}
+                    </span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${proj.progress || 50}%` }} />
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">{proj.name}</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{proj.clientName || proj.client || "Team Project"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span>Progress</span>
+                      <span>{proj.progress || 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${proj.progress || 0}%` }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1753,27 +1770,31 @@ export default function ManagerDashboard() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(realTeam.length > 0 ? realTeam : [
-              { _id: "t1", fullName: "Suhani Kengale", role: "Team Lead", department: "Engineering", email: "suhani@oneclickcrm.in" },
-              { _id: "t2", fullName: "Vaishnavi Joshi", role: "Developer", department: "Frontend", email: "vaishnavi@oneclickcrm.in" },
-              { _id: "t3", fullName: "Ratan Chavan", role: "Technical Support", department: "Operations", email: "ratan@oneclickcrm.in" },
-            ]).map((member) => (
-              <div key={member._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
-                  {member.fullName?.charAt(0) || "U"}
+          {realTeam.length === 0 ? (
+            <div className="bg-white dark:bg-[#111C24] p-8 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+              <Users className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No Team Members Found</h4>
+              <p className="text-xs text-slate-400 mt-1">No employees have been assigned to your department team yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {realTeam.map((member) => (
+                <div key={member._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                    {member.fullName?.charAt(0) || "U"}
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{member.fullName}</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {member.role || "Team Member"} • {member.department || "Operations"}
+                  </p>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-semibold">{member.email || ""}</span>
+                    <span className="text-emerald-600 font-bold">Active</span>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">{member.fullName}</h4>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {member.role || "Team Member"} • {member.department || "Operations"}
-                </p>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 font-semibold">{member.email || "staff@oneclickcrm.in"}</span>
-                  <span className="text-emerald-600 font-bold">Active</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -2,10 +2,12 @@ const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
 const { protect } = require("../middleware/authMiddleware");
+const { requireCompany } = require("../middleware/companyMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
-// All task routes require authentication
+// All task routes require authentication and company context
 router.use(protect);
+router.use(requireCompany);
 
 router.post("/upload-media", upload.single("file"), taskController.uploadMediaFile);
 
